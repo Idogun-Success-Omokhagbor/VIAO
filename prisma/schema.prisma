@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ORGANIZER
+  ADMIN
+}
+
+enum RsvpStatus {
+  GOING
+  INTERESTED
+  NOT_GOING
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+}
+
+enum PostType {
+  GENERAL
+  EVENT
+  ALERT
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  passwordHash String?
+  role         Role          @default(USER)
+  avatarUrl    String?
+  location     String?
+  interests    String[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  events       Event[]       @relation("OrganizerEvents")
+  rsvps        Rsvp[]
+  posts        CommunityPost[]
+  comments     Comment[]
+  messages     Message[]     @relation("UserMessages")
+  conversations ConversationParticipant[]
+}
+
+model Event {
+  id           String     @id @default(uuid())
+  title        String
+  description  String
+  date         DateTime   // event date/time
+  timeLabel    String?    // optional display time string
+  location     String
+  category     String
+  imageUrl     String?
+  price        Int?
+  isBoosted    Boolean    @default(false)
+  boostUntil   DateTime?
+  maxAttendees Int?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  organizer    User       @relation("OrganizerEvents", fields: [organizerId], references: [id])
+  organizerId  String
+
+  rsvps        Rsvp[]
+}
+
+model Rsvp {
+  id        String     @id @default(uuid())
+  status    RsvpStatus @default(GOING)
+  createdAt DateTime   @default(now())
+
+  user      User       @relation(fields: [userId], references: [id])
+  userId    String
+
+  event     Event      @relation(fields: [eventId], references: [id])
+  eventId   String
+
+  @@unique([userId, eventId])
+}
+
+model CommunityPost {
+  id        String    @id @default(uuid())
+  title     String
+  content   String
+  type      PostType  @default(GENERAL)
+  tags      String[]
+  imageUrl  String?
+  likes     Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  author    User      @relation(fields: [authorId], references: [id])
+  authorId  String
+
+  comments  Comment[]
+}
+
+model Comment {
+  id        String    @id @default(uuid())
+  content   String
+  likes     Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  post      CommunityPost @relation(fields: [postId], references: [id])
+  postId    String
+
+  author    User      @relation(fields: [authorId], references: [id])
+  authorId  String
+}
+
+model Conversation {
+  id           String                      @id @default(uuid())
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversationId String
+
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  content        String
+  type           MessageType  @default(TEXT)
+  attachmentUrl  String?
+  createdAt      DateTime     @default(now())
+  readAt         DateTime?
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversationId String
+
+  sender   User   @relation("UserMessages", fields: [senderId], references: [id])
+  senderId String
+}

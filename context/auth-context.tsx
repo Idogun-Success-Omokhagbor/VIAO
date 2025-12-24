@@ -1,64 +1,96 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
 
 interface User {
   id: string
   name: string
   email: string
-  userType: "user" | "organizer"
-  location: string
-  avatar?: string
-  interests?: string[]
+  role: "USER" | "ORGANIZER" | "ADMIN"
+  avatarUrl?: string
+  createdAt?: string
 }
 
 interface AuthContextType {
   user: User | null
-  login: (user: User) => void
-  logout: () => void
-  updateUser: (updates: Partial<User>) => void
   isLoading: boolean
+  login: (email: string, password: string) => Promise<void>
+  signup: (name: string, email: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+  refresh: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+async function handleJson<T>(resPromise: Response | Promise<Response>, opts?: { suppressError?: boolean }): Promise<T | null> {
+  const res = await resPromise
+  if (!res.ok) {
+    if (opts?.suppressError) return null
+    let message = "Request failed"
+    try {
+      const data = await res.json()
+      message = data.error || message
+    } catch {
+      // ignore
+    }
+    throw new Error(message)
+  }
+  return res.json() as Promise<T>
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    // Check for stored user data on mount
-    const storedUser = localStorage.getItem("viao_user")
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser))
-      } catch (error) {
-        console.error("Failed to parse stored user data:", error)
-        localStorage.removeItem("viao_user")
+  const refresh = useCallback(async () => {
+    try {
+      const data = await handleJson<{ user: User }>(fetch("/api/auth/me", { credentials: "include" }), { suppressError: true })
+      if (data?.user) {
+        setUser(data.user)
+      } else {
+        setUser(null)
       }
+    } catch {
+      setUser(null)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [])
 
-  const login = (userData: User) => {
-    setUser(userData)
-    localStorage.setItem("viao_user", JSON.stringify(userData))
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  const login = async (email: string, password: string) => {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password }),
+    })
+    const data = await handleJson<{ user: User }>(res)
+    if (!data?.user) throw new Error("Login failed")
+    setUser(data.user)
   }
 
-  const logout = () => {
+  const signup = async (name: string, email: string, password: string) => {
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name, email, password }),
+    })
+    const data = await handleJson<{ user: User }>(res)
+    if (!data?.user) throw new Error("Signup failed")
+    setUser(data.user)
+  }
+
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
     setUser(null)
-    localStorage.removeItem("viao_user")
   }
 
-  const updateUser = (updates: Partial<User>) => {
-    if (user) {
-      const updatedUser = { ...user, ...updates }
-      setUser(updatedUser)
-      localStorage.setItem("viao_user", JSON.stringify(updatedUser))
-    }
-  }
-
-  return <AuthContext.Provider value={{ user, login, logout, updateUser, isLoading }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, isLoading, login, signup, logout, refresh }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

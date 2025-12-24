@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, MapPin, Users, Plus, Search, Filter, Zap, Crown } from "lucide-react"
 import { useEvents } from "@/context/events-context"
+import { useAuth } from "@/context/auth-context"
 import EventModal from "@/components/event-modal"
 import EventForm from "@/components/event-form"
 import InteractiveMap from "@/components/interactive-map"
@@ -15,11 +17,30 @@ import { getLocationString } from "@/lib/utils"
 import type { Event } from "@/types/event"
 
 export default function DashboardPage() {
+  const router = useRouter()
+  const { user, isLoading: authLoading } = useAuth()
   const { events, addEvent } = useEvents()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [showEventModal, setShowEventModal] = useState<Event | null>(null)
   const [showEventForm, setShowEventForm] = useState(false)
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/")
+    }
+  }, [authLoading, user, router])
+
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <div className="h-12 w-12 rounded-full border-4 border-gray-200 border-t-purple-600 animate-spin mx-auto" />
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Sample events with string locations to avoid object rendering issues
   const sampleEvents: Event[] = [
