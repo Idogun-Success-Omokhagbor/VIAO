@@ -44,14 +44,14 @@ interface FormData {
 }
 
 const categories = [
-  { id: "social", label: "Social", color: "bg-pink-100 text-pink-800 hover:bg-pink-200" },
-  { id: "sports", label: "Sports", color: "bg-green-100 text-green-800 hover:bg-green-200" },
-  { id: "food", label: "Food & Drink", color: "bg-orange-100 text-orange-800 hover:bg-orange-200" },
-  { id: "arts", label: "Arts & Culture", color: "bg-purple-100 text-purple-800 hover:bg-purple-200" },
-  { id: "business", label: "Business", color: "bg-blue-100 text-blue-800 hover:bg-blue-200" },
-  { id: "education", label: "Education", color: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200" },
-  { id: "health", label: "Health & Wellness", color: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" },
-  { id: "technology", label: "Technology", color: "bg-gray-100 text-gray-800 hover:bg-gray-200" },
+  { id: "Technology", label: "Technology", color: "bg-gray-100 text-gray-800 hover:bg-gray-200" },
+  { id: "Arts & Culture", label: "Arts & Culture", color: "bg-purple-100 text-purple-800 hover:bg-purple-200" },
+  { id: "Sports & Outdoors", label: "Sports & Outdoors", color: "bg-green-100 text-green-800 hover:bg-green-200" },
+  { id: "Music", label: "Music", color: "bg-pink-100 text-pink-800 hover:bg-pink-200" },
+  { id: "Food & Drink", label: "Food & Drink", color: "bg-orange-100 text-orange-800 hover:bg-orange-200" },
+  { id: "Health & Wellness", label: "Health & Wellness", color: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" },
+  { id: "Business", label: "Business", color: "bg-blue-100 text-blue-800 hover:bg-blue-200" },
+  { id: "Education", label: "Education", color: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200" },
 ]
 
 const boostOptions = [
@@ -74,7 +74,7 @@ const boostOptions = [
 ]
 
 export function EventForm({ onClose }: EventFormProps) {
-  const { addEvent } = useEvents()
+  const { createEvent } = useEvents()
   const { user } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -144,7 +144,7 @@ export function EventForm({ onClose }: EventFormProps) {
     setCurrentStep((prev) => Math.max(prev - 1, 1))
   }
 
-  const handleInputChange = (field: keyof FormData, value: string | number | boolean) => {
+  const handleInputChange = (field: keyof FormData, value: string | number | boolean | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
     // Clear error when user starts typing
     if (errors[field]) {
@@ -191,35 +191,30 @@ export function EventForm({ onClose }: EventFormProps) {
       return
     }
 
-    await createEvent()
+    await createEventAndClose()
   }
 
-  const createEvent = async () => {
+  const createEventAndClose = async () => {
     setIsSubmitting(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const dateTime = new Date(`${formData.date}T${formData.time || "00:00"}`)
+      const boostDurationHours = formData.shouldBoost ? (formData.boostLevel === 2 ? 48 : 24) : 0
+      const boostUntil = formData.shouldBoost ? new Date(dateTime.getTime() + boostDurationHours * 60 * 60 * 1000) : null
 
-      const eventData = {
-        ...formData,
-        maxAttendees: formData.maxAttendees || undefined,
-        organizer: user?.name || "Anonymous",
-        userId: user?.id || "anonymous",
-      }
+      await createEvent({
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        date: dateTime.toISOString(),
+        time: formData.time,
+        location: formData.location,
+        price: formData.price ?? null,
+        maxAttendees: formData.maxAttendees ?? null,
+        imageUrl: formData.imageUrl || undefined,
+        isBoosted: formData.shouldBoost,
+        boostUntil: boostUntil ? boostUntil.toISOString() : null,
+      })
 
-      // If boosted, add boost properties
-      if (formData.shouldBoost) {
-        const now = new Date()
-        const boostDuration = formData.boostLevel === 2 ? 48 : 24 // Premium boost lasts 48 hours
-        const boostedUntil = new Date(now.getTime() + boostDuration * 60 * 60 * 1000)
-
-        Object.assign(eventData, {
-          isBoosted: true,
-          boostedUntil: boostedUntil.toISOString(),
-          boostCount: formData.boostLevel,
-        })
-      }
-
-      addEvent(eventData)
       onClose()
     } catch (error) {
       setErrors((prev) => ({ ...prev, submit: "Failed to create event. Please try again." }))
@@ -230,7 +225,7 @@ export function EventForm({ onClose }: EventFormProps) {
 
   const handlePaymentSuccess = async () => {
     setShowPaymentModal(false)
-    await createEvent()
+    await createEventAndClose()
   }
 
   const formatDate = (dateString: string) => {
@@ -423,12 +418,10 @@ export function EventForm({ onClose }: EventFormProps) {
                     <Input
                       id="maxAttendees"
                       type="number"
+                      value={formData.maxAttendees ?? ""}
+                      onChange={(e) => handleInputChange("maxAttendees", e.target.value ? Number.parseInt(e.target.value) : null)}
+                      placeholder="Leave empty for unlimited"
                       min="1"
-                      value={formData.maxAttendees || ""}
-                      onChange={(e) =>
-                        handleInputChange("maxAttendees", e.target.value ? Number.parseInt(e.target.value) : null)
-                      }
-                      placeholder="Unlimited"
                       className={errors.maxAttendees ? "border-red-500" : ""}
                     />
                     {errors.maxAttendees && <p className="text-red-500 text-sm mt-1">{errors.maxAttendees}</p>}
@@ -654,11 +647,11 @@ export function EventForm({ onClose }: EventFormProps) {
       {/* Payment Modal */}
       {showPaymentModal && selectedBoostOption && (
         <PaymentModal
+          isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
           onPaymentSuccess={handlePaymentSuccess}
           eventTitle={formData.title}
           boostLevel={formData.boostLevel}
-          price={selectedBoostOption.price}
         />
       )}
     </>

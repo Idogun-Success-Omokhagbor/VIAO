@@ -1,18 +1,26 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
-import type { Message, Conversation, User, CreateMessageData } from "@/types/messaging"
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import type { Message, Conversation, User } from "@/types/messaging"
+import { useAuth } from "@/context/auth-context"
 
 interface MessagingContextType {
   conversations: Conversation[]
-  messages: Record<string, Message[]>
+  activeConversation: Conversation | null
+  messages: Message[]
+  unreadCount: number
   isLoading: boolean
   error: string | null
-  sendMessage: (data: CreateMessageData) => Promise<void>
+  setActiveConversation: (conversation: Conversation | null) => void
+  sendMessage: {
+    (conversationId: string, content: string): Promise<void>
+    (message: Omit<Message, "id">): Promise<void>
+  }
   markAsRead: (conversationId: string) => Promise<void>
-  createConversation: (userId: string) => Promise<string>
+  createConversation: (userId: string) => Promise<Conversation>
+  getOrCreateConversation: (userId: string) => Promise<Conversation>
   deleteConversation: (conversationId: string) => Promise<void>
-  getUnreadCount: () => number
+  searchMessages: (query: string) => Promise<Message[]>
 }
 
 const MessagingContext = createContext<MessagingContextType | undefined>(undefined)
@@ -30,8 +38,10 @@ interface MessagingProviderProps {
 }
 
 export function MessagingProvider({ children }: MessagingProviderProps) {
+  const { user } = useAuth()
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [messages, setMessages] = useState<Record<string, Message[]>>({})
+  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,135 +68,168 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     },
   ]
 
-  const mockConversations: Conversation[] = [
-    {
-      id: "conv1",
-      participants: [mockUsers[0]],
-      lastMessage: {
-        id: "msg1",
-        senderId: "user1",
-        receiverId: "current",
-        content: "Hey! Are you going to the tech meetup tomorrow?",
-        timestamp: new Date(Date.now() - 1000 * 60 * 30),
-        read: false,
-        type: "text",
-      },
-      unreadCount: 2,
-      updatedAt: new Date(Date.now() - 1000 * 60 * 30),
-    },
-    {
-      id: "conv2",
-      participants: [mockUsers[1]],
-      lastMessage: {
-        id: "msg2",
-        senderId: "current",
-        receiverId: "user2",
-        content: "Thanks for organizing the hiking event!",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-        read: true,
-        type: "text",
-      },
-      unreadCount: 0,
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    },
-  ]
-
-  const mockMessages: Record<string, Message[]> = {
-    conv1: [
+  useEffect(() => {
+    const currentUserId = user?.id ?? "current"
+    const initialMessages: Message[] = [
       {
         id: "msg1",
         senderId: "user1",
-        receiverId: "current",
+        receiverId: currentUserId,
         content: "Hey! Are you going to the tech meetup tomorrow?",
         timestamp: new Date(Date.now() - 1000 * 60 * 30),
-        read: true,
+        isRead: true,
+        isDelivered: true,
         type: "text",
       },
       {
         id: "msg2",
-        senderId: "current",
+        senderId: currentUserId,
         receiverId: "user1",
         content: "Yes, I'll be there! Looking forward to it.",
         timestamp: new Date(Date.now() - 1000 * 60 * 25),
-        read: true,
+        isRead: true,
+        isDelivered: true,
         type: "text",
       },
       {
         id: "msg3",
         senderId: "user1",
-        receiverId: "current",
+        receiverId: currentUserId,
         content: "Great! Should we grab coffee before the event?",
         timestamp: new Date(Date.now() - 1000 * 60 * 20),
-        read: false,
+        isRead: false,
+        isDelivered: true,
         type: "text",
       },
-    ],
-    conv2: [
       {
         id: "msg4",
         senderId: "user2",
-        receiverId: "current",
+        receiverId: currentUserId,
         content: "How was the hiking event?",
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
-        read: true,
+        isRead: true,
+        isDelivered: true,
         type: "text",
       },
       {
         id: "msg5",
-        senderId: "current",
+        senderId: currentUserId,
         receiverId: "user2",
         content: "Thanks for organizing the hiking event!",
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-        read: true,
+        isRead: true,
+        isDelivered: true,
         type: "text",
       },
-    ],
-  }
+    ]
 
-  // Initialize with mock data
-  useState(() => {
+    const conv1Messages = initialMessages
+      .filter(
+        (m) =>
+          (m.senderId === "user1" && m.receiverId === currentUserId) || (m.senderId === currentUserId && m.receiverId === "user1"),
+      )
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+
+    const conv2Messages = initialMessages
+      .filter(
+        (m) =>
+          (m.senderId === "user2" && m.receiverId === currentUserId) || (m.senderId === currentUserId && m.receiverId === "user2"),
+      )
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+
+    const mockConversations: Conversation[] = [
+      {
+        id: "conv1",
+        participants: [mockUsers[0]],
+        messages: conv1Messages,
+        lastMessage: conv1Messages[conv1Messages.length - 1],
+        unreadCount: 2,
+        updatedAt: new Date(Date.now() - 1000 * 60 * 30),
+      },
+      {
+        id: "conv2",
+        participants: [mockUsers[1]],
+        messages: conv2Messages,
+        lastMessage: conv2Messages[conv2Messages.length - 1],
+        unreadCount: 0,
+        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
+      },
+    ]
+
+    setMessages(initialMessages)
     setConversations(mockConversations)
-    setMessages(mockMessages)
-  })
+    setActiveConversation(mockConversations[0] ?? null)
+  }, [user?.id])
 
-  const sendMessage = async (data: CreateMessageData) => {
+  const sendMessage: MessagingContextType["sendMessage"] = async (arg1: string | Omit<Message, "id">, arg2?: string) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await new Promise((resolve) => setTimeout(resolve, 250))
+
+      const isByConversationId = typeof arg1 === "string"
+
+      const conversationId = isByConversationId ? arg1 : null
+      const content = isByConversationId ? (arg2 ?? "") : arg1.content
+      if (!content.trim()) return
+
+      const currentUserId = user?.id ?? "current"
 
       const newMessage: Message = {
         id: Date.now().toString(),
-        senderId: "current",
-        receiverId: data.receiverId,
-        content: data.content,
+        senderId: currentUserId,
+        receiverId: isByConversationId ? "" : arg1.receiverId,
+        content: content.trim(),
         timestamp: new Date(),
-        read: false,
-        type: data.type || "text",
-        attachmentUrl: data.attachmentUrl,
+        isRead: false,
+        isDelivered: true,
+        type: "text",
       }
 
-      // Find or create conversation
-      let conversationId = conversations.find((conv) => conv.participants.some((p) => p.id === data.receiverId))?.id
+      let targetConversationId: string | null = conversationId
 
-      if (!conversationId) {
-        conversationId = await createConversation(data.receiverId)
+      if (!targetConversationId) {
+        const receiverId = (arg1 as Omit<Message, "id">).receiverId
+        const existing = conversations.find((c) => c.participants.some((p) => p.id === receiverId))
+        if (existing) {
+          targetConversationId = existing.id
+        } else {
+          const created = await createConversation(receiverId)
+          targetConversationId = created.id
+        }
+        newMessage.receiverId = receiverId
+      } else {
+        const conv = conversations.find((c) => c.id === targetConversationId)
+        const otherParticipantId = conv?.participants[0]?.id
+        if (otherParticipantId) newMessage.receiverId = otherParticipantId
       }
 
-      // Add message to conversation
-      setMessages((prev) => ({
-        ...prev,
-        [conversationId!]: [...(prev[conversationId!] || []), newMessage],
-      }))
+      setMessages((prev) => [...prev, newMessage])
 
-      // Update conversation last message
       setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === conversationId ? { ...conv, lastMessage: newMessage, updatedAt: new Date() } : conv,
-        ),
+        prev.map((conv) => {
+          if (conv.id !== targetConversationId) return conv
+          const updatedMessages = [...conv.messages, newMessage]
+          return {
+            ...conv,
+            messages: updatedMessages,
+            lastMessage: newMessage,
+            updatedAt: new Date(),
+          }
+        }),
       )
-    } catch (err) {
+
+      setActiveConversation((prev) => {
+        if (!prev || prev.id !== targetConversationId) return prev
+        return {
+          ...prev,
+          messages: [...prev.messages, newMessage],
+          lastMessage: newMessage,
+          updatedAt: new Date(),
+        }
+      })
+    } catch {
       setError("Failed to send message")
     } finally {
       setIsLoading(false)
@@ -199,16 +242,33 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
 
       setConversations((prev) => prev.map((conv) => (conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv)))
 
-      setMessages((prev) => ({
-        ...prev,
-        [conversationId]: prev[conversationId]?.map((msg) => ({ ...msg, read: true })) || [],
-      }))
+      const currentUserId = user?.id ?? "current"
+      const otherParticipantId = conversations.find((c) => c.id === conversationId)?.participants?.[0]?.id
+
+      setMessages((prev) =>
+        prev.map((msg) => {
+          const isInConversation =
+            !!otherParticipantId &&
+            ((msg.senderId === otherParticipantId && msg.receiverId === currentUserId) ||
+              (msg.senderId === currentUserId && msg.receiverId === otherParticipantId))
+          return isInConversation ? { ...msg, isRead: true } : msg
+        }),
+      )
+
+      setActiveConversation((prev) => {
+        if (!prev || prev.id !== conversationId) return prev
+        return {
+          ...prev,
+          messages: prev.messages.map((m) => ({ ...m, isRead: true })),
+          unreadCount: 0,
+        }
+      })
     } catch (err) {
       setError("Failed to mark as read")
     }
   }
 
-  const createConversation = async (userId: string): Promise<string> => {
+  const createConversation = async (userId: string): Promise<Conversation> => {
     setIsLoading(true)
     setError(null)
 
@@ -221,20 +281,26 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
       const newConversation: Conversation = {
         id: `conv_${Date.now()}`,
         participants: [user],
+        messages: [],
         unreadCount: 0,
         updatedAt: new Date(),
       }
 
       setConversations((prev) => [newConversation, ...prev])
-      setMessages((prev) => ({ ...prev, [newConversation.id]: [] }))
 
-      return newConversation.id
+      return newConversation
     } catch (err) {
       setError("Failed to create conversation")
       throw err
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const getOrCreateConversation = async (userId: string): Promise<Conversation> => {
+    const existing = conversations.find((conv) => conv.participants.some((p) => p.id === userId))
+    if (existing) return existing
+    return createConversation(userId)
   }
 
   const deleteConversation = async (conversationId: string) => {
@@ -244,10 +310,24 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     try {
       await new Promise((resolve) => setTimeout(resolve, 500))
 
+      const currentUserId = user?.id ?? "current"
+      const otherParticipantId = conversations.find((c) => c.id === conversationId)?.participants?.[0]?.id
+
       setConversations((prev) => prev.filter((conv) => conv.id !== conversationId))
       setMessages((prev) => {
-        const { [conversationId]: deleted, ...rest } = prev
-        return rest
+        if (!otherParticipantId) return prev
+        return prev.filter(
+          (msg) =>
+            !(
+              (msg.senderId === otherParticipantId && msg.receiverId === currentUserId) ||
+              (msg.senderId === currentUserId && msg.receiverId === otherParticipantId)
+            ),
+        )
+      })
+
+      setActiveConversation((prev) => {
+        if (!prev || prev.id !== conversationId) return prev
+        return null
       })
     } catch (err) {
       setError("Failed to delete conversation")
@@ -256,20 +336,33 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     }
   }
 
-  const getUnreadCount = () => {
-    return conversations.reduce((total, conv) => total + conv.unreadCount, 0)
+  const unreadCount = useMemo(() => conversations.reduce((total, conv) => total + conv.unreadCount, 0), [conversations])
+
+  const searchMessages = async (query: string) => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return messages.filter((m) => m.content.toLowerCase().includes(q))
   }
+
+  useEffect(() => {
+    if (!activeConversation) return
+    void markAsRead(activeConversation.id)
+  }, [activeConversation?.id])
 
   const value: MessagingContextType = {
     conversations,
+    activeConversation,
     messages,
+    unreadCount,
     isLoading,
     error,
+    setActiveConversation,
     sendMessage,
     markAsRead,
     createConversation,
+    getOrCreateConversation,
     deleteConversation,
-    getUnreadCount,
+    searchMessages,
   }
 
   return <MessagingContext.Provider value={value}>{children}</MessagingContext.Provider>

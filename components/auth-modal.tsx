@@ -17,9 +17,10 @@ import { toast } from "sonner"
 interface AuthModalProps {
   isOpen: boolean
   onClose: () => void
+  initialTab?: "signin" | "signup"
 }
 
-export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalProps) {
   const { login, signup } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [signInError, setSignInError] = useState<string | null>(null)
@@ -32,7 +33,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [signUpSubmitted, setSignUpSubmitted] = useState(false)
   const [signUpMismatch, setSignUpMismatch] = useState(false)
   const [signUpTooShort, setSignUpTooShort] = useState(false)
-  const [activeTab, setActiveTab] = useState("signin")
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">(initialTab)
   const [forgotMode, setForgotMode] = useState(false)
   const [resetEmail, setResetEmail] = useState("")
   const [resetStep, setResetStep] = useState<"email" | "code" | "password">("email")
@@ -294,7 +295,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <Tabs
             value={activeTab}
             onValueChange={(value) => {
-              setActiveTab(value)
+              setActiveTab(value as "signin" | "signup")
               setForgotMode(false)
               setSignInError(null)
             }}

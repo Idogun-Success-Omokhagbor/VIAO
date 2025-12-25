@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
 import type { Event, CreateEventData, EventFilters } from "@/types/event"
 
 interface EventsContextType {
@@ -9,12 +9,15 @@ interface EventsContextType {
   filters: EventFilters
   isLoading: boolean
   error: string | null
+  addEvent: (event: Event) => void
   createEvent: (data: CreateEventData) => Promise<void>
   updateEvent: (id: string, data: Partial<Event>) => Promise<void>
   deleteEvent: (id: string) => Promise<void>
   setFilters: (filters: EventFilters) => void
   refreshEvents: () => Promise<void>
   boostEvent: (id: string) => Promise<void>
+  rsvpEvent: (id: string) => Promise<void>
+  cancelRsvp: (id: string) => Promise<void>
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined)
@@ -31,99 +34,74 @@ interface EventsProviderProps {
   children: ReactNode
 }
 
+async function handleJson<T>(resPromise: Promise<Response> | Response): Promise<T> {
+  const res = await resPromise
+  if (!res.ok) {
+    let message = "Request failed"
+    try {
+      const data = await res.json()
+      message = data.error || message
+    } catch {
+      // ignore
+    }
+    throw new Error(message)
+  }
+  return res.json() as Promise<T>
+}
+
+function mapEvent(event: any): Event {
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    date: event.date,
+    time: event.time,
+    location: event.location,
+    category: event.category,
+    imageUrl: event.imageUrl ?? null,
+    price: event.price ?? null,
+    isBoosted: event.isBoosted,
+    boostUntil: event.boostUntil ?? null,
+    maxAttendees: event.maxAttendees ?? null,
+    organizerId: event.organizerId,
+    organizerName: event.organizerName,
+    attendeesCount: event.attendeesCount ?? 0,
+    isGoing: event.isGoing ?? false,
+    createdAt: event.createdAt,
+    updatedAt: event.updatedAt,
+  }
+}
+
 export function EventsProvider({ children }: EventsProviderProps) {
   const [events, setEvents] = useState<Event[]>([])
   const [filters, setFilters] = useState<EventFilters>({})
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Mock data
-  const mockEvents: Event[] = [
-    {
-      id: "1",
-      title: "Tech Meetup Zurich",
-      description: "Join us for an evening of tech talks and networking",
-      category: "Technology",
-      location: "Zurich, Switzerland",
-      date: new Date("2024-12-20T18:00:00"),
-      time: "18:00",
-      price: 0,
-      currentAttendees: 45,
-      maxAttendees: 100,
-      imageUrl: "/tech-startup-meetup-networking.png",
-      organizerId: "org1",
-      organizer: {
-        id: "org1",
-        name: "Tech Community Zurich",
-        verified: true,
-      },
-      tags: ["networking", "technology", "startup"],
-      isBoosted: false,
-      isOnline: false,
-      createdAt: new Date("2024-12-01"),
-      updatedAt: new Date("2024-12-01"),
-    },
-    {
-      id: "2",
-      title: "Art Gallery Opening",
-      description: "Contemporary art exhibition featuring local artists",
-      category: "Arts & Culture",
-      location: "Geneva, Switzerland",
-      date: new Date("2024-12-21T19:00:00"),
-      time: "19:00",
-      price: 15,
-      currentAttendees: 32,
-      maxAttendees: 80,
-      imageUrl: "/art-gallery-opening.png",
-      organizerId: "org2",
-      organizer: {
-        id: "org2",
-        name: "Geneva Arts Center",
-        verified: true,
-      },
-      tags: ["art", "culture", "exhibition"],
-      isBoosted: true,
-      isOnline: false,
-      createdAt: new Date("2024-12-02"),
-      updatedAt: new Date("2024-12-02"),
-    },
-    {
-      id: "3",
-      title: "Alpine Hiking Adventure",
-      description: "Guided hiking tour through the Swiss Alps",
-      category: "Sports & Outdoors",
-      location: "Interlaken, Switzerland",
-      date: new Date("2024-12-22T08:00:00"),
-      time: "08:00",
-      price: 35,
-      currentAttendees: 18,
-      maxAttendees: 25,
-      imageUrl: "/forest-trail-hike-group.png",
-      organizerId: "org3",
-      organizer: {
-        id: "org3",
-        name: "Alpine Adventures",
-        verified: false,
-      },
-      tags: ["hiking", "nature", "adventure"],
-      isBoosted: false,
-      isOnline: false,
-      createdAt: new Date("2024-12-03"),
-      updatedAt: new Date("2024-12-03"),
-    },
-  ]
+  const refreshEvents = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const data = await handleJson<{ events: Event[] }>(
+        fetch("/api/events", { cache: "no-store", credentials: "include" }),
+      )
+      setEvents(data.events.map(mapEvent))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to fetch events"
+      setError(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    setEvents(mockEvents)
-  }, [])
+    void refreshEvents()
+  }, [refreshEvents])
 
   const filteredEvents = events.filter((event) => {
     if (filters.category && event.category !== filters.category) return false
-    if (filters.location && !event.location.toString().toLowerCase().includes(filters.location.toLowerCase()))
-      return false
-    if (filters.isFree && event.price > 0) return false
-    if (filters.isOnline !== undefined && event.isOnline !== filters.isOnline) return false
-    if (filters.tags && !filters.tags.some((tag) => event.tags.includes(tag))) return false
+    if (filters.location && !event.location.toLowerCase().includes(filters.location.toLowerCase())) return false
+    if (filters.isFree && (event.price ?? 0) > 0) return false
 
     if (filters.dateRange) {
       const eventDate = new Date(event.date)
@@ -131,37 +109,34 @@ export function EventsProvider({ children }: EventsProviderProps) {
     }
 
     if (filters.priceRange) {
-      if (event.price < filters.priceRange.min || event.price > filters.priceRange.max) return false
+      const price = event.price ?? 0
+      if (price < filters.priceRange.min || price > filters.priceRange.max) return false
     }
 
     return true
   })
 
+  const addEvent = (event: Event) => {
+    setEvents((prev) => [event, ...prev])
+  }
+
   const createEvent = async (data: CreateEventData) => {
     setIsLoading(true)
     setError(null)
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
-
-      const newEvent: Event = {
-        id: Date.now().toString(),
-        ...data,
-        currentAttendees: 0,
-        organizerId: "current-user",
-        organizer: {
-          id: "current-user",
-          name: "Current User",
-          verified: false,
-        },
-        isBoosted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-
-      setEvents((prev) => [newEvent, ...prev])
+      const res = await handleJson<{ event: Event }>(
+        fetch("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        }),
+      )
+      setEvents((prev) => [mapEvent(res.event), ...prev])
     } catch (err) {
-      setError("Failed to create event")
+      const message = err instanceof Error ? err.message : "Failed to create event"
+      setError(message)
+      throw err
     } finally {
       setIsLoading(false)
     }
@@ -170,13 +145,20 @@ export function EventsProvider({ children }: EventsProviderProps) {
   const updateEvent = async (id: string, data: Partial<Event>) => {
     setIsLoading(true)
     setError(null)
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      setEvents((prev) => prev.map((event) => (event.id === id ? { ...event, ...data, updatedAt: new Date() } : event)))
+      const res = await handleJson<{ event: Event }>(
+        fetch(`/api/events/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        }),
+      )
+      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
     } catch (err) {
-      setError("Failed to update event")
+      const message = err instanceof Error ? err.message : "Failed to update event"
+      setError(message)
+      throw err
     } finally {
       setIsLoading(false)
     }
@@ -185,27 +167,47 @@ export function EventsProvider({ children }: EventsProviderProps) {
   const deleteEvent = async (id: string) => {
     setIsLoading(true)
     setError(null)
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setEvents((prev) => prev.filter((event) => event.id !== id))
+      await handleJson(fetch(`/api/events/${id}`, { method: "DELETE", credentials: "include" }))
+      setEvents((prev) => prev.filter((e) => e.id !== id))
     } catch (err) {
-      setError("Failed to delete event")
+      const message = err instanceof Error ? err.message : "Failed to delete event"
+      setError(message)
+      throw err
     } finally {
       setIsLoading(false)
     }
   }
 
-  const refreshEvents = async () => {
+  const rsvpEvent = async (id: string) => {
     setIsLoading(true)
     setError(null)
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      // In a real app, this would fetch from API
-      setEvents(mockEvents)
+      const res = await handleJson<{ event: Event }>(
+        fetch(`/api/events/${id}/rsvp`, { method: "POST", credentials: "include" }),
+      )
+      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
     } catch (err) {
-      setError("Failed to refresh events")
+      const message = err instanceof Error ? err.message : "Failed to RSVP"
+      setError(message)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const cancelRsvp = async (id: string) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await handleJson<{ event: Event }>(
+        fetch(`/api/events/${id}/rsvp`, { method: "DELETE", credentials: "include" }),
+      )
+      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to cancel RSVP"
+      setError(message)
+      throw err
     } finally {
       setIsLoading(false)
     }
@@ -214,15 +216,13 @@ export function EventsProvider({ children }: EventsProviderProps) {
   const boostEvent = async (id: string) => {
     setIsLoading(true)
     setError(null)
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      setEvents((prev) =>
-        prev.map((event) => (event.id === id ? { ...event, isBoosted: true, updatedAt: new Date() } : event)),
-      )
+      const res = await handleJson<{ event: Event }>(fetch(`/api/events/${id}/boost`, { method: "POST", credentials: "include" }))
+      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
     } catch (err) {
-      setError("Failed to boost event")
+      const message = err instanceof Error ? err.message : "Failed to boost event"
+      setError(message)
+      throw err
     } finally {
       setIsLoading(false)
     }
@@ -234,12 +234,15 @@ export function EventsProvider({ children }: EventsProviderProps) {
     filters,
     isLoading,
     error,
+    addEvent,
     createEvent,
     updateEvent,
     deleteEvent,
     setFilters,
     refreshEvents,
     boostEvent,
+    rsvpEvent,
+    cancelRsvp,
   }
 
   return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>

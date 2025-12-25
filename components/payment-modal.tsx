@@ -13,7 +13,7 @@ interface PaymentModalProps {
   isOpen: boolean
   onClose: () => void
   eventTitle: string
-  boostLevel: 1 | 2
+  boostLevel: number
   onPaymentSuccess: () => void
 }
 

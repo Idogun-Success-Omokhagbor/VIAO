@@ -23,7 +23,7 @@ const categories = [
 ]
 
 export default function CommunityPage() {
-  const { posts } = useCommunity()
+  const { posts, isLoading, error } = useCommunity()
   const { isAuthenticated, showAuthModal } = useAuth()
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -33,14 +33,15 @@ export default function CommunityPage() {
   const filteredPosts = posts.filter((post) => {
     if (!post) return false
 
-    const matchesCategory = selectedCategory === "all" || post.type === selectedCategory
+    const postType = (post.type || "general").toLowerCase()
+    const matchesCategory = selectedCategory === "all" || postType === selectedCategory
 
     const searchLower = (searchQuery || "").toLowerCase()
     const matchesSearch =
       !searchQuery ||
       (post.title && post.title.toLowerCase().includes(searchLower)) ||
       (post.content && post.content.toLowerCase().includes(searchLower)) ||
-      (post.author && post.author.toLowerCase().includes(searchLower)) ||
+      (post.author?.name && post.author.name.toLowerCase().includes(searchLower)) ||
       (post.tags && post.tags.some((tag) => tag && tag.toLowerCase().includes(searchLower)))
 
     return matchesCategory && matchesSearch
@@ -48,7 +49,7 @@ export default function CommunityPage() {
 
   const sortedPosts = [...filteredPosts].sort((a, b) => {
     if (sortBy === "newest") {
-      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     } else if (sortBy === "popular") {
       return (b.likes || 0) - (a.likes || 0)
     } else if (sortBy === "comments") {
@@ -137,8 +138,8 @@ export default function CommunityPage() {
                 <p className="text-2xl font-bold text-gray-900">
                   {
                     posts.filter((post) => {
-                      if (!post || !post.timestamp) return false
-                      const postDate = new Date(post.timestamp)
+                      if (!post || !post.createdAt) return false
+                      const postDate = new Date(post.createdAt)
                       const today = new Date()
                       return postDate.toDateString() === today.toDateString()
                     }).length
@@ -192,7 +193,15 @@ export default function CommunityPage() {
       </div>
 
       {/* Posts Feed */}
-      {sortedPosts.length === 0 ? (
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
+          {error}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="text-center py-12 text-gray-500">Loading posts...</div>
+      ) : sortedPosts.length === 0 ? (
         <div className="text-center py-12">
           <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-600 mb-2">No posts found</h3>

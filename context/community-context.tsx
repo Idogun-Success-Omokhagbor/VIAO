@@ -1,261 +1,266 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 
-interface Comment {
+export interface Comment {
   id: string
   content: string
-  author: string
-  authorId: string
-  authorAvatar?: string
-  timestamp: string
+  author: {
+    id: string
+    name: string
+    email?: string
+    avatar?: string
+  }
+  createdAt: string
   likes: number
-  isLiked: boolean
+  likedBy: string[]
+  isLiked?: boolean
 }
 
-interface CommunityPost {
+export interface Post {
   id: string
   title: string
   content: string
-  author: string
-  authorId: string
-  authorAvatar?: string
-  timestamp: string
-  type: string
+  author: {
+    id: string
+    name: string
+    email?: string
+    avatar?: string
+  }
+  createdAt: string
+  updatedAt: string
+  type?: string
+  tags: string[]
+  images: string[]
   likes: number
-  isLiked: boolean
-  tags?: string[]
-  image?: string
-  comments?: Comment[]
+  likedBy: string[]
+  isLiked?: boolean
+  location?: string
+  category?: string
+  comments: Comment[]
 }
 
 interface CommunityContextType {
-  posts: CommunityPost[]
-  addPost: (post: Omit<CommunityPost, "id" | "timestamp" | "likes" | "isLiked" | "comments">) => void
-  likePost: (postId: string) => void
-  likeComment: (postId: string, commentId: string) => void
+  posts: Post[]
+  isLoading: boolean
+  error: string | null
+  refreshPosts: () => Promise<void>
+  createPost: (post: {
+    title: string
+    content: string
+    tags?: string[]
+    imageUrl?: string
+    type?: string
+    category?: string
+    location?: string
+  }) => Promise<void>
+  likePost: (postId: string, isLiked: boolean) => Promise<void>
   addComment: (postId: string, content: string) => Promise<void>
-  deleteComment: (postId: string, commentId: string) => Promise<void>
+  likeComment: (postId: string, commentId: string, isLiked: boolean) => Promise<void>
   deletePost: (postId: string) => Promise<void>
-  updatePost: (postId: string, updates: Partial<CommunityPost>) => void
+  updatePost: (postId: string, updates: Partial<Post>) => Promise<void>
 }
 
 const CommunityContext = createContext<CommunityContextType | undefined>(undefined)
 
-const samplePosts: CommunityPost[] = [
-  {
-    id: "post1",
-    title: "Great coffee shop discovery!",
-    content:
-      "Just found this amazing little coffee shop on Main Street. The barista makes incredible latte art and they have the best pastries in town. Highly recommend checking it out!",
-    author: "Sarah Chen",
-    authorId: "user1",
-    authorAvatar: "/placeholder.svg?height=40&width=40&text=SC",
-    timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    type: "general",
-    likes: 12,
-    isLiked: false,
-    tags: ["coffee", "food", "recommendation"],
-    image: "/placeholder.svg?height=300&width=400&text=Coffee+Shop",
-    comments: [
-      {
-        id: "comment1",
-        content: "I love that place! Their cappuccino is amazing too.",
-        author: "Mike Johnson",
-        authorId: "user2",
-        authorAvatar: "/placeholder.svg?height=32&width=32&text=MJ",
-        timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-        likes: 3,
-        isLiked: false,
-      },
-      {
-        id: "comment2",
-        content: "Thanks for the recommendation! I'll definitely check it out this weekend.",
-        author: "Emma Wilson",
-        authorId: "user3",
-        authorAvatar: "/placeholder.svg?height=32&width=32&text=EW",
-        timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-        likes: 1,
-        isLiked: true,
-      },
-    ],
-  },
-  {
-    id: "post2",
-    title: "Community Garden Volunteer Day",
-    content:
-      "We're organizing a volunteer day at the community garden this Saturday from 9 AM to 2 PM. Come help us plant new vegetables and flowers for the spring season. All skill levels welcome!",
-    author: "Mike Johnson",
-    authorId: "user2",
-    authorAvatar: "/placeholder.svg?height=40&width=40&text=MJ",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    type: "event",
-    likes: 8,
-    isLiked: true,
-    tags: ["volunteer", "gardening", "community"],
-    comments: [
-      {
-        id: "comment3",
-        content: "Count me in! I'll bring some gardening tools.",
-        author: "Sarah Chen",
-        authorId: "user1",
-        authorAvatar: "/placeholder.svg?height=32&width=32&text=SC",
-        timestamp: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-        likes: 2,
-        isLiked: false,
-      },
-    ],
-  },
-  {
-    id: "post3",
-    title: "Lost cat - please help!",
-    content:
-      "My orange tabby cat 'Whiskers' went missing yesterday evening near Oak Park. He's very friendly and responds to his name. Please contact me if you see him. Thank you!",
-    author: "Emma Wilson",
-    authorId: "user3",
-    authorAvatar: "/placeholder.svg?height=40&width=40&text=EW",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-    type: "general",
-    likes: 15,
-    isLiked: false,
-    tags: ["lost-pet", "help", "urgent"],
-    image: "/placeholder.svg?height=300&width=400&text=Orange+Cat",
-    comments: [
-      {
-        id: "comment4",
-        content: "I'll keep an eye out during my morning walks. Hope you find Whiskers soon!",
-        author: "Mike Johnson",
-        authorId: "user2",
-        authorAvatar: "/placeholder.svg?height=32&width=32&text=MJ",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-        likes: 4,
-        isLiked: true,
-      },
-      {
-        id: "comment5",
-        content: "I shared this on my social media. Sending positive thoughts! 🙏",
-        author: "Sarah Chen",
-        authorId: "user1",
-        authorAvatar: "/placeholder.svg?height=32&width=32&text=SC",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
-        likes: 2,
-        isLiked: false,
-      },
-    ],
-  },
-]
+function mapPost(data: any): Post {
+  return {
+    id: data.id,
+    title: data.title,
+    content: data.content,
+    author: {
+      id: data.author?.id ?? "",
+      name: data.author?.name ?? "Unknown",
+      email: data.author?.email,
+      avatar: data.author?.avatar ?? data.author?.avatarUrl ?? undefined,
+    },
+    createdAt: typeof data.createdAt === "string" ? data.createdAt : data.createdAt?.toString() ?? new Date().toISOString(),
+    updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : data.updatedAt?.toString() ?? new Date().toISOString(),
+    type: data.type,
+    tags: data.tags ?? [],
+    images: data.images ?? (data.imageUrl ? [data.imageUrl] : []),
+    likes: data.likes ?? data.likedBy?.length ?? 0,
+    likedBy: data.likedBy ?? [],
+    isLiked: data.isLiked ?? false,
+    location: data.location,
+    category: data.category,
+    comments:
+      data.comments?.map((comment: any) => ({
+        id: comment.id,
+        content: comment.content,
+        author: {
+          id: comment.author?.id ?? "",
+          name: comment.author?.name ?? "Unknown",
+          email: comment.author?.email,
+          avatar: comment.author?.avatar ?? comment.author?.avatarUrl ?? undefined,
+        },
+        createdAt:
+          typeof comment.createdAt === "string" ? comment.createdAt : comment.createdAt?.toString() ?? new Date().toISOString(),
+        likes: comment.likes ?? comment.likedBy?.length ?? 0,
+        likedBy: comment.likedBy ?? [],
+        isLiked: comment.isLiked ?? false,
+      })) ?? [],
+  }
+}
+
+async function handleJson<T>(resPromise: Promise<Response> | Response): Promise<T> {
+  const res = await resPromise
+  if (!res.ok) {
+    let message = "Request failed"
+    try {
+      const data = await res.json()
+      message = data.error || message
+    } catch {
+      // ignore
+    }
+    throw new Error(message)
+  }
+  return res.json() as Promise<T>
+}
 
 export function CommunityProvider({ children }: { children: ReactNode }) {
-  const [posts, setPosts] = useState<CommunityPost[]>(samplePosts)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const addPost = (newPost: Omit<CommunityPost, "id" | "timestamp" | "likes" | "isLiked" | "comments">) => {
-    const post: CommunityPost = {
-      ...newPost,
-      id: `post_${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      likes: 0,
-      isLiked: false,
-      comments: [],
+  const refreshPosts = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const data = await handleJson<{ posts: any[] }>(fetch("/api/community/posts", { cache: "no-store", credentials: "include" }))
+      setPosts(data.posts.map(mapPost))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load posts"
+      setError(message)
+    } finally {
+      setIsLoading(false)
     }
-    setPosts((prev) => [post, ...prev])
   }
 
-  const likePost = (postId: string) => {
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-              isLiked: !post.isLiked,
-            }
-          : post,
-      ),
-    )
-  }
+  useEffect(() => {
+    void refreshPosts()
+  }, [])
 
-  const likeComment = (postId: string, commentId: string) => {
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              comments: post.comments?.map((comment) =>
-                comment.id === commentId
-                  ? {
-                      ...comment,
-                      likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1,
-                      isLiked: !comment.isLiked,
-                    }
-                  : comment,
-              ),
-            }
-          : post,
-      ),
-    )
-  }
-
-  const addComment = async (postId: string, content: string): Promise<void> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    const newComment: Comment = {
-      id: `comment_${Date.now()}`,
-      content,
-      author: "Current User",
-      authorId: "currentUser",
-      timestamp: new Date().toISOString(),
-      likes: 0,
-      isLiked: false,
+  const createPost = async (post: {
+    title: string
+    content: string
+    tags?: string[]
+    imageUrl?: string
+    type?: string
+    category?: string
+    location?: string
+  }) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await handleJson<{ post: any }>(
+        fetch("/api/community/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(post),
+        }),
+      )
+      setPosts((prev) => [mapPost(res.post), ...prev])
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to create post"
+      setError(message)
+      throw err
+    } finally {
+      setIsLoading(false)
     }
-
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              comments: [...(post.comments || []), newComment],
-            }
-          : post,
-      ),
-    )
   }
 
-  const deleteComment = async (postId: string, commentId: string): Promise<void> => {
-    // Simulate API delay for realistic user experience
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              comments: post.comments?.filter((comment) => comment.id !== commentId) || [],
-            }
-          : post,
-      ),
-    )
+  const likePost = async (postId: string, isLiked: boolean) => {
+    try {
+      const res = await handleJson<{ post: any }>(
+        fetch(`/api/community/posts/${postId}/like`, {
+          method: isLiked ? "DELETE" : "POST",
+          credentials: "include",
+        }),
+      )
+      setPosts((prev) => prev.map((p) => (p.id === postId ? mapPost(res.post) : p)))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to like post"
+      setError(message)
+      throw err
+    }
   }
 
-  const deletePost = async (postId: string): Promise<void> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setPosts((prev) => prev.filter((post) => post.id !== postId))
+  const addComment = async (postId: string, content: string) => {
+    try {
+      const res = await handleJson<{ post: any }>(
+        fetch(`/api/community/posts/${postId}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ content }),
+        }),
+      )
+      setPosts((prev) => prev.map((p) => (p.id === postId ? mapPost(res.post) : p)))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to add comment"
+      setError(message)
+      throw err
+    }
   }
 
-  const updatePost = (postId: string, updates: Partial<CommunityPost>) => {
-    setPosts((prev) => prev.map((post) => (post.id === postId ? { ...post, ...updates } : post)))
+  const likeComment = async (postId: string, commentId: string, isLiked: boolean) => {
+    try {
+      const res = await handleJson<{ post: any }>(
+        fetch(`/api/community/posts/${postId}/comments/${commentId}/like`, {
+          method: isLiked ? "DELETE" : "POST",
+          credentials: "include",
+        }),
+      )
+      setPosts((prev) => prev.map((p) => (p.id === postId ? mapPost(res.post) : p)))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to like comment"
+      setError(message)
+      throw err
+    }
+  }
+
+  const deletePost = async (postId: string) => {
+    try {
+      await handleJson(fetch(`/api/community/posts/${postId}`, { method: "DELETE", credentials: "include" }))
+      setPosts((prev) => prev.filter((p) => p.id !== postId))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete post"
+      setError(message)
+      throw err
+    }
+  }
+
+  const updatePost = async (postId: string, updates: Partial<Post>) => {
+    try {
+      const res = await handleJson<{ post: any }>(
+        fetch(`/api/community/posts/${postId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(updates),
+        }),
+      )
+      setPosts((prev) => prev.map((p) => (p.id === postId ? mapPost(res.post) : p)))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update post"
+      setError(message)
+      throw err
+    }
   }
 
   return (
     <CommunityContext.Provider
       value={{
         posts,
-        addPost,
+        isLoading,
+        error,
+        refreshPosts,
+        createPost,
         likePost,
-        likeComment,
         addComment,
-        deleteComment,
+        likeComment,
         deletePost,
         updatePost,
       }}

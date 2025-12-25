@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
+import { AuthModal } from "@/components/auth-modal"
 
 interface User {
   id: string
@@ -9,15 +10,22 @@ interface User {
   role: "USER" | "ORGANIZER" | "ADMIN"
   avatarUrl?: string
   createdAt?: string
+  location?: string
+  phone?: string
+  bio?: string
+  preferences?: Record<string, unknown>
 }
 
 interface AuthContextType {
   user: User | null
   isLoading: boolean
+  isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (name: string, email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
+  updateUser: (updates: Partial<User> & { preferences?: Record<string, unknown> }) => Promise<void>
+  showAuthModal: (mode?: "login" | "signup") => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -41,6 +49,8 @@ async function handleJson<T>(resPromise: Response | Promise<Response>, opts?: { 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authModalMode, setAuthModalMode] = useState<"login" | "signup">("login")
 
   const refresh = useCallback(async () => {
     try {
@@ -90,7 +100,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
-  return <AuthContext.Provider value={{ user, isLoading, login, signup, logout, refresh }}>{children}</AuthContext.Provider>
+  const updateUser = async (updates: Partial<User> & { preferences?: Record<string, unknown> }) => {
+    const res = await fetch("/api/account/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(updates),
+    })
+    const data = await handleJson<{ user: User }>(res)
+    if (!data?.user) throw new Error("Profile update failed")
+    setUser(data.user)
+  }
+
+  const showAuthModal = (mode: "login" | "signup" = "login") => {
+    setAuthModalMode(mode)
+    setAuthModalOpen(true)
+  }
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        isAuthenticated: !!user,
+        login,
+        signup,
+        logout,
+        refresh,
+        updateUser,
+        showAuthModal,
+      }}
+    >
+      {children}
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} initialTab={authModalMode === "signup" ? "signup" : "signin"} />
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

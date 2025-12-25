@@ -1,23 +1,13 @@
 export interface Message {
   id: string
+  senderId: string
+  receiverId: string
   content: string
-  sender: {
-    id: string
-    name: string
-    email: string
-    avatar?: string
-  }
-  recipient: {
-    id: string
-    name: string
-    email: string
-    avatar?: string
-  }
   timestamp: Date
-  read: boolean
   type?: "text" | "image" | "voice"
-  imageUrl?: string
-  voiceUrl?: string
+  attachmentUrl?: string
+  isRead?: boolean
+  isDelivered?: boolean
 }
 
 export interface MessageAttachment {
@@ -30,20 +20,12 @@ export interface MessageAttachment {
 
 export interface Conversation {
   id: string
-  participants: Array<{
-    id: string
-    name: string
-    email: string
-    avatar?: string
-  }>
+  participants: ConversationParticipant[]
   messages: Message[]
   lastMessage?: Message
   unreadCount: number
-  isGroup: boolean
-  groupName?: string
-  groupAvatar?: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt?: Date
+  updatedAt?: Date
 }
 
 export interface ConversationParticipant {
@@ -58,19 +40,19 @@ export interface MessagingContextType {
   conversations: Conversation[]
   activeConversation: Conversation | null
   messages: Message[]
-  loading: boolean
+  unreadCount: number
+  isLoading: boolean
+  error: string | null
   sendMessage: (
-    receiverId: string,
+    conversationId: string,
     content: string,
-    type?: "text" | "image" | "voice",
-    imageUrl?: string,
-    voiceUrl?: string,
   ) => Promise<void>
   markAsRead: (conversationId: string) => Promise<void>
   setActiveConversation: (conversation: Conversation | null) => void
   createConversation: (participantId: string) => Promise<Conversation>
   deleteConversation: (conversationId: string) => Promise<void>
   searchMessages: (query: string) => Promise<Message[]>
+  getOrCreateConversation: (participantId: string) => Promise<Conversation>
 }
 
 export interface TypingIndicator {
@@ -97,9 +79,8 @@ export interface VoiceMessage {
 export interface User {
   id: string
   name: string
-  email: string
   avatar?: string
-  isOnline?: boolean
+  isOnline: boolean
   lastSeen?: Date
 }
 
@@ -107,6 +88,5 @@ export interface CreateMessageData {
   content: string
   receiverId: string
   type?: "text" | "image" | "voice"
-  imageUrl?: string
-  voiceUrl?: string
+  attachmentUrl?: string
 }

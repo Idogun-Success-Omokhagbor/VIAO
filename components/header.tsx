@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Bell, User, LogOut, Settings, Calendar, MessageSquare, MapPin } from "lucide-react"
+import { Bell, User, LogOut, Settings, Calendar, MessageSquare, MapPin, Users } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { AuthModal } from "@/components/auth-modal"
 import Link from "next/link"
@@ -31,15 +31,6 @@ export function Header() {
             {user && (
               <nav className="hidden md:flex items-center space-x-6">
                 <Link
-                  href="/dashboard"
-                  className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
-                    isActive("/dashboard") ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  <MapPin className="h-4 w-4" />
-                  <span>Dashboard</span>
-                </Link>
-                <Link
                   href="/events"
                   className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
                     isActive("/events") ? "text-primary" : "text-muted-foreground"
@@ -54,7 +45,7 @@ export function Header() {
                     isActive("/community") ? "text-primary" : "text-muted-foreground"
                   }`}
                 >
-                  <MessageSquare className="h-4 w-4" />
+                  <Users className="h-4 w-4" />
                   <span>Community</span>
                 </Link>
                 <Link
@@ -83,20 +74,14 @@ export function Header() {
                   </Badge>
                 </Button>
 
-                <div className="flex items-center space-x-2">
+                <Link href="/account" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
                   <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
                     <User className="h-4 w-4 text-white" />
                   </div>
-                  <div className="hidden md:block">
+                  <div className="hidden md:block text-left">
                     <p className="text-sm font-medium">{user.name}</p>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
-                </div>
-
-                <Link href="/account">
-                  <Button variant="ghost" size="icon">
-                    <Settings className="h-4 w-4" />
-                  </Button>
                 </Link>
 
                 <Button variant="ghost" size="icon" onClick={logout}>

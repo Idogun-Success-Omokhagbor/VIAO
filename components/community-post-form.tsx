@@ -19,7 +19,7 @@ interface CommunityPostFormProps {
 }
 
 export default function CommunityPostForm({ onClose }: CommunityPostFormProps) {
-  const { addPost } = useCommunity()
+  const { createPost } = useCommunity()
   const { user } = useAuth()
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
@@ -46,15 +46,13 @@ export default function CommunityPostForm({ onClose }: CommunityPostFormProps) {
 
     setIsSubmitting(true)
     try {
-      addPost({
+      const postType = type === "event" ? "EVENT" : type === "announcement" ? "ALERT" : "GENERAL"
+      await createPost({
         title: title.trim(),
         content: content.trim(),
-        author: user?.name || "Anonymous",
-        authorId: user?.id || "anonymous",
-        authorAvatar: user?.avatar,
-        type,
+        type: postType,
         tags: tags.length > 0 ? tags : undefined,
-        image: image || undefined,
+        imageUrl: image || undefined,
       })
       onClose()
     } catch (error) {

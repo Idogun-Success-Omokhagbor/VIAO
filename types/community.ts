@@ -6,14 +6,15 @@ export interface CommunityPost {
     id: string
     name: string
     email: string
-    avatar?: string
+    avatar?: string | null
   }
   images?: string[]
   tags?: string[]
-  likes: string[]
+  likes: number
+  likedBy: string[]
   comments: Comment[]
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string
+  updatedAt: string
   isLiked?: boolean
   location?: string
   category?: string
@@ -26,11 +27,12 @@ export interface Comment {
     id: string
     name: string
     email: string
-    avatar?: string
+    avatar?: string | null
   }
   postId: string
-  createdAt: Date
+  createdAt: string
   likes: number
+  likedBy: string[]
   isLiked?: boolean
   replies?: Comment[]
 }

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,9 +17,12 @@ import { useAuth } from "@/context/auth-context"
 import { useToast } from "@/hooks/use-toast"
 
 export default function AccountPage() {
+  const router = useRouter()
   const { user, updateUser, isAuthenticated, showAuthModal } = useAuth()
   const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
@@ -26,6 +30,12 @@ export default function AccountPage() {
     location: user?.location || "",
     bio: user?.bio || "",
   })
+
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmNewPassword, setConfirmNewPassword] = useState("")
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
 
   if (!isAuthenticated) {
     return (
@@ -69,6 +79,26 @@ export default function AccountPage() {
     setIsEditing(false)
   }
 
+  const handleAvatarUpload = async (file: File) => {
+    setIsUploadingAvatar(true)
+    try {
+      const form = new FormData()
+      form.append("file", file)
+      const res = await fetch("/api/upload", { method: "POST", body: form })
+      if (!res.ok) {
+        throw new Error("Upload failed")
+      }
+      const data = await res.json()
+      await updateUser({ avatarUrl: data.url })
+      toast({ title: "Profile photo updated" })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to upload avatar"
+      toast({ title: "Error", description: message })
+    } finally {
+      setIsUploadingAvatar(false)
+    }
+  }
+
   const handlePreferenceChange = (key: string, value: boolean) => {
     if (user) {
       updateUser({
@@ -84,6 +114,61 @@ export default function AccountPage() {
     }
   }
 
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      toast({ title: "Missing fields", description: "Please fill all password fields." })
+      return
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast({ title: "Passwords don't match", description: "Please confirm your new password." })
+      return
+    }
+
+    setIsUpdatingPassword(true)
+    try {
+      const res = await fetch("/api/account/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to update password")
+      }
+
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmNewPassword("")
+      toast({ title: "Password updated", description: "Your password has been changed successfully." })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update password"
+      toast({ title: "Error", description: message })
+    } finally {
+      setIsUpdatingPassword(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    const ok = window.confirm("Delete your account? This cannot be undone.")
+    if (!ok) return
+
+    setIsDeletingAccount(true)
+    try {
+      const res = await fetch("/api/account", { method: "DELETE", credentials: "include" })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to delete account")
+      }
+      router.replace("/")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete account"
+      toast({ title: "Error", description: message })
+    } finally {
+      setIsDeletingAccount(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -94,7 +179,7 @@ export default function AccountPage() {
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <Avatar className="h-20 w-20">
-                    <AvatarImage src={user?.avatar || "/placeholder.svg"} alt={user?.name} />
+                    <AvatarImage src={user?.avatarUrl || "/placeholder.svg"} alt={user?.name} />
                     <AvatarFallback className="text-lg">
                       {user?.name
                         ?.split(" ")
@@ -107,9 +192,27 @@ export default function AccountPage() {
                     size="sm"
                     variant="outline"
                     className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0 bg-transparent"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={isUploadingAvatar}
                   >
-                    <Camera className="h-4 w-4" />
+                    {isUploadingAvatar ? (
+                      <div className="h-4 w-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Camera className="h-4 w-4" />
+                    )}
                   </Button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        void handleAvatarUpload(file)
+                      }
+                    }}
+                  />
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">{user?.name}</h1>
@@ -117,7 +220,7 @@ export default function AccountPage() {
                   <div className="flex items-center mt-2 space-x-4">
                     <Badge variant="secondary" className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      Joined {new Date(user?.joinedAt || "").toLocaleDateString()}
+                      Joined {new Date(user?.createdAt || "").toLocaleDateString()}
                     </Badge>
                   </div>
                 </div>
@@ -248,7 +351,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Receive notifications via email</p>
                       </div>
                       <Switch
-                        checked={user?.preferences?.emailNotifications}
+                        checked={!!(user?.preferences as any)?.emailNotifications}
                         onCheckedChange={(checked) => handlePreferenceChange("emailNotifications", checked)}
                       />
                     </div>
@@ -261,7 +364,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Receive push notifications in your browser</p>
                       </div>
                       <Switch
-                        checked={user?.preferences?.pushNotifications}
+                        checked={!!(user?.preferences as any)?.pushNotifications}
                         onCheckedChange={(checked) => handlePreferenceChange("pushNotifications", checked)}
                       />
                     </div>
@@ -274,7 +377,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Get reminded about upcoming events</p>
                       </div>
                       <Switch
-                        checked={user?.preferences?.eventReminders}
+                        checked={!!(user?.preferences as any)?.eventReminders}
                         onCheckedChange={(checked) => handlePreferenceChange("eventReminders", checked)}
                       />
                     </div>
@@ -287,7 +390,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Stay updated with community posts and discussions</p>
                       </div>
                       <Switch
-                        checked={user?.preferences?.communityUpdates}
+                        checked={!!(user?.preferences as any)?.communityUpdates}
                         onCheckedChange={(checked) => handlePreferenceChange("communityUpdates", checked)}
                       />
                     </div>
@@ -300,7 +403,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Get notified when you receive new messages</p>
                       </div>
                       <Switch
-                        checked={user?.preferences?.messageNotifications}
+                        checked={!!(user?.preferences as any)?.messageNotifications}
                         onCheckedChange={(checked) => handlePreferenceChange("messageNotifications", checked)}
                       />
                     </div>
@@ -313,7 +416,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Receive a weekly summary of activities</p>
                       </div>
                       <Switch
-                        checked={user?.preferences?.weeklyDigest}
+                        checked={!!(user?.preferences as any)?.weeklyDigest}
                         onCheckedChange={(checked) => handlePreferenceChange("weeklyDigest", checked)}
                       />
                     </div>
@@ -380,6 +483,8 @@ export default function AccountPage() {
                       <Button
                         variant="outline"
                         className="w-full justify-start text-red-600 hover:text-red-700 bg-transparent"
+                        onClick={handleDeleteAccount}
+                        disabled={isDeletingAccount}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete Account
@@ -402,12 +507,12 @@ export default function AccountPage() {
                     <div className="space-y-2">
                       <Label>Change Password</Label>
                       <div className="space-y-3">
-                        <Input type="password" placeholder="Current password" />
-                        <Input type="password" placeholder="New password" />
-                        <Input type="password" placeholder="Confirm new password" />
-                        <Button className="w-full">
+                        <Input type="password" placeholder="Current password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                        <Input type="password" placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                        <Input type="password" placeholder="Confirm new password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+                        <Button className="w-full" onClick={handleChangePassword} disabled={isUpdatingPassword}>
                           <Lock className="h-4 w-4 mr-2" />
-                          Update Password
+                          {isUpdatingPassword ? "Updating..." : "Update Password"}
                         </Button>
                       </div>
                     </div>

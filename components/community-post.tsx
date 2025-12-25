@@ -11,7 +11,8 @@ import { Heart, MessageCircle, Share2, MoreHorizontal, Send, Trash2, User, Edit,
 import { useAuth } from "@/context/auth-context"
 import { useCommunity, type Post } from "@/context/community-context"
 import { formatTimeAgo } from "@/lib/utils"
-import MessagingSidebar from "@/components/messaging-sidebar"
+import { useMessaging } from "@/context/messaging-context"
+import MessagingModal from "@/components/messaging-modal"
 
 interface CommunityPostProps {
   post: Post
@@ -19,15 +20,32 @@ interface CommunityPostProps {
 
 export default function CommunityPost({ post }: CommunityPostProps) {
   const { user, isAuthenticated, showAuthModal } = useAuth()
-  const { likePost, addComment, likeComment } = useCommunity()
+  const { likePost, addComment, likeComment, deletePost } = useCommunity()
+  const { getOrCreateConversation } = useMessaging()
   const [showComments, setShowComments] = useState(false)
   const [newComment, setNewComment] = useState("")
   const [isPosting, setIsPosting] = useState(false)
-  const [showMessaging, setShowMessaging] = useState(false)
-  const [messagingUserId, setMessagingUserId] = useState<string | null>(null)
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false)
+  const [messageConversation, setMessageConversation] = useState<any>(null)
 
   if (!post || !post.author) {
     return null
+  }
+
+  const handleDeletePost = async () => {
+    if (!isAuthenticated || !user) {
+      showAuthModal("login")
+      return
+    }
+    if (user.id !== post.author.id) return
+    const ok = window.confirm("Delete this post?")
+    if (!ok) return
+    try {
+      await deletePost(post.id)
+    } catch (error) {
+      console.error("Failed to delete post:", error)
+      alert("Failed to delete post. Please try again.")
+    }
   }
 
   const handleLike = () => {
@@ -35,7 +53,7 @@ export default function CommunityPost({ post }: CommunityPostProps) {
       showAuthModal("login")
       return
     }
-    likePost(post.id, user.id)
+    void likePost(post.id, post.likedBy.includes(user.id))
   }
 
   const handleComment = async () => {
@@ -48,10 +66,7 @@ export default function CommunityPost({ post }: CommunityPostProps) {
 
     setIsPosting(true)
     try {
-      await addComment(post.id, {
-        content: newComment.trim(),
-        author: user,
-      })
+      await addComment(post.id, newComment.trim())
       setNewComment("")
     } catch (error) {
       console.error("Failed to add comment:", error)
@@ -66,7 +81,9 @@ export default function CommunityPost({ post }: CommunityPostProps) {
       showAuthModal("login")
       return
     }
-    likeComment(post.id, commentId, user.id)
+    const comment = post.comments.find((c) => c.id === commentId)
+    const isLiked = comment ? comment.likedBy.includes(user.id) : false
+    void likeComment(post.id, commentId, isLiked)
   }
 
   const handleMessageUser = (userId: string, userName: string) => {
@@ -76,13 +93,20 @@ export default function CommunityPost({ post }: CommunityPostProps) {
     }
     if (userId === user?.id) return
 
-    setMessagingUserId(userId)
-    setShowMessaging(true)
+    void (async () => {
+      try {
+        const conv = await getOrCreateConversation(userId)
+        setMessageConversation(conv)
+        setIsMessageModalOpen(true)
+      } catch (error) {
+        console.error("Failed to open conversation:", error)
+      }
+    })()
   }
 
   const handleCloseMessaging = () => {
-    setShowMessaging(false)
-    setMessagingUserId(null)
+    setIsMessageModalOpen(false)
+    setMessageConversation(null)
   }
 
   const handleShare = async () => {
@@ -168,7 +192,10 @@ export default function CommunityPost({ post }: CommunityPostProps) {
                         <Edit className="h-4 w-4 mr-2" />
                         Edit Post
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <DropdownMenuItem
+                        className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={handleDeletePost}
+                      >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete Post
                       </DropdownMenuItem>
@@ -305,7 +332,7 @@ export default function CommunityPost({ post }: CommunityPostProps) {
                   <Avatar className="h-8 w-8">
                     <AvatarImage
                       src={
-                        user?.avatar || `/placeholder.svg?height=32&width=32&text=${user?.name?.substring(0, 2) || "U"}`
+                        user?.avatarUrl || `/placeholder.svg?height=32&width=32&text=${user?.name?.substring(0, 2) || "U"}`
                       }
                     />
                     <AvatarFallback className="text-xs">
@@ -352,11 +379,7 @@ export default function CommunityPost({ post }: CommunityPostProps) {
         </CardFooter>
       </Card>
 
-      {showMessaging && messagingUserId && (
-        <div className="fixed inset-y-0 right-0 w-full md:w-96 z-50 shadow-xl">
-          <MessagingSidebar onClose={handleCloseMessaging} initialUserId={messagingUserId} />
-        </div>
-      )}
+      <MessagingModal isOpen={isMessageModalOpen} onClose={handleCloseMessaging} conversation={messageConversation ?? undefined} />
     </>
   )
 }

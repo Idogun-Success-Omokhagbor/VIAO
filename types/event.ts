@@ -2,43 +2,43 @@ export interface Event {
   id: string
   title: string
   description: string
-  date: Date
-  time: string
+  date: string // ISO
+  time?: string
   location: string
   category: string
-  image?: string
-  organizer: {
-    id: string
-    name: string
-    email: string
-    avatar?: string
-  }
-  attendees: Array<{
-    id: string
-    name: string
-    email: string
-    avatar?: string
-  }>
-  price?: number
-  isBoosted?: boolean
-  coordinates?: {
-    lat: number
-    lng: number
-  }
-  createdAt: Date
+  imageUrl?: string | null
+  price?: number | null
+  isBoosted: boolean
+  boostUntil?: string | null
+  maxAttendees?: number | null
+  organizerId: string
+  organizerName?: string
+  attendeesCount?: number
+  isGoing?: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 export interface CreateEventData {
   title: string
   description: string
-  date: Date
-  time: string
+  date: string // ISO
+  time?: string
   location: string
   category: string
-  image?: string
-  price?: number
-  coordinates?: {
-    lat: number
-    lng: number
-  }
+  imageUrl?: string
+  price?: number | null
+  maxAttendees?: number | null
+  isBoosted?: boolean
+  boostUntil?: string | null
+}
+
+export interface EventFilters {
+  category?: string
+  location?: string
+  isFree?: boolean
+  isOnline?: boolean
+  tags?: string[]
+  dateRange?: { start: Date; end: Date }
+  priceRange?: { min: number; max: number }
 }
