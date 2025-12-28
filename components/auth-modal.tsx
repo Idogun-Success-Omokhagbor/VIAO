@@ -37,13 +37,15 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
   const [activeTab, setActiveTab] = useState<"signin" | "signup">(initialTab)
   const [forgotMode, setForgotMode] = useState(false)
   const [resetEmail, setResetEmail] = useState("")
-  const [resetStep, setResetStep] = useState<"email" | "code" | "password">("email")
   const [resetCode, setResetCode] = useState("")
   const [resetNewPassword, setResetNewPassword] = useState("")
   const [resetConfirmPassword, setResetConfirmPassword] = useState("")
-  const [showResetPassword, setShowResetPassword] = useState(false)
+  const [showResetNewPassword, setShowResetNewPassword] = useState(false)
   const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false)
+  const [resetStep, setResetStep] = useState<"email" | "code" | "password">("email")
+  const [codeVerified, setCodeVerified] = useState(false)
   const [resetError, setResetError] = useState<string | null>(null)
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null)
   const resetEmailError = resetStep === "email" ? resetError : null
   const signInPasswordError = signInInvalidPassword ? signInError : null
   const signInEmailError = signInInvalidEmail && !signInInvalidPassword ? signInError : null
@@ -73,9 +75,11 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
     setResetCode("")
     setResetNewPassword("")
     setResetConfirmPassword("")
-    setShowResetPassword(false)
+    setShowResetNewPassword(false)
     setShowResetConfirmPassword(false)
     setResetError(null)
+    setResetSuccess(null)
+    setCodeVerified(false)
     setSignInInvalidEmail(false)
     setSignInInvalidPassword(false)
   }
@@ -116,62 +120,32 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
     e.preventDefault()
     setIsLoading(true)
     setResetError(null)
+    setResetSuccess(null)
 
     try {
-      if (resetStep === "email") {
-        if (!resetEmail.trim()) {
-          toast.error("Please enter your email")
-          setResetError("Please enter your email")
-          return
-        }
-        const res = await fetch("/api/auth/password-reset/request", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: resetEmail }),
-        })
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          const message = data.error || "Invalid email"
-          setResetError(message)
-          toast.error(message)
-          return
-        }
-
-        toast.success("If an account exists, we sent a 6-digit code.")
-        setResetStep("code")
+      if (!resetEmail.trim()) {
+        toast.error("Please enter your email")
+        setResetError("Please enter your email")
         return
       }
 
-      if (resetStep === "code") {
-        if (!resetCode.trim() || resetCode.trim().length < 6) {
-          toast.error("Enter the 6-digit code we sent")
-          setResetError("Enter the 6-digit code we sent")
-          return
-        }
-        toast.success("Code verified")
-        setResetStep("password")
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        const message = data.error || "Unable to send reset email"
+        setResetError(message)
+        toast.error(message)
         return
       }
 
-      if (resetStep === "password") {
-        if (resetNewPassword.trim().length < 6) {
-          toast.error("Password must be at least 6 characters")
-          setResetError("Password must be at least 6 characters")
-          return
-        }
-        if (resetNewPassword !== resetConfirmPassword) {
-          toast.error("Passwords don't match")
-          setResetError("Passwords don't match")
-          return
-        }
-        toast.success("Password updated. Please sign in.")
-        setForgotMode(false)
-        setActiveTab("signin")
-        setSignInData({ email: resetEmail, password: "" })
-        resetForgotState()
-        return
-      }
+      setResetSuccess("If an account exists, we emailed a 6-digit code. It expires in 3 minutes.")
+      setResetStep("code")
+      toast.success("Check your email for the reset code.")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to process request. Please try again."
       setResetError(message)
@@ -318,82 +292,134 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
 
             <TabsContent value="signin" className="space-y-4">
               {forgotMode ? (
-                <form onSubmit={handleForgotPassword} className="space-y-4">
-                  {resetError && resetStep !== "email" && <p className="text-sm text-red-600 text-center">{resetError}</p>}
-
+                <form onSubmit={resetStep === "email" ? handleForgotPassword : undefined} className="space-y-4">
                   {resetStep === "email" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="reset-email">Email</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="reset-email"
-                          type="email"
-                          placeholder="Enter your account email"
-                          className={`pl-10 ${resetEmailError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                          value={resetEmail}
-                          onChange={(e) => setResetEmail(e.target.value)}
-                          required
-                        />
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-email">Email</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="reset-email"
+                            type="email"
+                            placeholder="Enter your account email"
+                            className={`pl-10 ${resetEmailError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                            value={resetEmail}
+                            onChange={(e) => setResetEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                    {resetEmailError && <p className="text-sm text-red-600">{resetEmailError}</p>}
+                    {resetSuccess && resetStep === "email" && <p className="text-sm text-green-600">{resetSuccess}</p>}
+                        <p className="text-xs text-muted-foreground">We’ll email you a 6-digit reset code (3 min expiry).</p>
                       </div>
-                      {resetEmailError && <p className="text-sm text-red-600">{resetEmailError}</p>}
-                    </div>
+
+                      <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? "Sending..." : "Send reset code"}
+                      </Button>
+                    </>
                   )}
 
                   {resetStep === "code" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="reset-code">Reset code</Label>
-                      <Input
-                        id="reset-code"
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        placeholder="Enter 6-digit code"
-                        value={resetCode}
-                        onChange={(e) => setResetCode(e.target.value)}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">Demo-only: we assume the code is valid if it has 6 digits.</p>
-                    </div>
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-code">Reset code</Label>
+                        <Input
+                          id="reset-code"
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="Enter 6-digit code"
+                          value={resetCode}
+                          onChange={(e) => setResetCode(e.target.value)}
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">Check your email for the code. Expires in 3 minutes.</p>
+                      </div>
+                      {resetError && <p className="text-sm text-red-600">{resetError}</p>}
+                      {resetSuccess && <p className="text-sm text-green-600">{resetSuccess}</p>}
+
+                      <Button
+                        type="button"
+                        className="w-full"
+                        disabled={isLoading}
+                        onClick={async () => {
+                          setIsLoading(true)
+                          setResetError(null)
+                          setResetSuccess(null)
+
+                          if (!resetCode.trim() || resetCode.trim().length < 6) {
+                            setResetError("Enter the 6-digit code.")
+                            setIsLoading(false)
+                            return
+                          }
+
+                          try {
+                            const res = await fetch("/api/auth/reset-password", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                email: resetEmail,
+                                code: resetCode,
+                              }),
+                            })
+                            const data = await res.json().catch(() => ({}))
+                            if (!res.ok) {
+                              setResetError(data.error || "Invalid or expired code.")
+                              toast.error(data.error || "Invalid or expired code.")
+                              return
+                            }
+
+                            setCodeVerified(true)
+                            setResetSuccess("Code verified. Enter your new password.")
+                            setResetStep("password")
+                          } catch (err) {
+                            setResetError("Something went wrong. Please try again.")
+                            toast.error("Something went wrong. Please try again.")
+                          } finally {
+                            setIsLoading(false)
+                          }
+                        }}
+                      >
+                        {isLoading ? "Verifying..." : "Verify code"}
+                      </Button>
+                    </>
                   )}
 
                   {resetStep === "password" && (
-                    <div className="space-y-3">
+                    <>
                       <div className="space-y-2">
                         <Label htmlFor="reset-new-password">New password</Label>
                         <div className="relative">
-                          <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                           <Input
                             id="reset-new-password"
-                            type={showResetPassword ? "text" : "password"}
+                            type={showResetNewPassword ? "text" : "password"}
                             placeholder="Enter new password"
-                            className="pl-10 pr-10"
                             value={resetNewPassword}
                             onChange={(e) => setResetNewPassword(e.target.value)}
                             required
+                            className="pr-10"
                           />
                           <button
                             type="button"
                             className="absolute right-3 top-2.5 text-muted-foreground"
-                            onClick={() => setShowResetPassword((v) => !v)}
+                            onClick={() => setShowResetNewPassword((v) => !v)}
                           >
-                            {showResetPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {showResetNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
                       </div>
-
                       <div className="space-y-2">
                         <Label htmlFor="reset-confirm-password">Confirm new password</Label>
                         <div className="relative">
-                          <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                           <Input
                             id="reset-confirm-password"
                             type={showResetConfirmPassword ? "text" : "password"}
                             placeholder="Confirm new password"
-                            className="pl-10 pr-10"
                             value={resetConfirmPassword}
                             onChange={(e) => setResetConfirmPassword(e.target.value)}
                             required
+                            className="pr-10"
                           />
                           <button
                             type="button"
@@ -404,22 +430,67 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                           </button>
                         </div>
                       </div>
-                    </div>
-                  )}
+                      {resetError && <p className="text-sm text-red-600">{resetError}</p>}
+                      {resetSuccess && <p className="text-sm text-green-600">{resetSuccess}</p>}
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading
-                      ? resetStep === "email"
-                        ? "Sending code..."
-                        : resetStep === "code"
-                        ? "Verifying..."
-                        : "Updating..."
-                      : resetStep === "email"
-                      ? "Send Code"
-                      : resetStep === "code"
-                      ? "Verify Code"
-                      : "Update Password"}
-                  </Button>
+                      <Button
+                        type="button"
+                        className="w-full"
+                        disabled={isLoading}
+                        onClick={async () => {
+                          setIsLoading(true)
+                          setResetError(null)
+                          setResetSuccess(null)
+
+                          if (!resetCode.trim() || resetCode.trim().length < 6) {
+                            setResetError("Enter the 6-digit code.")
+                            setIsLoading(false)
+                            return
+                          }
+                          if (resetNewPassword.trim().length < 8) {
+                            setResetError("Password must be at least 8 characters.")
+                            setIsLoading(false)
+                            return
+                          }
+                          if (resetNewPassword !== resetConfirmPassword) {
+                            setResetError("Passwords do not match.")
+                            setIsLoading(false)
+                            return
+                          }
+
+                          try {
+                            const res = await fetch("/api/auth/reset-password", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                email: resetEmail,
+                                code: resetCode,
+                                password: resetNewPassword,
+                              }),
+                            })
+                            const data = await res.json().catch(() => ({}))
+                            if (!res.ok) {
+                              setResetError(data.error || "Failed to reset password.")
+                              toast.error(data.error || "Failed to reset password.")
+                              return
+                            }
+
+                            setResetSuccess("Password updated. You can now sign in.")
+                            toast.success("Password updated. Please sign in.")
+                            setActiveTab("signin")
+                            setForgotMode(false)
+                          } catch (err) {
+                            setResetError("Something went wrong. Please try again.")
+                            toast.error("Something went wrong. Please try again.")
+                          } finally {
+                            setIsLoading(false)
+                          }
+                        }}
+                      >
+                        {isLoading ? "Updating..." : "Reset password"}
+                      </Button>
+                    </>
+                  )}
 
                   <div className="text-center">
                     <Button
@@ -493,7 +564,6 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                       type="button"
                       onClick={() => {
                         setForgotMode(true)
-                        setResetStep("email")
                         setResetEmail(signInData.email)
                         setSignInError(null)
                         setResetError(null)
