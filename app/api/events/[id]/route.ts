@@ -62,6 +62,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.role !== "ORGANIZER") return NextResponse.json({ error: "Only organizers can edit events" }, { status: 403 })
 
   const body = await req.json()
   const parsed = eventUpdateSchema.safeParse(body)
@@ -101,6 +102,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.role !== "ORGANIZER") return NextResponse.json({ error: "Only organizers can delete events" }, { status: 403 })
 
   try {
     const existing = await prisma.event.findUnique({ where: { id: params.id } })

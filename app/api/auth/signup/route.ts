@@ -4,16 +4,23 @@ import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { makeSession, setSessionCookie } from "@/lib/session"
 
+const roleSchema = z.preprocess(
+  (val) => (typeof val === "string" ? val.toUpperCase() : val),
+  z.enum(["USER", "ORGANIZER"]),
+)
+
 const signupSchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email().toLowerCase(),
   password: z.string().min(8).max(100),
+  role: roleSchema.default("USER"),
+  interests: z.array(z.string().min(1)).optional().default([]),
 })
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, email, password } = signupSchema.parse(body)
+    const { name, email, password, role, interests } = signupSchema.parse(body)
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
@@ -26,7 +33,21 @@ export async function POST(request: Request) {
         name,
         email,
         passwordHash,
-        role: "USER",
+        role,
+        interests: interests ?? [],
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        interests: true,
+        avatarUrl: true,
+        createdAt: true,
+        location: true,
+        phone: true,
+        bio: true,
+        preferences: true,
       },
     })
 
@@ -34,16 +55,8 @@ export async function POST(request: Request) {
     const response = NextResponse.json(
       {
         user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          avatarUrl: user.avatarUrl ?? undefined,
+          ...user,
           createdAt: user.createdAt.toISOString(),
-          location: (user as any).location ?? undefined,
-          phone: (user as any).phone ?? undefined,
-          bio: (user as any).bio ?? undefined,
-          preferences: (user as any).preferences ?? undefined,
         },
       },
       { status: 201 },
@@ -53,7 +66,20 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Signup error", error)
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid input", details: error.errors }, { status: 400 })
+      const fieldErrors: Record<string, string> = {}
+      for (const issue of error.errors) {
+        const field = typeof issue.path?.[0] === "string" ? issue.path[0] : "form"
+        if (!fieldErrors[field]) {
+          fieldErrors[field] =
+            issue.message === "String must contain at least 8 character(s)"
+              ? "Password must be at least 8 characters"
+              : issue.message
+        }
+      }
+      return NextResponse.json(
+        { error: "Please correct the highlighted fields.", fieldErrors },
+        { status: 400 },
+      )
     }
     return NextResponse.json({ error: "Signup failed" }, { status: 500 })
   }

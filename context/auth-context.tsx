@@ -8,6 +8,7 @@ interface User {
   name: string
   email: string
   role: "USER" | "ORGANIZER" | "ADMIN"
+  interests?: string[]
   avatarUrl?: string
   createdAt?: string
   location?: string
@@ -21,7 +22,7 @@ interface AuthContextType {
   isLoading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
-  signup: (name: string, email: string, password: string) => Promise<void>
+  signup: (name: string, email: string, password: string, role: "USER" | "ORGANIZER", interests?: string[]) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
   updateUser: (updates: Partial<User> & { preferences?: Record<string, unknown> }) => Promise<void>
@@ -83,14 +84,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user)
   }
 
-  const signup = async (name: string, email: string, password: string) => {
+  const signup = async (
+    name: string,
+    email: string,
+    password: string,
+    role: "USER" | "ORGANIZER",
+    interests?: string[],
+  ) => {
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, role, interests }),
     })
-    const data = await handleJson<{ user: User }>(res)
+
+    const data = await res.json().catch(() => null)
+    if (!res.ok) {
+      const err: any = new Error(data?.error || "Signup failed")
+      if (data?.fieldErrors) err.fieldErrors = data.fieldErrors
+      throw err
+    }
+
     if (!data?.user) throw new Error("Signup failed")
     setUser(data.user)
   }

@@ -33,6 +33,7 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
   const [signUpSubmitted, setSignUpSubmitted] = useState(false)
   const [signUpMismatch, setSignUpMismatch] = useState(false)
   const [signUpTooShort, setSignUpTooShort] = useState(false)
+  const [signUpFieldErrors, setSignUpFieldErrors] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<"signin" | "signup">(initialTab)
   const [forgotMode, setForgotMode] = useState(false)
   const [resetEmail, setResetEmail] = useState("")
@@ -59,7 +60,7 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
     email: "",
     password: "",
     confirmPassword: "",
-    userType: "user",
+    userType: "USER" as "USER" | "ORGANIZER",
     location: "",
     interests: [] as string[],
     agreeToTerms: false,
@@ -194,6 +195,7 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
     setSignUpSubmitted(true)
     setSignUpMismatch(false)
     setSignUpTooShort(false)
+    setSignUpFieldErrors({})
 
     if (
       !signUpData.name.trim() ||
@@ -208,8 +210,8 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
       return
     }
 
-    if (signUpData.password.trim().length < 6) {
-      toast.error("Password must be at least 6 characters")
+    if (signUpData.password.trim().length < 8) {
+      toast.error("Password must be at least 8 characters")
       setSignUpTooShort(true)
       setIsLoading(false)
       return
@@ -229,13 +231,22 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
     }
 
     try {
-      await signup(signUpData.name, signUpData.email, signUpData.password)
+      await signup(signUpData.name, signUpData.email, signUpData.password, signUpData.userType, signUpData.interests)
       toast.success("Account created successfully!")
       onClose()
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to create account. Please try again."
-      setSignUpError(message)
-      toast.error(message)
+      const fieldErrors = (error as any)?.fieldErrors as Record<string, string> | undefined
+      if (fieldErrors) {
+        setSignUpFieldErrors(fieldErrors)
+        const primaryMessage =
+          fieldErrors.name || fieldErrors.email || fieldErrors.password || "Please fix the highlighted fields."
+        setSignUpError(primaryMessage)
+        toast.error(primaryMessage)
+      } else {
+        const message = error instanceof Error ? error.message : "Failed to create account. Please try again."
+        setSignUpError(message)
+        toast.error(message)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -503,33 +514,39 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                     <Label htmlFor="signup-name">Full Name</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-name"
-                        type="text"
-                        placeholder="Enter your full name"
-                        className={`pl-10 ${signUpInvalidClass(signUpData.name)}`}
-                        value={signUpData.name}
-                        onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })}
-                        required
-                      />
-                    </div>
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      placeholder="Enter your full name"
+                      className={`pl-10 ${signUpInvalidClass(signUpData.name)} ${
+                        signUpFieldErrors.name ? "border-red-500 focus-visible:ring-red-500" : ""
+                      }`}
+                      value={signUpData.name}
+                      onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  {signUpFieldErrors.name && <p className="text-sm text-red-600">{signUpFieldErrors.name}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="Enter your email"
-                        className={`pl-10 ${signUpInvalidClass(signUpData.email)}`}
-                        value={signUpData.email}
-                        onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
-                        required
-                      />
-                    </div>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="Enter your email"
+                      className={`pl-10 ${signUpInvalidClass(signUpData.email)} ${
+                        signUpFieldErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""
+                      }`}
+                      value={signUpData.email}
+                      onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
+                      required
+                    />
                   </div>
+                  {signUpFieldErrors.email && <p className="text-sm text-red-600">{signUpFieldErrors.email}</p>}
+                </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
@@ -537,15 +554,17 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                     <Label htmlFor="signup-password">Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-password"
-                        type={showSignUpPassword ? "text" : "password"}
-                        placeholder="Create a password"
-                        className={`pl-10 pr-10 ${signUpInvalidClass(signUpData.password)} ${signUpMismatchClass} ${signUpTooShortClass}`}
-                        value={signUpData.password}
-                        onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
-                        required
-                      />
+                    <Input
+                      id="signup-password"
+                      type={showSignUpPassword ? "text" : "password"}
+                      placeholder="Create a password"
+                      className={`pl-10 pr-10 ${signUpInvalidClass(signUpData.password)} ${signUpMismatchClass} ${signUpTooShortClass} ${
+                        signUpFieldErrors.password ? "border-red-500 focus-visible:ring-red-500" : ""
+                      }`}
+                      value={signUpData.password}
+                      onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
+                      required
+                    />
                       <button
                         type="button"
                         className="absolute right-3 top-2.5 text-muted-foreground"
@@ -560,15 +579,15 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                     <Label htmlFor="confirm-password">Confirm Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="confirm-password"
-                        type={showSignUpConfirmPassword ? "text" : "password"}
-                        placeholder="Confirm your password"
-                        className={`pl-10 pr-10 ${signUpInvalidClass(signUpData.confirmPassword)} ${signUpMismatchClass}`}
-                        value={signUpData.confirmPassword}
-                        onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
-                        required
-                      />
+                    <Input
+                      id="confirm-password"
+                      type={showSignUpConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm your password"
+                      className={`pl-10 pr-10 ${signUpInvalidClass(signUpData.confirmPassword)} ${signUpMismatchClass}`}
+                      value={signUpData.confirmPassword}
+                      onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
+                      required
+                    />
                       <button
                         type="button"
                         className="absolute right-3 top-2.5 text-muted-foreground"
@@ -577,8 +596,9 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                         {showSignUpConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    {signUpTooShort && <p className="text-sm text-red-600">Password must be at least 6 characters</p>}
+                    {signUpTooShort && <p className="text-sm text-red-600">Password must be at least 8 characters</p>}
                     {signUpMismatch && <p className="text-sm text-red-600">Passwords don't match</p>}
+                    {signUpFieldErrors.password && <p className="text-sm text-red-600">{signUpFieldErrors.password}</p>}
                   </div>
                 </div>
 
@@ -602,14 +622,14 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                     <Label>User Type</Label>
                     <Select
                       value={signUpData.userType}
-                      onValueChange={(value) => setSignUpData({ ...signUpData, userType: value })}
+                      onValueChange={(value: "USER" | "ORGANIZER") => setSignUpData({ ...signUpData, userType: value })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select user type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="organizer">Organizer</SelectItem>
+                        <SelectItem value="USER">User</SelectItem>
+                        <SelectItem value="ORGANIZER">Organizer</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

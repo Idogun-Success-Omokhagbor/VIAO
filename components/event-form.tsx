@@ -77,6 +77,7 @@ export function EventForm({ onClose }: EventFormProps) {
   const { createEvent } = useEvents()
   const { user } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const isOrganizer = user?.role === "ORGANIZER"
 
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -184,6 +185,7 @@ export function EventForm({ onClose }: EventFormProps) {
   }
 
   const handleSubmit = async () => {
+    if (!isOrganizer) return
     if (!validateStep(3)) return
 
     if (formData.shouldBoost) {
@@ -266,6 +268,12 @@ export function EventForm({ onClose }: EventFormProps) {
             <X className="h-4 w-4" />
           </Button>
         </div>
+
+        {!isOrganizer && (
+          <div className="mb-6 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+            Only organizer accounts can create, edit, boost, or delete events. You can still browse and RSVP as a User.
+          </div>
+        )}
 
         {/* Progress Indicator */}
         <div className="flex items-center justify-center mb-8">
@@ -626,7 +634,12 @@ export function EventForm({ onClose }: EventFormProps) {
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
-            <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-purple-600 hover:bg-purple-700">
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !isOrganizer}
+              className="bg-purple-600 hover:bg-purple-700"
+              title={!isOrganizer ? "Only organizers can create events" : undefined}
+            >
               {isSubmitting ? (
                 "Creating..."
               ) : formData.shouldBoost ? (

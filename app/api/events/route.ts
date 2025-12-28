@@ -63,9 +63,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await getSessionUser()
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.role !== "ORGANIZER") return NextResponse.json({ error: "Only organizers can create events" }, { status: 403 })
 
   const body = await req.json()
   const parsed = eventSchema.safeParse(body)

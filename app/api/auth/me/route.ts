@@ -20,6 +20,7 @@ export async function GET() {
       name: user.name,
       email: user.email,
       role: user.role,
+      interests: (user as any).interests ?? [],
       avatarUrl: (user as any).avatarUrl ?? undefined,
       createdAt: user.createdAt.toISOString(),
       location: (user as any).location ?? undefined,

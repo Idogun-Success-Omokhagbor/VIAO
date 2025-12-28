@@ -32,6 +32,7 @@ export async function POST(request: Request) {
           name: user.name,
           email: user.email,
           role: user.role,
+          interests: (user as any).interests ?? [],
           avatarUrl: user.avatarUrl ?? undefined,
           createdAt: user.createdAt.toISOString(),
           location: (user as any).location ?? undefined,

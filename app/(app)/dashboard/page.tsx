@@ -90,11 +90,21 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-bold text-gray-900">Discover Events</h1>
               <p className="text-gray-600 mt-1">Find amazing events happening around you</p>
             </div>
-            <Button onClick={() => setShowEventForm(true)} className="bg-purple-600 hover:bg-purple-700">
+            <Button
+              onClick={() => setShowEventForm(true)}
+              className="bg-purple-600 hover:bg-purple-700"
+              disabled={user?.role !== "ORGANIZER"}
+              title={user?.role !== "ORGANIZER" ? "Only organizers can create events" : undefined}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Create Event
             </Button>
           </div>
+          {user?.role !== "ORGANIZER" && (
+            <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2 mt-2">
+              You’re signed in as a User. Switch to an Organizer account to create, edit, or boost events.
+            </p>
+          )}
         </div>
       </div>
 

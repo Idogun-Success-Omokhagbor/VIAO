@@ -77,6 +77,7 @@ export default function EventModal({ event, onClose }: EventModalProps) {
   }
 
   const handleBoost = (level: 1 | 2) => {
+    if (!isEventOrganizer) return
     setBoostLevel(level)
     setShowPaymentModal(true)
   }
@@ -108,7 +109,7 @@ export default function EventModal({ event, onClose }: EventModalProps) {
     }
   }
 
-  const isEventOrganizer = user?.id === event.organizerId
+  const isEventOrganizer = user?.role === "ORGANIZER" && user?.id === event.organizerId
 
   return (
     <>
