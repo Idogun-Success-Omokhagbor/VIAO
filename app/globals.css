@@ -6,6 +6,32 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .hide-scrollbar *::-webkit-scrollbar {
+    display: none;
+  }
+  /* Hide shadcn/Radix ScrollArea scrollbars when parent has hide-scrollbar */
+  .hide-scrollbar [data-radix-scroll-area-viewport] {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .hide-scrollbar [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar [data-radix-scroll-area-scrollbar] {
+    display: none !important;
+  }
 }
 
 @layer base {

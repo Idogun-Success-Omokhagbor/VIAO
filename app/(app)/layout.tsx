@@ -3,7 +3,6 @@
 import type React from "react"
 
 import Header from "@/components/header"
-import CenterDock from "@/components/center-dock"
 import FloatingButton from "@/components/floating-button"
 
 export default function AppLayout({
@@ -12,10 +11,9 @@ export default function AppLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       <Header />
-      <main className="pb-24">{children}</main>
-      <CenterDock />
+      <main className="flex-1 min-h-0 overflow-hidden">{children}</main>
       <FloatingButton />
     </div>
   )

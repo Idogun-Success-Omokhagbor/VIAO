@@ -10,6 +10,11 @@
 # production
 /build
 
+# prisma migrations
+/prisma/migrations/
+
+.toml
+
 # debug
 npm-debug.log*
 yarn-debug.log*

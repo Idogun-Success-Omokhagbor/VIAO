@@ -1,13 +1,13 @@
+export type ConversationStatus = "PENDING" | "ACCEPTED" | "DECLINED"
+
 export interface Message {
   id: string
+  conversationId: string
   senderId: string
-  receiverId: string
   content: string
-  timestamp: Date
-  type?: "text" | "image" | "voice"
-  attachmentUrl?: string
-  isRead?: boolean
-  isDelivered?: boolean
+  timestamp: string
+  readAt?: string | null
+  type?: "text"
 }
 
 export interface MessageAttachment {
@@ -21,19 +21,22 @@ export interface MessageAttachment {
 export interface Conversation {
   id: string
   participants: ConversationParticipant[]
-  messages: Message[]
+  messages?: Message[]
   lastMessage?: Message
   unreadCount: number
-  createdAt?: Date
-  updatedAt?: Date
+  status?: ConversationStatus
+  requestedBy?: string | null
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface ConversationParticipant {
   id: string
   name: string
   avatar?: string
-  isOnline: boolean
-  lastSeen?: Date
+  location?: string | null
+  isOnline?: boolean
+  lastSeen?: string | Date
 }
 
 export interface MessagingContextType {
@@ -43,16 +46,17 @@ export interface MessagingContextType {
   unreadCount: number
   isLoading: boolean
   error: string | null
-  sendMessage: (
-    conversationId: string,
-    content: string,
-  ) => Promise<void>
+  sendMessage: (conversationId: string, content: string) => Promise<void>
   markAsRead: (conversationId: string) => Promise<void>
   setActiveConversation: (conversation: Conversation | null) => void
   createConversation: (participantId: string) => Promise<Conversation>
   deleteConversation: (conversationId: string) => Promise<void>
+  deleteConversations: (conversationIds: string[]) => Promise<void>
+  clearConversationHistory: (conversationIds: string[]) => Promise<void>
   searchMessages: (query: string) => Promise<Message[]>
   getOrCreateConversation: (participantId: string) => Promise<Conversation>
+  acceptConversation: (conversationId: string) => Promise<void>
+  declineConversation: (conversationId: string) => Promise<void>
 }
 
 export interface TypingIndicator {

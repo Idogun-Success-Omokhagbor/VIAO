@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Send, Phone, Video, MoreVertical, Smile, Paperclip, Mic } from "lucide-react"
+import { Send } from "lucide-react"
+import { EmojiPicker } from "@/components/emoji-picker"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
 import type { Message, Conversation } from "@/types/messaging"
+import { formatTimeAgo } from "@/lib/utils"
 
 interface MessagingModalProps {
   isOpen: boolean
@@ -22,17 +24,15 @@ interface MessagingModalProps {
 
 export function MessagingModal({ isOpen, onClose, conversation }: MessagingModalProps) {
   const { user } = useAuth()
-  const { sendMessage, messages } = useMessaging()
+  const { sendMessage, messages, acceptConversation, declineConversation } = useMessaging()
   const [newMessage, setNewMessage] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const conversationMessages = messages.filter(
-    (msg) =>
-      conversation &&
-      ((msg.senderId === user?.id && msg.receiverId === conversation.participants[0]?.id) ||
-        (msg.senderId === conversation.participants[0]?.id && msg.receiverId === user?.id)),
-  )
+  const conversationMessages = messages
+    .filter((msg) => conversation && msg.conversationId === conversation.id)
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -42,18 +42,7 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !conversation || !user) return
-
-    const message: Omit<Message, "id"> = {
-      senderId: user.id,
-      receiverId: conversation.participants[0].id,
-      content: newMessage.trim(),
-      type: "text",
-      timestamp: new Date(),
-      isRead: false,
-      isDelivered: true,
-    }
-
-    await sendMessage(message)
+    await sendMessage(conversation.id, newMessage.trim())
     setNewMessage("")
   }
 
@@ -64,7 +53,32 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
     }
   }
 
+  const insertEmoji = (emoji: string) => {
+    const el = inputRef.current
+    if (!el) {
+      setNewMessage((prev) => prev + emoji)
+      return
+    }
+
+    const start = el.selectionStart ?? newMessage.length
+    const end = el.selectionEnd ?? newMessage.length
+    const next = newMessage.slice(0, start) + emoji + newMessage.slice(end)
+    setNewMessage(next)
+
+    requestAnimationFrame(() => {
+      el.focus()
+      const cursor = start + emoji.length
+      el.setSelectionRange(cursor, cursor)
+    })
+  }
+
   const otherParticipant = conversation?.participants.find((p) => p.id !== user?.id)
+  const isPending = conversation?.status === "PENDING"
+  const isDeclined = conversation?.status === "DECLINED"
+  const canSend = conversation?.status === "ACCEPTED"
+  const isOnline =
+    otherParticipant?.isOnline ??
+    (!!otherParticipant?.lastSeen && new Date().getTime() - new Date(otherParticipant.lastSeen).getTime() < 5 * 60 * 1000)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -81,36 +95,36 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
                   </Avatar>
                   <div>
                     <DialogTitle className="text-base">{otherParticipant.name}</DialogTitle>
-                    <div className="flex items-center gap-2">
-                      {otherParticipant.isOnline ? (
-                        <Badge variant="secondary" className="text-xs">
-                          Online
-                        </Badge>
+                    <div className="flex items-center gap-2 text-xs">
+                      {isOnline ? (
+                        <span className="text-green-600">Online</span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">
-                          Last seen {otherParticipant.lastSeen?.toLocaleTimeString()}
+                        <span className="text-yellow-700">
+                          Offline · Last seen {otherParticipant.lastSeen ? formatTimeAgo(otherParticipant.lastSeen) : "recently"}
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost">
-                    <Phone className="w-4 h-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost">
-                    <Video className="w-4 h-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </div>
+                <div className="flex items-center gap-1"></div>
               </div>
+              {isPending && (
+                <div className="mt-2 text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-md p-2">
+                  {conversation.requestedBy === user?.id
+                    ? "Request sent. Waiting for acceptance."
+                    : "This user wants to chat. Accept to start messaging."}
+                </div>
+              )}
+              {isDeclined && (
+                <div className="mt-2 text-xs text-red-800 bg-red-50 border border-red-200 rounded-md p-2">
+                  This conversation was declined.
+                </div>
+              )}
             </DialogHeader>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-              <div className="space-y-4">
+            <ScrollArea className="flex-1 px-6 py-2 hide-scrollbar" ref={scrollAreaRef}>
+              <div className="min-h-full flex flex-col justify-end space-y-4 pb-6">
                 {conversationMessages.map((message) => (
                   <div
                     key={message.id}
@@ -124,15 +138,13 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
                       <p className="text-sm">{message.content}</p>
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-xs opacity-70">
-                          {message.timestamp.toLocaleTimeString([], {
+                          {new Date(message.timestamp).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
                         </span>
                         {message.senderId === user?.id && (
-                          <span className="text-xs opacity-70">
-                            {message.isRead ? "Read" : message.isDelivered ? "Delivered" : "Sent"}
-                          </span>
+                          <span className="text-xs opacity-70">{message.readAt ? "Read" : "Sent"}</span>
                         )}
                       </div>
                     </div>
@@ -161,30 +173,41 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
             {/* Input */}
             <div className="p-4 border-t">
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="ghost">
-                  <Paperclip className="w-4 h-4" />
-                </Button>
                 <div className="flex-1 relative">
                   <Input
+                    ref={inputRef}
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Type a message..."
-                    className="pr-16"
+                    placeholder={
+                      isDeclined
+                        ? "Conversation declined"
+                        : isPending
+                        ? "Wait for acceptance before sending"
+                        : "Type a message..."
+                    }
+                    className="pr-12"
+                    disabled={!canSend}
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                      <Smile className="w-3 h-3" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                      <Mic className="w-3 h-3" />
-                    </Button>
+                    <EmojiPicker disabled={!canSend} onSelect={insertEmoji} />
                   </div>
                 </div>
-                <Button onClick={handleSendMessage} disabled={!newMessage.trim()} size="sm">
+                <Button onClick={handleSendMessage} disabled={!newMessage.trim() || !canSend} size="sm">
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
+
+              {isPending && conversation.requestedBy !== user?.id && (
+                <div className="flex gap-2 mt-3">
+                  <Button variant="default" size="sm" onClick={() => acceptConversation(conversation.id)}>
+                    Accept
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => declineConversation(conversation.id)}>
+                    Decline
+                  </Button>
+                </div>
+              )}
             </div>
           </>
         )}

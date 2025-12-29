@@ -41,6 +41,7 @@ model User {
   interests    String[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  lastSeenAt   DateTime?
   phone        String?
   bio          String?
   preferences  Json?
@@ -51,6 +52,7 @@ model User {
   comments     Comment[]
   messages     Message[]     @relation("UserMessages")
   conversations ConversationParticipant[]
+  requestedConversations Conversation[] @relation("ConversationRequests")
   resetTokens  PasswordResetToken[]
 }
 
@@ -126,6 +128,9 @@ model Conversation {
   id           String                      @id @default(uuid())
   createdAt    DateTime                    @default(now())
   updatedAt    DateTime                    @updatedAt
+  status       ConversationStatus          @default(PENDING)
+  requestedBy  String?
+  requester    User?                       @relation("ConversationRequests", fields: [requestedBy], references: [id])
   participants ConversationParticipant[]
   messages     Message[]
 }
@@ -137,6 +142,9 @@ model ConversationParticipant {
 
   user    User   @relation(fields: [userId], references: [id])
   userId  String
+
+  hiddenAt DateTime?
+  clearedAt DateTime?
 
   @@unique([conversationId, userId])
 }
@@ -154,6 +162,12 @@ model Message {
 
   sender   User   @relation("UserMessages", fields: [senderId], references: [id])
   senderId String
+}
+
+enum ConversationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
 }
 
 model PasswordResetToken {

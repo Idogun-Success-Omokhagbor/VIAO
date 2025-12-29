@@ -13,6 +13,7 @@ import { useCommunity, type Post } from "@/context/community-context"
 import { formatTimeAgo } from "@/lib/utils"
 import { useMessaging } from "@/context/messaging-context"
 import MessagingModal from "@/components/messaging-modal"
+import { toast } from "sonner"
 
 interface CommunityPostProps {
   post: Post
@@ -100,6 +101,8 @@ export default function CommunityPost({ post }: CommunityPostProps) {
         setIsMessageModalOpen(true)
       } catch (error) {
         console.error("Failed to open conversation:", error)
+        const message = error instanceof Error ? error.message : "Unable to start conversation."
+        toast.error(message)
       }
     })()
   }
@@ -166,7 +169,7 @@ export default function CommunityPost({ post }: CommunityPostProps) {
                       className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                     >
                       <MessageSquare className="h-3 w-3 mr-1" />
-                      Message
+                      Request to PM
                     </Button>
                   )}
                 </div>
@@ -296,7 +299,7 @@ export default function CommunityPost({ post }: CommunityPostProps) {
                                 className="h-5 px-1 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                               >
                                 <MessageSquare className="h-3 w-3 mr-1" />
-                                Message
+                                Request to PM
                               </Button>
                             )}
                             <span className="text-xs text-gray-500">{formatTimeAgo(comment.createdAt)}</span>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -23,12 +23,30 @@ const categories = [
 ]
 
 export default function CommunityPage() {
-  const { posts, isLoading, error } = useCommunity()
+  const { posts, isLoading, error, refreshPosts } = useCommunity()
   const { isAuthenticated, showAuthModal } = useAuth()
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [showPostForm, setShowPostForm] = useState(false)
   const [sortBy, setSortBy] = useState("newest")
+
+  useEffect(() => {
+    void refreshPosts()
+  }, [refreshPosts])
+
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!document.hidden) {
+        void refreshPosts()
+      }
+    }
+    window.addEventListener("focus", handleFocus)
+    document.addEventListener("visibilitychange", handleFocus)
+    return () => {
+      window.removeEventListener("focus", handleFocus)
+      document.removeEventListener("visibilitychange", handleFocus)
+    }
+  }, [refreshPosts])
 
   const filteredPosts = posts.filter((post) => {
     if (!post) return false
@@ -70,7 +88,7 @@ export default function CommunityPage() {
   const totalLikes = posts.reduce((sum, post) => sum + (post.likes || 0), 0)
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full h-full min-h-0 px-4 sm:px-6 lg:px-8 py-6 overflow-y-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>

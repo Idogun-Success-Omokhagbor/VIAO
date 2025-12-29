@@ -72,6 +72,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh()
   }, [refresh])
 
+  useEffect(() => {
+    if (!user) return
+
+    const ping = async () => {
+      try {
+        await fetch("/api/presence/ping", { method: "POST", credentials: "include" })
+      } catch {
+        // ignore
+      }
+    }
+
+    void ping()
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void ping()
+      }
+    }, 60_000)
+
+    const onFocus = () => void ping()
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void ping()
+    }
+
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onVisibility)
+
+    const onBeforeUnload = () => {
+      try {
+        navigator.sendBeacon?.("/api/presence/ping")
+      } catch {
+        // ignore
+      }
+    }
+    window.addEventListener("beforeunload", onBeforeUnload)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onVisibility)
+      window.removeEventListener("beforeunload", onBeforeUnload)
+    }
+  }, [user?.id])
+
   const login = async (email: string, password: string) => {
     const res = await fetch("/api/auth/login", {
       method: "POST",

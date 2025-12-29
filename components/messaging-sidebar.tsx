@@ -27,7 +27,8 @@ export function MessagingSidebar({ onConversationSelect, selectedConversationId 
     return otherParticipant?.name.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  const formatTime = (date: Date) => {
+  const formatTime = (dateInput: Date | string) => {
+    const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
@@ -66,7 +67,7 @@ export function MessagingSidebar({ onConversationSelect, selectedConversationId 
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="h-[500px]">
+        <ScrollArea className="h-[430px] hide-scrollbar">
           <div className="space-y-1 p-3">
             {filteredConversations.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">

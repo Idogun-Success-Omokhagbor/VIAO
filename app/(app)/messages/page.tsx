@@ -9,25 +9,72 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Send, Search, Phone, Video, MoreVertical, Paperclip, Smile, MessageSquare, User } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
+import { EmojiPicker } from "@/components/emoji-picker"
+import { Send, Search, MessageSquare, User, Trash2 } from "lucide-react"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
 import { formatTimeAgo } from "@/lib/utils"
+import { toast } from "sonner"
+
+const ONLINE_WINDOW_MS = 5 * 60 * 1000
+
+function isOnlineStatus(participant?: { isOnline?: boolean; lastSeen?: string | Date | null }) {
+  if (!participant) return false
+  if (typeof participant.isOnline === "boolean") return participant.isOnline
+  if (!participant.lastSeen) return false
+  return new Date().getTime() - new Date(participant.lastSeen).getTime() < ONLINE_WINDOW_MS
+}
 
 export default function MessagesPage() {
-  const { conversations, activeConversation, setActiveConversation, sendMessage } = useMessaging()
+  const {
+    conversations,
+    activeConversation,
+    setActiveConversation,
+    sendMessage,
+    messages,
+    acceptConversation,
+    declineConversation,
+    deleteConversations,
+    clearConversationHistory,
+  } = useMessaging()
   const { user, isAuthenticated, showAuthModal } = useAuth()
   const [newMessage, setNewMessage] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
+  const [confirmAction, setConfirmAction] = useState<{ type: "clear" | "delete"; ids: string[] } | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
+  const conversationMessages =
+    activeConversation && messages
+      ? messages
+          .filter((m) => m.conversationId === activeConversation.id)
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      : []
+
   useEffect(() => {
     scrollToBottom()
-  }, [activeConversation?.messages])
+  }, [conversationMessages.length])
 
   if (!isAuthenticated) {
     return (
@@ -55,28 +102,71 @@ export default function MessagesPage() {
     e.preventDefault()
     if (!newMessage.trim() || !activeConversation) return
 
-    await sendMessage(activeConversation.id, newMessage.trim())
-    setNewMessage("")
+    try {
+      await sendMessage(activeConversation.id, newMessage.trim())
+      setNewMessage("")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send message."
+      toast.error(message)
+    }
+  }
+
+  const insertEmoji = (emoji: string) => {
+    const el = inputRef.current
+    if (!el) {
+      setNewMessage((prev) => prev + emoji)
+      return
+    }
+
+    const start = el.selectionStart ?? newMessage.length
+    const end = el.selectionEnd ?? newMessage.length
+    const next = newMessage.slice(0, start) + emoji + newMessage.slice(end)
+    setNewMessage(next)
+
+    requestAnimationFrame(() => {
+      el.focus()
+      const cursor = start + emoji.length
+      el.setSelectionRange(cursor, cursor)
+    })
   }
 
   const filteredConversations = conversations.filter((conv) =>
     conv.participants.some((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
+  const openConfirm = (type: "clear" | "delete", conversationId?: string) => {
+    const targetId = conversationId ?? activeConversation?.id
+    if (!targetId) return
+    setConfirmAction({ type, ids: [targetId] })
+  }
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return
+    const { type, ids } = confirmAction
+    if (type === "clear") {
+      await clearConversationHistory(ids)
+      toast.success(ids.length > 1 ? "Chats cleared" : "Chat cleared")
+    } else {
+      await deleteConversations(ids)
+      toast.success(ids.length > 1 ? "Chats deleted" : "Chat deleted")
+    }
+    setConfirmAction(null)
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc(100vh-8rem)]">
-          <div className="flex h-full">
-            {/* Sidebar - Conversations List */}
-            <div className="w-80 border-r border-gray-200 flex flex-col">
-              {/* Header */}
-              <div className="p-4 border-b border-gray-200">
+    <>
+      <div className="flex h-full min-h-0 flex-col bg-gray-50">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4 flex-1 flex flex-col overflow-hidden">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
+            <div className="flex h-full min-h-0">
+              {/* Sidebar - Conversations List */}
+              <div className="w-80 border-r border-gray-200 flex flex-col min-h-0">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-200">
                 <div className="flex items-center justify-between mb-4">
-                  <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
-                  <Button variant="ghost" size="sm">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
+                  <div>
+                    <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
+                  </div>
                 </div>
 
                 {/* Search */}
@@ -89,11 +179,11 @@ export default function MessagesPage() {
                     className="pl-10"
                   />
                 </div>
-              </div>
+                </div>
 
-              {/* Conversations List */}
-              <ScrollArea className="flex-1">
-                <div className="p-2">
+                {/* Conversations List */}
+                <ScrollArea className="flex-1 min-h-0 hide-scrollbar">
+                  <div className="p-2">
                   {filteredConversations.length === 0 ? (
                     <div className="text-center py-8">
                       <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -102,68 +192,82 @@ export default function MessagesPage() {
                   ) : (
                     filteredConversations.map((conversation) => {
                       const otherParticipant = conversation.participants.find((p) => p.id !== user?.id)
-                      const lastMessage = conversation.messages[conversation.messages.length - 1]
+                      const lastMessage = conversation.lastMessage
 
                       return (
-                        <div
-                          key={conversation.id}
-                          onClick={() => setActiveConversation(conversation)}
-                          className={`p-3 rounded-lg cursor-pointer transition-colors mb-1 ${
-                            activeConversation?.id === conversation.id
-                              ? "bg-purple-50 border border-purple-200"
-                              : "hover:bg-gray-50"
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="relative">
-                              <Avatar className="w-10 h-10">
-                                <AvatarImage src={otherParticipant?.avatar || "/placeholder.svg"} />
-                                <AvatarFallback>
-                                  <User className="w-4 h-4" />
-                                </AvatarFallback>
-                              </Avatar>
-                              {otherParticipant?.isOnline && (
-                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
-                              )}
-                            </div>
+                        <ContextMenu key={conversation.id}>
+                          <ContextMenuTrigger asChild>
+                            <div
+                              onClick={() => setActiveConversation(conversation)}
+                              onContextMenu={() => setActiveConversation(conversation)}
+                              className={`p-3 rounded-lg cursor-pointer transition-all mb-1 ${
+                                activeConversation?.id === conversation.id
+                                  ? "bg-purple-50 border border-purple-200"
+                                  : "hover:bg-gray-50"
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="relative">
+                                  <Avatar className="w-10 h-10">
+                                    <AvatarImage src={otherParticipant?.avatar || "/placeholder.svg"} />
+                                    <AvatarFallback>
+                                      <User className="w-4 h-4" />
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  {otherParticipant?.isOnline && (
+                                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+                                  )}
+                                </div>
 
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                <h3 className="font-medium text-gray-900 truncate">{otherParticipant?.name}</h3>
-                                <span className="text-xs text-gray-500">
-                                  {lastMessage && formatTimeAgo(lastMessage.timestamp)}
-                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h3 className="font-medium text-gray-900 truncate">{otherParticipant?.name}</h3>
+                                  </div>
+
+                                  {lastMessage && (
+                                    <p className="text-sm text-gray-600 truncate">
+                                      {lastMessage.senderId === user?.id ? "You: " : ""}
+                                      {lastMessage.content}
+                                    </p>
+                                  )}
+
+                                  {conversation.unreadCount > 0 && (
+                                    <Badge className="mt-1 bg-purple-600 hover:bg-purple-700">
+                                      {conversation.unreadCount}
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
-
-                              {lastMessage && (
-                                <p className="text-sm text-gray-600 truncate">
-                                  {lastMessage.senderId === user?.id ? "You: " : ""}
-                                  {lastMessage.content}
-                                </p>
-                              )}
-
-                              {conversation.unreadCount > 0 && (
-                                <Badge className="mt-1 bg-purple-600 hover:bg-purple-700">
-                                  {conversation.unreadCount}
-                                </Badge>
-                              )}
                             </div>
-                          </div>
-                        </div>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-48">
+                            <ContextMenuItem onClick={() => openConfirm("clear", conversation.id)}>
+                              Clear chat
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
+                              onClick={() => openConfirm("delete", conversation.id)}
+                              className="text-red-600 focus:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete chat
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
                       )
                     })
                   )}
                 </div>
               </ScrollArea>
-            </div>
+              </div>
 
-            {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col">
-              {activeConversation ? (
-                <>
-                  {/* Chat Header */}
-                  <div className="p-4 border-b border-gray-200 bg-white">
-                    <div className="flex items-center justify-between">
+              {/* Main Chat Area */}
+              <div className="flex-1 flex flex-col min-h-0">
+                {activeConversation ? (
+                  <>
+                    {/* Chat Header */}
+                    <div className="p-4 border-b border-gray-200 bg-white">
+                      <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         {(() => {
                           const otherParticipant = activeConversation.participants.find((p) => p.id !== user?.id)
@@ -177,10 +281,15 @@ export default function MessagesPage() {
                               </Avatar>
                               <div>
                                 <h2 className="font-semibold text-gray-900">{otherParticipant?.name}</h2>
-                                <p className="text-sm text-gray-500">
-                                  {otherParticipant?.isOnline
-                                    ? "Online"
-                                    : `Last seen ${formatTimeAgo(otherParticipant?.lastSeen || new Date())}`}
+                                <p className="text-sm">
+                                  {isOnlineStatus(otherParticipant) ? (
+                                    <span className="text-green-600">Online</span>
+                                  ) : (
+                                    <span className="text-yellow-700">
+                                      Offline -{" "}
+                                      {otherParticipant?.lastSeen ? `Last seen ${formatTimeAgo(otherParticipant.lastSeen)}` : "Recently"}
+                                    </span>
+                                  )}
                                 </p>
                               </div>
                             </>
@@ -188,24 +297,26 @@ export default function MessagesPage() {
                         })()}
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm">
-                          <Phone className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Video className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      <div className="text-sm text-gray-500"></div>
                     </div>
-                  </div>
+                      {activeConversation.status === "PENDING" && (
+                        <div className="mt-2 text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-md p-2">
+                          {activeConversation.requestedBy === user?.id
+                            ? "Request sent. Waiting for acceptance."
+                            : "This user wants to chat. Accept to start messaging."}
+                        </div>
+                      )}
+                      {activeConversation.status === "DECLINED" && (
+                        <div className="mt-2 text-xs text-red-800 bg-red-50 border border-red-200 rounded-md p-2">
+                          This conversation was declined.
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Messages */}
-                  <ScrollArea className="flex-1 p-4">
-                    <div className="space-y-4">
-                      {activeConversation.messages.map((message) => {
+                    {/* Messages */}
+                    <ScrollArea className="flex-1 min-h-0 px-6 py-2 hide-scrollbar">
+                      <div className="min-h-full flex flex-col justify-end space-y-4 pb-6">
+                      {conversationMessages.map((message) => {
                         const isOwnMessage = message.senderId === user?.id
                         const sender = activeConversation.participants.find((p) => p.id === message.senderId)
 
@@ -238,48 +349,89 @@ export default function MessagesPage() {
                         )
                       })}
                       <div ref={messagesEndRef} />
-                    </div>
-                  </ScrollArea>
+                      </div>
+                    </ScrollArea>
 
-                  {/* Message Input */}
-                  <div className="p-4 border-t border-gray-200 bg-white">
-                    <form onSubmit={handleSendMessage} className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 p-2 border border-gray-200 rounded-lg focus-within:border-purple-500">
-                          <Button type="button" variant="ghost" size="sm">
-                            <Paperclip className="w-4 h-4" />
+                    {/* Message Input */}
+                    <div className="p-4 border-t border-gray-200 bg-white">
+                      <form onSubmit={handleSendMessage} className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 p-2 border border-gray-200 rounded-lg focus-within:border-purple-500">
+                            <Input
+                              ref={inputRef}
+                              value={newMessage}
+                              onChange={(e) => setNewMessage(e.target.value)}
+                              placeholder={
+                                activeConversation.status === "DECLINED"
+                                  ? "Conversation declined"
+                                  : activeConversation.status === "PENDING"
+                                  ? "Wait for acceptance before sending"
+                                  : "Type a message..."
+                              }
+                              className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                              disabled={activeConversation.status !== "ACCEPTED"}
+                            />
+                            <EmojiPicker disabled={activeConversation.status !== "ACCEPTED"} onSelect={insertEmoji} />
+                          </div>
+                        </div>
+                        <Button
+                          type="submit"
+                          disabled={!newMessage.trim() || activeConversation.status !== "ACCEPTED"}
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </form>
+                      {activeConversation.status === "PENDING" && activeConversation.requestedBy !== user?.id && (
+                        <div className="flex gap-2 mt-3">
+                          <Button size="sm" onClick={() => acceptConversation(activeConversation.id)}>
+                            Accept
                           </Button>
-                          <Input
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder="Type a message..."
-                            className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                          />
-                          <Button type="button" variant="ghost" size="sm">
-                            <Smile className="w-4 h-4" />
+                          <Button size="sm" variant="outline" onClick={() => declineConversation(activeConversation.id)}>
+                            Decline
                           </Button>
                         </div>
-                      </div>
-                      <Button type="submit" disabled={!newMessage.trim()} className="bg-purple-600 hover:bg-purple-700">
-                        <Send className="w-4 h-4" />
-                      </Button>
-                    </form>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  /* No Conversation Selected */
+                  <div className="flex-1 flex items-center justify-center bg-gray-50">
+                    <div className="text-center">
+                      <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No conversation selected</h3>
+                      <p className="text-gray-500">Choose a conversation from the sidebar to start messaging</p>
+                    </div>
                   </div>
-                </>
-              ) : (
-                /* No Conversation Selected */
-                <div className="flex-1 flex items-center justify-center bg-gray-50">
-                  <div className="text-center">
-                    <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No conversation selected</h3>
-                    <p className="text-gray-500">Choose a conversation from the sidebar to start messaging</p>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.type === "delete" ? "Delete conversation?" : "Clear chat history?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.type === "delete"
+                ? "This removes the conversation from your list."
+                : "This clears the message history for this conversation."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={confirmAction?.type === "delete" ? "bg-red-600 hover:bg-red-700" : ""}
+              onClick={handleConfirmAction}
+            >
+              {confirmAction?.type === "delete" ? "Delete" : "Clear"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

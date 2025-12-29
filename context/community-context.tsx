@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
 
 export interface Comment {
   id: string
@@ -123,7 +123,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const refreshPosts = async () => {
+  const refreshPosts = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
@@ -135,11 +135,11 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     void refreshPosts()
-  }, [])
+  }, [refreshPosts])
 
   const createPost = async (post: {
     title: string

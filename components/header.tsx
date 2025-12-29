@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Bell, User, LogOut, Settings, Calendar, MessageSquare, MapPin, Users } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
+import { useMessaging } from "@/context/messaging-context"
 import { AuthModal } from "@/components/auth-modal"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 export function Header() {
   const { user, logout } = useAuth()
+  const { unreadCount } = useMessaging()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const pathname = usePathname()
 
@@ -19,7 +21,7 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
+        <div className="flex h-16 items-center justify-between w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-6">
             <Link href="/" className="flex items-center space-x-2">
               <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
@@ -56,9 +58,11 @@ export function Header() {
                 >
                   <MessageSquare className="h-4 w-4" />
                   <span>Messages</span>
-                  <Badge variant="secondary" className="ml-1">
-                    3
-                  </Badge>
+                  {unreadCount > 0 && (
+                    <Badge variant="secondary" className="ml-1">
+                      {unreadCount}
+                    </Badge>
+                  )}
                 </Link>
               </nav>
             )}
