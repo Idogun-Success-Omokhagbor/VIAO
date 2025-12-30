@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Send } from "lucide-react"
+import { Send, Check, CheckCheck } from "lucide-react"
 import { EmojiPicker } from "@/components/emoji-picker"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
@@ -88,6 +88,15 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
     otherParticipant?.isOnline ??
     (!!otherParticipant?.lastSeen && new Date().getTime() - new Date(otherParticipant.lastSeen).getTime() < 5 * 60 * 1000)
 
+  const renderStatus = (isOwn: boolean, deliveredAt: string | null, readAt: string | null) => {
+    if (!isOwn) return null
+    if (readAt) {
+      return <CheckCheck className="h-4 w-4 text-blue-600" />
+    }
+    if (deliveredAt) return <CheckCheck className="h-4 w-4 text-gray-400" />
+    return <Check className="h-4 w-4 text-gray-400" />
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md h-[600px] p-0">
@@ -151,9 +160,9 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
                             minute: "2-digit",
                           })}
                         </span>
-                        {message.senderId === user?.id && (
-                          <span className="text-xs opacity-70">{message.readAt ? "Read" : "Sent"}</span>
-                        )}
+                        <span className="flex items-center gap-1">
+                          {renderStatus(message.senderId === user?.id, message.deliveredAt ?? null, message.readAt)}
+                        </span>
                       </div>
                     </div>
                   </div>

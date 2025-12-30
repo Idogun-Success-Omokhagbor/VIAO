@@ -7,6 +7,7 @@ import { AuthProvider } from "@/context/auth-context"
 import { EventsProvider } from "@/context/events-context"
 import { CommunityProvider } from "@/context/community-context"
 import { MessagingProvider } from "@/context/messaging-context"
+import { NotificationProvider } from "@/context/notification-context"
 import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -30,8 +31,10 @@ export default function RootLayout({
             <EventsProvider>
               <CommunityProvider>
                 <MessagingProvider>
-                  {children}
-                  <Toaster />
+                  <NotificationProvider>
+                    {children}
+                    <Toaster />
+                  </NotificationProvider>
                 </MessagingProvider>
               </CommunityProvider>
             </EventsProvider>

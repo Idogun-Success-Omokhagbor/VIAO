@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmojiPicker } from "@/components/emoji-picker"
-import { Send, Search, MessageSquare, User } from "lucide-react"
+import { Send, Search, MessageSquare, User, Check, CheckCheck } from "lucide-react"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
 import { formatTimeAgo } from "@/lib/utils"
@@ -113,6 +113,20 @@ export default function MessagesPage() {
   const filteredConversations = conversations.filter((conv) =>
     conv.participants.some((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase())),
   )
+
+  const otherParticipant = activeConversation?.participants.find((p) => p.id !== user?.id)
+
+  const renderStatus = (message: typeof conversationMessages[number]) => {
+    const isOwnMessage = message.senderId === user?.id
+    if (!isOwnMessage) return null
+    if (message.readAt) {
+      return <CheckCheck className="h-4 w-4 text-blue-600" />
+    }
+    if (message.deliveredAt) {
+      return <CheckCheck className="h-4 w-4 text-gray-400" />
+    }
+    return <Check className="h-4 w-4 text-gray-400" />
+  }
 
   return (
     <>
@@ -284,9 +298,12 @@ export default function MessagesPage() {
                                 }`}
                               >
                                 <p className="text-sm">{message.content}</p>
-                                <p className={`text-xs mt-1 ${isOwnMessage ? "text-purple-200" : "text-gray-500"}`}>
-                                  {formatTimeAgo(message.timestamp)}
-                                </p>
+                                <div className="flex items-center justify-end gap-1 mt-1 text-xs">
+                                  <span className={isOwnMessage ? "text-purple-200" : "text-gray-500"}>
+                                    {formatTimeAgo(message.timestamp)}
+                                  </span>
+                                  {renderStatus(message)}
+                                </div>
                               </div>
                             </div>
                           </div>

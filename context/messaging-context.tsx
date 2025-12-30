@@ -1,8 +1,12 @@
 "use client"
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { usePathname } from "next/navigation"
 import type { Message, Conversation, ConversationStatus } from "@/types/messaging"
 import { useAuth } from "@/context/auth-context"
+import { createWsClient } from "@/lib/ws-client"
+
+const ACTIVE_POLL_MS = 5000
 
 interface MessagingContextType {
   conversations: Conversation[]
@@ -38,10 +42,9 @@ interface MessagingProviderProps {
   children: ReactNode
 }
 
-const ACTIVE_POLL_MS = 5000
-
 export function MessagingProvider({ children }: MessagingProviderProps) {
   const { user } = useAuth()
+  const pathname = usePathname()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -65,6 +68,7 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     content: m.content,
     timestamp: m.timestamp ?? m.createdAt ?? new Date().toISOString(),
     readAt: m.readAt ?? null,
+    deliveredAt: m.deliveredAt ?? null,
     type: "text",
   })
 
@@ -96,6 +100,38 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     }
   }
 
+  // WebSocket live updates
+  useEffect(() => {
+    if (!user?.id) return
+    const client = createWsClient({
+      userId: user.id,
+      onMessage: (data) => {
+        if (!data || typeof data !== "object") return
+        if (data.type === "message:new" && data.message) {
+          const m = mapMessage(data.message)
+          setMessages((prev) => {
+            if (prev.some((x) => x.id === m.id)) return prev
+            return [...prev, m]
+          })
+          setConversations((prev) => {
+            const existing = prev.find((c) => c.id === m.conversationId)
+            if (existing) {
+              const unreadBump =
+                m.senderId !== user.id && activeConversation?.id !== m.conversationId ? (existing.unreadCount || 0) + 1 : existing.unreadCount || 0
+              return prev.map((c) =>
+                c.id === m.conversationId
+                  ? { ...c, lastMessage: m, unreadCount: unreadBump, updatedAt: m.timestamp }
+                  : c,
+              )
+            }
+            return prev
+          })
+        }
+      },
+    })
+    return () => client.close()
+  }, [user?.id, activeConversation?.id])
+
   const fetchMessages = async (conversationId: string) => {
     if (!user) return
     try {
@@ -119,7 +155,6 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
         return combined
       })
       setLoadedConversations((prev) => new Set(prev).add(conversationId))
-      void markAsRead(conversationId)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load messages"
       setError(message)
@@ -136,11 +171,14 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     const interval = setInterval(() => {
       void fetchConversations()
       if (activeConversation) {
-        void fetchMessages(activeConversation.id)
+        void fetchMessages(activeConversation.id).then(() => {
+          if (pathname !== "/messages") return
+          void markAsRead(activeConversation.id)
+        })
       }
     }, ACTIVE_POLL_MS)
     return () => clearInterval(interval)
-  }, [user?.id, activeConversation?.id])
+  }, [user?.id, activeConversation?.id, pathname])
 
   const sendMessage: MessagingContextType["sendMessage"] = async (conversationId, content) => {
     if (!content.trim()) return
@@ -195,7 +233,11 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
       await fetch(`/api/messaging/conversations/${conversationId}/read`, { method: "POST", credentials: "include" })
       setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c)))
       setMessages((prev) =>
-        prev.map((m) => (m.conversationId === conversationId && !m.readAt ? { ...m, readAt: new Date().toISOString() } : m)),
+        prev.map((m) =>
+          m.conversationId === conversationId && m.senderId !== user?.id && !m.readAt
+            ? { ...m, readAt: new Date().toISOString() }
+            : m,
+        ),
       )
     } catch {
       // silent
@@ -313,11 +355,15 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
   useEffect(() => {
     if (!activeConversation) return
     if (!loadedConversations.has(activeConversation.id)) {
-      void fetchMessages(activeConversation.id)
+      void fetchMessages(activeConversation.id).then(() => {
+        if (pathname !== "/messages") return
+        void markAsRead(activeConversation.id)
+      })
     } else {
+      if (pathname !== "/messages") return
       void markAsRead(activeConversation.id)
     }
-  }, [activeConversation?.id])
+  }, [activeConversation?.id, pathname])
 
   const value: MessagingContextType = {
     conversations,

@@ -6,6 +6,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { mapPost } from "../../route"
+import { createNotification } from "@/lib/notifications"
 
 const createCommentSchema = z.object({
   content: z.string().min(1),
@@ -33,6 +34,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       include: { author: true, comments: { include: { author: true }, orderBy: { createdAt: "desc" } } },
     })
     if (!post) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    if (post.authorId !== session.sub) {
+      const actor = await prisma.user.findUnique({ where: { id: session.sub }, select: { name: true } })
+      await createNotification({
+        userId: post.authorId,
+        type: "COMMENT",
+        title: `${actor?.name || "Someone"} commented on your post`,
+        body: parsed.data.content.slice(0, 120),
+        data: { postId: params.id, actorId: session.sub },
+      })
+    }
+
     return NextResponse.json({ post: await mapPost(post, session.sub) })
   } catch (error) {
     console.error("POST /api/community/posts/[id]/comments error:", error)

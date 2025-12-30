@@ -3,12 +3,14 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Bell, User, LogOut, Settings, Calendar, MessageSquare, MapPin, Users } from "lucide-react"
+import { User, LogOut, Settings, Calendar, MessageSquare, MapPin, Users } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useMessaging } from "@/context/messaging-context"
 import { AuthModal } from "@/components/auth-modal"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { NotificationDropdown } from "@/components/notification-dropdown"
+import { useNotifications } from "@/context/notification-context"
 
 export function Header() {
   const { user, logout } = useAuth()
@@ -71,12 +73,7 @@ export function Header() {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-4 w-4" />
-                  <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">
-                    2
-                  </Badge>
-                </Button>
+                <NotificationDropdown />
 
                 <Link href="/account" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
                   <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">

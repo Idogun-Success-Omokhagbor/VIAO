@@ -5,6 +5,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { mapPost } from "../../../../route"
+import { createNotification } from "@/lib/notifications"
 
 export async function POST(_: Request, { params }: { params: { id: string; commentId: string } }) {
   const session = await getSessionUser()
@@ -27,6 +28,17 @@ export async function POST(_: Request, { params }: { params: { id: string; comme
       include: { author: true, comments: { include: { author: true }, orderBy: { createdAt: "desc" } } },
     })
     if (!post) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    if (existing.authorId && existing.authorId !== session.sub) {
+      const actor = await prisma.user.findUnique({ where: { id: session.sub }, select: { name: true } })
+      await createNotification({
+        userId: existing.authorId,
+        type: "LIKE",
+        title: `${actor?.name || "Someone"} liked your comment`,
+        body: existing.content?.slice(0, 120) ?? "Your comment received a like.",
+        data: { postId: params.id, commentId: params.commentId, actorId: session.sub },
+      })
+    }
 
     return NextResponse.json({ post: await mapPost(post, session.sub) })
   } catch (error) {

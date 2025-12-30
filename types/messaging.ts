@@ -7,6 +7,7 @@ export interface Message {
   content: string
   timestamp: string
   readAt?: string | null
+  deliveredAt?: string | null
   type?: "text"
 }
 

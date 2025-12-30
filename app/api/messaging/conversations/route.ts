@@ -5,6 +5,7 @@ import { z } from "zod"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
+import { ensureWSServer } from "@/lib/ws-server"
 
 const createSchema = z.object({
   userId: z.string().min(1),
@@ -51,6 +52,7 @@ async function mapConversation(conv: any, currentUserId: string) {
         content: lastMessageRaw.content,
         timestamp: lastMessageRaw.createdAt.toISOString(),
         readAt: lastMessageRaw.readAt ? lastMessageRaw.readAt.toISOString() : null,
+        deliveredAt: lastMessageRaw.deliveredAt ? lastMessageRaw.deliveredAt.toISOString() : null,
         type: "text",
       }
     : undefined
@@ -84,6 +86,7 @@ async function mapConversation(conv: any, currentUserId: string) {
 }
 
 export async function GET() {
+  ensureWSServer()
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

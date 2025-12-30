@@ -5,6 +5,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { mapPost } from "../../route"
+import { createNotification } from "@/lib/notifications"
 
 export async function POST(_: Request, { params }: { params: { id: string } }) {
   const session = await getSessionUser()
@@ -24,6 +25,18 @@ export async function POST(_: Request, { params }: { params: { id: string } }) {
       } as any,
       include: { author: true, comments: { include: { author: true } } },
     })) as any
+
+    if (post.author?.id && post.author.id !== session.sub) {
+      const actor = await prisma.user.findUnique({ where: { id: session.sub }, select: { name: true } })
+      await createNotification({
+        userId: post.author.id,
+        type: "LIKE",
+        title: `${actor?.name || "Someone"} liked your post`,
+        body: post.title ?? "Your post received a new like.",
+        data: { postId: params.id, actorId: session.sub },
+      })
+    }
+
     return NextResponse.json({ post: await mapPost(post, session.sub) })
   } catch (error) {
     console.error("POST /api/community/posts/[id]/like error:", error)
