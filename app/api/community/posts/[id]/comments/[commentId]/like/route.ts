@@ -36,7 +36,8 @@ export async function POST(_: Request, { params }: { params: { id: string; comme
         type: "LIKE",
         title: `${actor?.name || "Someone"} liked your comment`,
         body: existing.content?.slice(0, 120) ?? "Your comment received a like.",
-        data: { postId: params.id, commentId: params.commentId, actorId: session.sub },
+        data: { postId: params.id, commentId: params.commentId, actorId: session.sub, url: "/community" },
+        channel: "PUSH",
       })
     }
 

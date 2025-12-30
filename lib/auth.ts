@@ -15,6 +15,7 @@ export interface SessionPayload extends JWTPayload {
   sub: string
   role: Role
   email: string
+  sid?: string
 }
 
 export async function createSessionToken(payload: SessionPayload) {

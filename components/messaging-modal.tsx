@@ -13,8 +13,9 @@ import { Send, Check, CheckCheck } from "lucide-react"
 import { EmojiPicker } from "@/components/emoji-picker"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
+import { getAvatarSrc, formatTimeAgo } from "@/lib/utils"
 import type { Message, Conversation } from "@/types/messaging"
-import { formatTimeAgo } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 interface MessagingModalProps {
   isOpen: boolean
@@ -25,6 +26,10 @@ interface MessagingModalProps {
 export function MessagingModal({ isOpen, onClose, conversation }: MessagingModalProps) {
   const { user } = useAuth()
   const { sendMessage, messages, acceptConversation, declineConversation } = useMessaging()
+  const router = useRouter()
+  const goToUser = (targetUserId: string) => {
+    router.push(user?.id === targetUserId ? "/account" : `/profile/${targetUserId}`)
+  }
   const [newMessage, setNewMessage] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -106,12 +111,23 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
             <DialogHeader className="p-4 border-b">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={otherParticipant.avatar || "/placeholder.svg"} />
-                    <AvatarFallback>{otherParticipant.name.charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <DialogTitle className="text-base">{otherParticipant.name}</DialogTitle>
+                  <button
+                    type="button"
+                    className="flex items-center gap-3"
+                    onClick={() => {
+                      onClose()
+                      goToUser(otherParticipant.id)
+                    }}
+                  >
+                    <Avatar className="cursor-pointer">
+                      <AvatarImage src={getAvatarSrc(otherParticipant.name, otherParticipant.avatar)} />
+                      <AvatarFallback>{otherParticipant.name.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <DialogTitle className="text-base hover:text-purple-600 transition-colors">{otherParticipant.name}</DialogTitle>
+                    </div>
+                  </button>
+                  <div className="hidden">
                     <div className="flex items-center gap-2 text-xs">
                       {isOnline ? (
                         <span className="text-green-600">Online</span>
@@ -161,7 +177,7 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
                           })}
                         </span>
                         <span className="flex items-center gap-1">
-                          {renderStatus(message.senderId === user?.id, message.deliveredAt ?? null, message.readAt)}
+                          {renderStatus(message.senderId === user?.id, message.deliveredAt ?? null, message.readAt ?? null)}
                         </span>
                       </div>
                     </div>

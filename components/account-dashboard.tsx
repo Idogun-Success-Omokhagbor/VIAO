@@ -13,9 +13,11 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { User, Bell, Shield, CreditCard, Settings, Camera, Edit3, Save, X } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
+import { getAvatarSrc } from "@/lib/utils"
 
 export function AccountDashboard() {
   const { user, updateProfile } = useAuth()
+  const avatarSrc = getAvatarSrc(user?.name, user?.avatarUrl ?? (user as any)?.avatar)
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -86,7 +88,7 @@ export function AccountDashboard() {
               {/* Profile Picture */}
               <div className="flex items-center gap-4">
                 <Avatar className="w-20 h-20">
-                  <AvatarImage src={user?.avatar || "/placeholder.svg"} />
+                  <AvatarImage src={avatarSrc} />
                   <AvatarFallback className="text-lg">{user?.name?.charAt(0)?.toUpperCase() || "U"}</AvatarFallback>
                 </Avatar>
                 <div>

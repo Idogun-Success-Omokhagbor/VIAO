@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,22 +12,35 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { User, Mail, Phone, MapPin, Calendar, Shield, Eye, Lock, Camera, Save, Trash2 } from "lucide-react"
+import { User, Mail, Phone, MapPin, Calendar, Eye, EyeOff, Lock, Camera, Save, Trash2 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useToast } from "@/hooks/use-toast"
+import { getAvatarSrc } from "@/lib/utils"
+import { ConfirmDialog } from "@/components/confirm-dialog"
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/")
+  const rawData = window.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; i++) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+  return outputArray
+}
 
 export default function AccountPage() {
   const router = useRouter()
-  const { user, updateUser, isAuthenticated, showAuthModal } = useAuth()
+  const { user, updateUser, isAuthenticated, showAuthModal, refresh } = useAuth()
   const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [isConfiguringPush, setIsConfiguringPush] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
     phone: user?.phone || "",
-    location: user?.location || "",
     bio: user?.bio || "",
   })
 
@@ -35,7 +48,62 @@ export default function AccountPage() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmNewPassword, setConfirmNewPassword] = useState("")
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
+  const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false)
+
+  const [sessions, setSessions] = useState<
+    Array<{
+      id: string
+      userAgent: string | null
+      ip: string | null
+      lastSeenAt: string | null
+      createdAt: string
+      updatedAt: string
+      expiresAt: string
+    }>
+  >([])
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false)
+  const [isRevokingOtherSessions, setIsRevokingOtherSessions] = useState(false)
+
+  const fetchSessions = async () => {
+    setIsLoadingSessions(true)
+    try {
+      const res = await fetch("/api/account/sessions", { credentials: "include" })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) return
+      setCurrentSessionId(json?.currentSessionId ?? null)
+      setSessions(Array.isArray(json?.sessions) ? json.sessions : [])
+    } finally {
+      setIsLoadingSessions(false)
+    }
+  }
+
+  const handleSignOutOtherSessions = async () => {
+    setIsRevokingOtherSessions(true)
+    try {
+      const res = await fetch("/api/account/sessions", { method: "POST", credentials: "include" })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to sign out other sessions")
+      }
+      toast({ title: "Signed out", description: "All other sessions have been signed out." })
+      await fetchSessions()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to sign out other sessions"
+      toast({ title: "Error", description: message })
+    } finally {
+      setIsRevokingOtherSessions(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    void fetchSessions()
+  }, [isAuthenticated])
 
   if (!isAuthenticated) {
     return (
@@ -73,18 +141,28 @@ export default function AccountPage() {
       name: user?.name || "",
       email: user?.email || "",
       phone: user?.phone || "",
-      location: user?.location || "",
       bio: user?.bio || "",
     })
     setIsEditing(false)
   }
 
   const handleAvatarUpload = async (file: File) => {
+    if (!file.type?.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file." })
+      return
+    }
+
+    const MAX_AVATAR_BYTES = 2 * 1024 * 1024
+    if (file.size > MAX_AVATAR_BYTES) {
+      toast({ title: "Image too large", description: "Please choose an image under 2MB." })
+      return
+    }
+
     setIsUploadingAvatar(true)
     try {
       const form = new FormData()
       form.append("file", file)
-      const res = await fetch("/api/upload", { method: "POST", body: form })
+      const res = await fetch("/api/upload", { method: "POST", body: form, credentials: "include" })
       if (!res.ok) {
         throw new Error("Upload failed")
       }
@@ -111,6 +189,89 @@ export default function AccountPage() {
         title: "Preference updated",
         description: "Your notification preference has been updated.",
       })
+    }
+  }
+
+  const setPreference = async (key: string, value: boolean) => {
+    if (!user) return
+    await updateUser({
+      preferences: {
+        ...user.preferences,
+        [key]: value,
+      },
+    })
+  }
+
+  const enablePushNotifications = async () => {
+    if (typeof window === "undefined") throw new Error("Not available")
+    if (!("serviceWorker" in navigator)) throw new Error("Service workers are not supported")
+    if (!("PushManager" in window)) throw new Error("Push notifications are not supported")
+
+    const permission = await Notification.requestPermission()
+    if (permission !== "granted") {
+      throw new Error("Notification permission denied")
+    }
+
+    const registration = await navigator.serviceWorker.register("/sw.js")
+    await navigator.serviceWorker.ready
+
+    const keyRes = await fetch("/api/push/vapid-public-key", { credentials: "include" })
+    const keyJson = await keyRes.json().catch(() => null)
+    if (!keyRes.ok || !keyJson?.publicKey) throw new Error(keyJson?.error || "Missing VAPID public key")
+
+    const applicationServerKey = urlBase64ToUint8Array(String(keyJson.publicKey))
+
+    const existing = await registration.pushManager.getSubscription()
+    const subscription =
+      existing ??
+      (await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      }))
+
+    const saveRes = await fetch("/api/push/subscription", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(subscription.toJSON()),
+    })
+
+    if (!saveRes.ok) {
+      const data = await saveRes.json().catch(() => null)
+      throw new Error(data?.error || "Failed to save push subscription")
+    }
+  }
+
+  const disablePushNotifications = async () => {
+    if (typeof window === "undefined") return
+    if (!("serviceWorker" in navigator)) return
+
+    const registration = await navigator.serviceWorker.getRegistration()
+    const subscription = await registration?.pushManager.getSubscription()
+    await subscription?.unsubscribe().catch(() => null)
+
+    await fetch("/api/push/subscription", { method: "DELETE", credentials: "include" }).catch(() => null)
+  }
+
+  const handlePushToggle = async (checked: boolean) => {
+    if (!user) return
+    setIsConfiguringPush(true)
+    try {
+      if (checked) {
+        await enablePushNotifications()
+        await setPreference("pushNotifications", true)
+        toast({ title: "Push enabled", description: "Browser push notifications are enabled." })
+      } else {
+        await disablePushNotifications()
+        await setPreference("pushNotifications", false)
+        toast({ title: "Push disabled", description: "Browser push notifications are disabled." })
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update push notifications"
+      await setPreference("pushNotifications", false)
+      toast({ title: "Push error", description: message })
+    } finally {
+      setIsConfiguringPush(false)
     }
   }
 
@@ -150,9 +311,6 @@ export default function AccountPage() {
   }
 
   const handleDeleteAccount = async () => {
-    const ok = window.confirm("Delete your account? This cannot be undone.")
-    if (!ok) return
-
     setIsDeletingAccount(true)
     try {
       const res = await fetch("/api/account", { method: "DELETE", credentials: "include" })
@@ -160,6 +318,10 @@ export default function AccountPage() {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || "Failed to delete account")
       }
+
+      setIsDeleteAccountDialogOpen(false)
+      toast({ title: "Account deleted", description: "Your account has been deleted." })
+      await refresh()
       router.replace("/")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to delete account"
@@ -170,16 +332,34 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-full min-h-0 bg-gray-50 overflow-y-auto">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
+          <ConfirmDialog
+            open={isDeleteAccountDialogOpen}
+            onOpenChange={(open) => {
+              if (isDeletingAccount) return
+              setIsDeleteAccountDialogOpen(open)
+            }}
+            title="Delete account"
+            description="This will permanently delete your account and all your data. This action cannot be undone."
+            confirmLabel="Delete"
+            cancelLabel="Cancel"
+            tone="danger"
+            loading={isDeletingAccount}
+            onConfirm={() => {
+              void (async () => {
+                await handleDeleteAccount()
+              })()
+            }}
+          />
           {/* Header */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <Avatar className="h-20 w-20">
-                    <AvatarImage src={user?.avatarUrl || "/placeholder.svg"} alt={user?.name} />
+                    <AvatarImage src={getAvatarSrc(user?.name, user?.avatarUrl)} alt={user?.name} />
                     <AvatarFallback className="text-lg">
                       {user?.name
                         ?.split(" ")
@@ -207,7 +387,8 @@ export default function AccountPage() {
                     accept="image/*"
                     className="hidden"
                     onChange={(e) => {
-                      const file = e.target.files?.[0]
+                      const file = e.currentTarget.files?.[0]
+                      e.currentTarget.value = ""
                       if (file) {
                         void handleAvatarUpload(file)
                       }
@@ -294,17 +475,10 @@ export default function AccountPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="location">Location</Label>
+                      <Label>Location</Label>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input
-                          id="location"
-                          value={formData.location}
-                          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                          disabled={!isEditing}
-                          className="pl-10"
-                          placeholder="City, State"
-                        />
+                        <Input id="location" value={user?.location || "Not set"} disabled className="pl-10" />
                       </div>
                     </div>
                   </div>
@@ -365,7 +539,8 @@ export default function AccountPage() {
                       </div>
                       <Switch
                         checked={!!(user?.preferences as any)?.pushNotifications}
-                        onCheckedChange={(checked) => handlePreferenceChange("pushNotifications", checked)}
+                        disabled={isConfiguringPush}
+                        onCheckedChange={(checked) => void handlePushToggle(checked)}
                       />
                     </div>
 
@@ -390,7 +565,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Stay updated with community posts and discussions</p>
                       </div>
                       <Switch
-                        checked={!!(user?.preferences as any)?.communityUpdates}
+                        checked={(user?.preferences as any)?.communityUpdates ?? true}
                         onCheckedChange={(checked) => handlePreferenceChange("communityUpdates", checked)}
                       />
                     </div>
@@ -403,21 +578,8 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Get notified when you receive new messages</p>
                       </div>
                       <Switch
-                        checked={!!(user?.preferences as any)?.messageNotifications}
+                        checked={(user?.preferences as any)?.messageNotifications ?? true}
                         onCheckedChange={(checked) => handlePreferenceChange("messageNotifications", checked)}
-                      />
-                    </div>
-
-                    <Separator />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Weekly Digest</Label>
-                        <p className="text-sm text-gray-600">Receive a weekly summary of activities</p>
-                      </div>
-                      <Switch
-                        checked={!!(user?.preferences as any)?.weeklyDigest}
-                        onCheckedChange={(checked) => handlePreferenceChange("weeklyDigest", checked)}
                       />
                     </div>
                   </div>
@@ -439,7 +601,10 @@ export default function AccountPage() {
                         <Label className="text-base">Profile Visibility</Label>
                         <p className="text-sm text-gray-600">Make your profile visible to other users</p>
                       </div>
-                      <Switch defaultChecked />
+                      <Switch
+                        checked={(user?.preferences as any)?.profileVisibility ?? true}
+                        onCheckedChange={(checked) => handlePreferenceChange("profileVisibility", checked)}
+                      />
                     </div>
 
                     <Separator />
@@ -449,7 +614,10 @@ export default function AccountPage() {
                         <Label className="text-base">Show Online Status</Label>
                         <p className="text-sm text-gray-600">Let others see when you're online</p>
                       </div>
-                      <Switch defaultChecked />
+                      <Switch
+                        checked={(user?.preferences as any)?.showOnlineStatus ?? true}
+                        onCheckedChange={(checked) => handlePreferenceChange("showOnlineStatus", checked)}
+                      />
                     </div>
 
                     <Separator />
@@ -459,31 +627,20 @@ export default function AccountPage() {
                         <Label className="text-base">Event History</Label>
                         <p className="text-sm text-gray-600">Show events you've attended on your profile</p>
                       </div>
-                      <Switch defaultChecked />
-                    </div>
-
-                    <Separator />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Location Sharing</Label>
-                        <p className="text-sm text-gray-600">Share your location for better event recommendations</p>
-                      </div>
-                      <Switch />
+                      <Switch
+                        checked={(user?.preferences as any)?.eventHistory ?? true}
+                        onCheckedChange={(checked) => handlePreferenceChange("eventHistory", checked)}
+                      />
                     </div>
                   </div>
 
                   <div className="pt-6 border-t">
                     <h3 className="text-lg font-medium mb-4">Data Management</h3>
                     <div className="space-y-3">
-                      <Button variant="outline" className="w-full justify-start bg-transparent">
-                        <Eye className="h-4 w-4 mr-2" />
-                        Download My Data
-                      </Button>
                       <Button
                         variant="outline"
                         className="w-full justify-start text-red-600 hover:text-red-700 bg-transparent"
-                        onClick={handleDeleteAccount}
+                        onClick={() => setIsDeleteAccountDialogOpen(true)}
                         disabled={isDeletingAccount}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
@@ -507,9 +664,57 @@ export default function AccountPage() {
                     <div className="space-y-2">
                       <Label>Change Password</Label>
                       <div className="space-y-3">
-                        <Input type="password" placeholder="Current password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
-                        <Input type="password" placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-                        <Input type="password" placeholder="Confirm new password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+                        <div className="relative">
+                          <Input
+                            type={showCurrentPassword ? "text" : "password"}
+                            placeholder="Current password"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPassword((v) => !v)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                          >
+                            {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type={showNewPassword ? "text" : "password"}
+                            placeholder="New password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword((v) => !v)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            aria-label={showNewPassword ? "Hide password" : "Show password"}
+                          >
+                            {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type={showConfirmNewPassword ? "text" : "password"}
+                            placeholder="Confirm new password"
+                            value={confirmNewPassword}
+                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmNewPassword((v) => !v)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            aria-label={showConfirmNewPassword ? "Hide password" : "Show password"}
+                          >
+                            {showConfirmNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
                         <Button className="w-full" onClick={handleChangePassword} disabled={isUpdatingPassword}>
                           <Lock className="h-4 w-4 mr-2" />
                           {isUpdatingPassword ? "Updating..." : "Update Password"}
@@ -520,31 +725,42 @@ export default function AccountPage() {
                     <Separator />
 
                     <div className="space-y-2">
-                      <Label>Two-Factor Authentication</Label>
-                      <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
-                      <Button variant="outline" className="w-full bg-transparent">
-                        <Shield className="h-4 w-4 mr-2" />
-                        Enable Two-Factor Authentication
-                      </Button>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-2">
                       <Label>Active Sessions</Label>
                       <p className="text-sm text-gray-600">
                         Manage devices that are currently signed in to your account
                       </p>
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium">Current Device</p>
-                            <p className="text-sm text-gray-600">Chrome on macOS • Active now</p>
+                        {isLoadingSessions ? (
+                          <div className="text-sm text-gray-600">Loading sessions...</div>
+                        ) : sessions.length ? (
+                          sessions.map((s) => {
+                            const isCurrent = !!currentSessionId && s.id === currentSessionId
+                            const title = isCurrent ? "Current Session" : "Signed-in Device"
+                            const subtitle = s.userAgent || "Unknown device"
+                            const lastSeen = s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleString() : null
+                            return (
+                              <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div>
+                                  <p className="font-medium">{title}</p>
+                                  <p className="text-sm text-gray-600">{subtitle}</p>
+                                  {lastSeen ? <p className="text-xs text-gray-500">Last seen {lastSeen}</p> : null}
+                                </div>
+                                {isCurrent ? <Badge variant="secondary">Current</Badge> : null}
+                              </div>
+                            )
+                          })
+                        ) : (
+                          <div className="text-sm text-gray-600">
+                            No active sessions found. If you just updated the app, log out and sign in again.
                           </div>
-                          <Badge variant="secondary">Current</Badge>
-                        </div>
+                        )}
                       </div>
-                      <Button variant="outline" className="w-full bg-transparent">
+                      <Button
+                        variant="outline"
+                        className="w-full bg-transparent"
+                        disabled={!currentSessionId || isRevokingOtherSessions}
+                        onClick={() => void handleSignOutOtherSessions()}
+                      >
                         Sign Out All Other Sessions
                       </Button>
                     </div>

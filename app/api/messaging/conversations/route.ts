@@ -60,6 +60,9 @@ async function mapConversation(conv: any, currentUserId: string) {
   const now = Date.now()
   const ONLINE_WINDOW_MS = 2 * 60 * 1000
 
+  const viewerPrefs = ((selfParticipant?.user?.preferences ?? {}) as Record<string, unknown>) ?? {}
+  const viewerAllowsPresence = (viewerPrefs.showOnlineStatus as boolean | undefined) ?? true
+
   return {
     id: conv.id,
     status: conv.status,
@@ -68,16 +71,22 @@ async function mapConversation(conv: any, currentUserId: string) {
     createdAt: conv.createdAt.toISOString(),
     participants:
       conv.participants?.map((p: any) => {
-        const userLastSeen = p.user.lastSeenAt ? new Date(p.user.lastSeenAt).getTime() : 0
-        const fallback = p.user.updatedAt ? new Date(p.user.updatedAt).getTime() : 0
-        const lastSeenMs = Math.max(userLastSeen, fallback)
+        const prefs = ((p.user?.preferences ?? {}) as Record<string, unknown>) ?? {}
+        const showOnlineStatus = (prefs.showOnlineStatus as boolean | undefined) ?? true
+
+        const canViewPresence = p.user.id === currentUserId ? true : viewerAllowsPresence && showOnlineStatus
+
+        const userLastSeen = canViewPresence && p.user.lastSeenAt ? new Date(p.user.lastSeenAt).getTime() : 0
+        const lastSeenMs = userLastSeen
+        const isOnline = canViewPresence && lastSeenMs ? now - lastSeenMs < ONLINE_WINDOW_MS : undefined
+
         return {
           id: p.user.id,
           name: p.user.name,
           avatar: p.user.avatarUrl ?? undefined,
           location: p.user.location ?? null,
-          lastSeen: new Date(lastSeenMs).toISOString(),
-          isOnline: now - lastSeenMs < ONLINE_WINDOW_MS,
+          lastSeen: canViewPresence && lastSeenMs ? new Date(lastSeenMs).toISOString() : undefined,
+          isOnline,
         }
       }) ?? [],
     lastMessage,

@@ -51,7 +51,9 @@ export async function POST(request: Request) {
       },
     })
 
-    const token = await makeSession(user)
+    const userAgent = request.headers.get("user-agent")
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip")
+    const token = await makeSession(user, { userAgent, ip })
     const response = NextResponse.json(
       {
         user: {

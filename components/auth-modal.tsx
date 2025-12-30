@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Mail, Lock, User, MapPin, Calendar, Eye, EyeOff } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { X, Mail, Lock, User, Calendar, Eye, EyeOff } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { toast } from "sonner"
 
@@ -22,6 +23,7 @@ interface AuthModalProps {
 
 export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalProps) {
   const { login, signup } = useAuth()
+  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [signInError, setSignInError] = useState<string | null>(null)
   const [signUpError, setSignUpError] = useState<string | null>(null)
@@ -63,7 +65,6 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
     password: "",
     confirmPassword: "",
     userType: "USER" as "USER" | "ORGANIZER",
-    location: "",
     interests: [] as string[],
     agreeToTerms: false,
   })
@@ -176,7 +177,6 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
       !signUpData.email.trim() ||
       !signUpData.password.trim() ||
       !signUpData.confirmPassword.trim() ||
-      !signUpData.location.trim() ||
       !signUpData.agreeToTerms
     ) {
       toast.error("Please fill all required fields")
@@ -207,7 +207,8 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
     try {
       await signup(signUpData.name, signUpData.email, signUpData.password, signUpData.userType, signUpData.interests)
       toast.success("Account created successfully!")
-      onClose()
+      router.push("/dashboard")
+      handleClose()
     } catch (error) {
       const fieldErrors = (error as any)?.fieldErrors as Record<string, string> | undefined
       if (fieldErrors) {
@@ -577,46 +578,43 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
             </TabsContent>
 
             <TabsContent value="signup" className="space-y-4">
-              {signUpError && <p className="text-sm text-red-600">{signUpError}</p>}
-              <form onSubmit={handleSignUp} className="space-y-4 md:space-y-2">
+              <form onSubmit={handleSignUp} className="space-y-4">
+                {signUpError && <p className="text-sm text-red-600">{signUpError}</p>}
+
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
+                    <Label htmlFor="signup-name">Full name</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-name"
-                      type="text"
-                      placeholder="Enter your full name"
-                      className={`pl-10 ${signUpInvalidClass(signUpData.name)} ${
-                        signUpFieldErrors.name ? "border-red-500 focus-visible:ring-red-500" : ""
-                      }`}
-                      value={signUpData.name}
-                      onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  {signUpFieldErrors.name && <p className="text-sm text-red-600">{signUpFieldErrors.name}</p>}
+                      <Input
+                        id="signup-name"
+                        type="text"
+                        placeholder="Enter your name"
+                        className={`pl-10 ${signUpInvalidClass(signUpData.name)}`}
+                        value={signUpData.name}
+                        onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    {signUpFieldErrors.name && <p className="text-sm text-red-600">{signUpFieldErrors.name}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="Enter your email"
-                      className={`pl-10 ${signUpInvalidClass(signUpData.email)} ${
-                        signUpFieldErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""
-                      }`}
-                      value={signUpData.email}
-                      onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
-                      required
-                    />
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        placeholder="Enter your email"
+                        className={`pl-10 ${signUpInvalidClass(signUpData.email)}`}
+                        value={signUpData.email}
+                        onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                    {signUpFieldErrors.email && <p className="text-sm text-red-600">{signUpFieldErrors.email}</p>}
                   </div>
-                  {signUpFieldErrors.email && <p className="text-sm text-red-600">{signUpFieldErrors.email}</p>}
-                </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
@@ -624,17 +622,15 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                     <Label htmlFor="signup-password">Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-password"
-                      type={showSignUpPassword ? "text" : "password"}
-                      placeholder="Create a password"
-                      className={`pl-10 pr-10 ${signUpInvalidClass(signUpData.password)} ${signUpMismatchClass} ${signUpTooShortClass} ${
-                        signUpFieldErrors.password ? "border-red-500 focus-visible:ring-red-500" : ""
-                      }`}
-                      value={signUpData.password}
-                      onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
-                      required
-                    />
+                      <Input
+                        id="signup-password"
+                        type={showSignUpPassword ? "text" : "password"}
+                        placeholder="Create a password"
+                        className={`pl-10 pr-10 ${signUpTooShort ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                        value={signUpData.password}
+                        onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
+                        required
+                      />
                       <button
                         type="button"
                         className="absolute right-3 top-2.5 text-muted-foreground"
@@ -643,21 +639,22 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                         {showSignUpPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
+                    {signUpFieldErrors.password && <p className="text-sm text-red-600">{signUpFieldErrors.password}</p>}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
+                    <Label htmlFor="signup-confirm-password">Confirm password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="confirm-password"
-                      type={showSignUpConfirmPassword ? "text" : "password"}
-                      placeholder="Confirm your password"
-                      className={`pl-10 pr-10 ${signUpInvalidClass(signUpData.confirmPassword)} ${signUpMismatchClass}`}
-                      value={signUpData.confirmPassword}
-                      onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
-                      required
-                    />
+                      <Input
+                        id="signup-confirm-password"
+                        type={showSignUpConfirmPassword ? "text" : "password"}
+                        placeholder="Confirm password"
+                        className={`pl-10 pr-10 ${signUpMismatchClass}`}
+                        value={signUpData.confirmPassword}
+                        onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
+                        required
+                      />
                       <button
                         type="button"
                         className="absolute right-3 top-2.5 text-muted-foreground"
@@ -666,43 +663,23 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                         {showSignUpConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    {signUpTooShort && <p className="text-sm text-red-600">Password must be at least 8 characters</p>}
-                    {signUpMismatch && <p className="text-sm text-red-600">Passwords don't match</p>}
-                    {signUpFieldErrors.password && <p className="text-sm text-red-600">{signUpFieldErrors.password}</p>}
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-location">Location</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-location"
-                        type="text"
-                        placeholder="e.g., Zurich, Switzerland"
-                        className={`pl-10 ${signUpInvalidClass(signUpData.location)}`}
-                        value={signUpData.location}
-                        onChange={(e) => setSignUpData({ ...signUpData, location: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>User Type</Label>
-                    <Select
-                      value={signUpData.userType}
-                      onValueChange={(value: "USER" | "ORGANIZER") => setSignUpData({ ...signUpData, userType: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select user type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USER">User</SelectItem>
-                        <SelectItem value="ORGANIZER">Organizer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label>Account type</Label>
+                  <Select
+                    value={signUpData.userType}
+                    onValueChange={(value) => setSignUpData({ ...signUpData, userType: value as "USER" | "ORGANIZER" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select user type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USER">User</SelectItem>
+                      <SelectItem value="ORGANIZER">Organizer</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -727,7 +704,10 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                     onCheckedChange={(checked) => setSignUpData({ ...signUpData, agreeToTerms: checked as boolean })}
                     className={signUpSubmitted && !signUpData.agreeToTerms ? "border-red-500" : ""}
                   />
-                  <Label htmlFor="terms" className={`text-sm ${signUpSubmitted && !signUpData.agreeToTerms ? "text-red-600" : ""}`}>
+                  <Label
+                    htmlFor="terms"
+                    className={`text-sm ${signUpSubmitted && !signUpData.agreeToTerms ? "text-red-600" : ""}`}
+                  >
                     I agree to the{" "}
                     <Button variant="link" className="p-0 h-auto text-sm">
                       Terms of Service

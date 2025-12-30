@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Heart, MessageCircle, MoreHorizontal, Send, Trash2, User, Edit, MessageSquare, Bold, Italic, Underline, List, Smile, Upload, File as FileIcon, Download, X } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useCommunity, type Post } from "@/context/community-context"
-import { formatTimeAgo } from "@/lib/utils"
+import { formatTimeAgo, getAvatarSrc } from "@/lib/utils"
 import { useMessaging } from "@/context/messaging-context"
 import { useRouter } from "next/navigation"
 import MessagingModal from "@/components/messaging-modal"
@@ -25,11 +25,15 @@ interface CommunityPostProps {
   post: Post
 }
 
-export default function CommunityPost({ post }: CommunityPostProps) {
+export default function CommunityPost({ post: initialPost }: CommunityPostProps) {
   const { user, isAuthenticated, showAuthModal } = useAuth()
-  const { likePost, addComment, likeComment, deletePost, updatePost } = useCommunity()
+  const { posts, likePost, addComment, likeComment, deletePost, updatePost } = useCommunity()
   const { getOrCreateConversation, conversations, setActiveConversation } = useMessaging()
   const router = useRouter()
+  const goToUser = (targetUserId: string) => {
+    router.push(user?.id === targetUserId ? "/account" : `/profile/${targetUserId}`)
+  }
+  const post = useMemo(() => posts.find((p) => p.id === initialPost.id) ?? initialPost, [posts, initialPost])
   const [showComments, setShowComments] = useState(false)
   const [newComment, setNewComment] = useState("")
   const [isPosting, setIsPosting] = useState(false)
@@ -279,22 +283,25 @@ export default function CommunityPost({ post }: CommunityPostProps) {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <Avatar className="cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all">
-                <AvatarImage
-                  src={
-                    post.author.avatar ||
-                    `/placeholder.svg?height=40&width=40&text=${post.author.name?.substring(0, 2) || "U"}`
-                  }
-                />
-                <AvatarFallback>
-                  <User className="h-4 w-4" />
-                </AvatarFallback>
-              </Avatar>
+              <button type="button" className="shrink-0" onClick={() => goToUser(post.author.id)}>
+                <Avatar className="h-10 w-10 cursor-pointer">
+                  <AvatarImage
+                    src={getAvatarSrc(post.author.name, (post.author as any).avatarUrl ?? post.author.avatar)}
+                  />
+                  <AvatarFallback>
+                    <User className="h-5 w-5" />
+                  </AvatarFallback>
+                </Avatar>
+              </button>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold cursor-pointer hover:text-purple-600 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => goToUser(post.author.id)}
+                    className="font-semibold hover:text-purple-600 transition-colors"
+                  >
                     {post.author.name || "Unknown User"}
-                  </h3>
+                  </button>
                   {user && user.id !== post.author.id && (
                     <Button
                       variant="ghost"
@@ -449,22 +456,25 @@ export default function CommunityPost({ post }: CommunityPostProps) {
                   {currentComments.map((comment) => (
                     <div key={comment.id} className="bg-gray-50 rounded-md p-2.5">
                       <div className="flex items-start gap-2.5">
-                        <Avatar className="h-7 w-7 cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all">
-                          <AvatarImage
-                            src={
-                              comment.author.avatar ||
-                              `/placeholder.svg?height=32&width=32&text=${comment.author.name?.substring(0, 2) || "U"}`
-                            }
-                          />
-                          <AvatarFallback className="text-[10px]">
-                            <User className="h-3 w-3" />
-                          </AvatarFallback>
-                        </Avatar>
+                        <button type="button" className="shrink-0" onClick={() => goToUser(comment.author.id)}>
+                          <Avatar className="h-8 w-8 cursor-pointer">
+                            <AvatarImage
+                              src={getAvatarSrc(comment.author.name, (comment.author as any).avatarUrl ?? comment.author.avatar)}
+                            />
+                            <AvatarFallback className="text-[10px]">
+                              <User className="h-3 w-3" />
+                            </AvatarFallback>
+                          </Avatar>
+                        </button>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-0.5">
-                            <span className="font-medium text-[13px] cursor-pointer hover:text-purple-600 transition-colors">
+                            <button
+                              type="button"
+                              onClick={() => goToUser(comment.author.id)}
+                              className="font-medium text-[13px] hover:text-purple-600 transition-colors"
+                            >
                               {comment.author.name || "Unknown User"}
-                            </span>
+                            </button>
                             {user && user.id !== comment.author.id && (
                               <Button
                                 variant="ghost"
@@ -525,9 +535,7 @@ export default function CommunityPost({ post }: CommunityPostProps) {
                 <div className="flex gap-3">
                   <Avatar className="h-8 w-8">
                     <AvatarImage
-                      src={
-                        user?.avatarUrl || `/placeholder.svg?height=32&width=32&text=${user?.name?.substring(0, 2) || "U"}`
-                      }
+                      src={getAvatarSrc(user?.name, user?.avatarUrl)}
                     />
                     <AvatarFallback className="text-xs">
                       <User className="h-3 w-3" />

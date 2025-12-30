@@ -24,7 +24,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Incorrect password" }, { status: 401 })
     }
 
-    const token = await makeSession(user)
+    const userAgent = request.headers.get("user-agent")
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip")
+    const token = await makeSession(user, { userAgent, ip })
     const response = NextResponse.json(
       {
         user: {

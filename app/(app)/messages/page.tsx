@@ -13,8 +13,9 @@ import { EmojiPicker } from "@/components/emoji-picker"
 import { Send, Search, MessageSquare, User, Check, CheckCheck } from "lucide-react"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
-import { formatTimeAgo } from "@/lib/utils"
+import { getAvatarSrc, formatTimeAgo, formatTime } from "@/lib/utils"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000
 
@@ -23,6 +24,12 @@ function isOnlineStatus(participant?: { isOnline?: boolean; lastSeen?: string | 
   if (typeof participant.isOnline === "boolean") return participant.isOnline
   if (!participant.lastSeen) return false
   return new Date().getTime() - new Date(participant.lastSeen).getTime() < ONLINE_WINDOW_MS
+}
+
+function canShowPresence(participant?: { isOnline?: boolean; lastSeen?: string | Date | null }) {
+  if (!participant) return false
+  if (typeof participant.isOnline === "boolean") return true
+  return Boolean(participant.lastSeen)
 }
 
 export default function MessagesPage() {
@@ -36,6 +43,10 @@ export default function MessagesPage() {
     declineConversation,
   } = useMessaging()
   const { user, isAuthenticated, showAuthModal } = useAuth()
+  const router = useRouter()
+  const goToUser = (targetUserId: string) => {
+    router.push(user?.id === targetUserId ? "/account" : `/profile/${targetUserId}`)
+  }
   const [newMessage, setNewMessage] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
@@ -181,12 +192,30 @@ export default function MessagesPage() {
                         >
                           <div className="flex items-start gap-3">
                             <div className="relative">
-                              <Avatar className="w-10 h-10">
-                                <AvatarImage src={otherParticipant?.avatar || "/placeholder.svg"} />
-                                <AvatarFallback>
-                                  <User className="w-4 h-4" />
-                                </AvatarFallback>
-                              </Avatar>
+                              {otherParticipant?.id ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    goToUser(otherParticipant.id)
+                                  }}
+                                  className="block"
+                                >
+                                  <Avatar className="w-10 h-10 cursor-pointer">
+                                    <AvatarImage src={getAvatarSrc(otherParticipant?.name, otherParticipant?.avatar)} />
+                                    <AvatarFallback>
+                                      <User className="w-4 h-4" />
+                                    </AvatarFallback>
+                                  </Avatar>
+                                </button>
+                              ) : (
+                                <Avatar className="w-10 h-10">
+                                  <AvatarImage src={getAvatarSrc(otherParticipant?.name, otherParticipant?.avatar)} />
+                                  <AvatarFallback>
+                                    <User className="w-4 h-4" />
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
                               {otherParticipant?.isOnline && (
                                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
                               )}
@@ -194,7 +223,20 @@ export default function MessagesPage() {
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
-                                <h3 className="font-medium text-gray-900 truncate">{otherParticipant?.name}</h3>
+                                {otherParticipant?.id ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      goToUser(otherParticipant.id)
+                                    }}
+                                    className="font-medium text-gray-900 truncate hover:text-purple-600"
+                                  >
+                                    {otherParticipant?.name}
+                                  </button>
+                                ) : (
+                                  <h3 className="font-medium text-gray-900 truncate">{otherParticipant?.name}</h3>
+                                )}
                               </div>
 
                               {lastMessage && (
@@ -231,24 +273,47 @@ export default function MessagesPage() {
                           const otherParticipant = activeConversation.participants.find((p) => p.id !== user?.id)
                           return (
                             <>
-                              <Avatar className="w-10 h-10">
-                                <AvatarImage src={otherParticipant?.avatar || "/placeholder.svg"} />
-                                <AvatarFallback>
-                                  <User className="w-4 h-4" />
-                                </AvatarFallback>
-                              </Avatar>
+                              {otherParticipant?.id ? (
+                                <button type="button" className="shrink-0" onClick={() => goToUser(otherParticipant.id)}>
+                                  <Avatar className="w-10 h-10 cursor-pointer">
+                                    <AvatarImage src={getAvatarSrc(otherParticipant?.name, otherParticipant?.avatar)} />
+                                    <AvatarFallback>
+                                      <User className="w-4 h-4" />
+                                    </AvatarFallback>
+                                  </Avatar>
+                                </button>
+                              ) : (
+                                <Avatar className="w-10 h-10">
+                                  <AvatarImage src={getAvatarSrc(otherParticipant?.name, otherParticipant?.avatar)} />
+                                  <AvatarFallback>
+                                    <User className="w-4 h-4" />
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
                               <div>
-                                <h2 className="font-semibold text-gray-900">{otherParticipant?.name}</h2>
-                                <p className="text-sm">
-                                  {isOnlineStatus(otherParticipant) ? (
-                                    <span className="text-green-600">Online</span>
-                                  ) : (
-                                    <span className="text-yellow-700">
-                                      Offline -{" "}
-                                      {otherParticipant?.lastSeen ? `Last seen ${formatTimeAgo(otherParticipant.lastSeen)}` : "Recently"}
-                                    </span>
-                                  )}
-                                </p>
+                                {otherParticipant?.id ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => goToUser(otherParticipant.id)}
+                                    className="font-semibold text-gray-900 hover:text-purple-600"
+                                  >
+                                    {otherParticipant?.name}
+                                  </button>
+                                ) : (
+                                  <h2 className="font-semibold text-gray-900">{otherParticipant?.name}</h2>
+                                )}
+                                {canShowPresence(otherParticipant) ? (
+                                  <p className="text-sm">
+                                    {isOnlineStatus(otherParticipant) ? (
+                                      <span className="text-green-600">Online</span>
+                                    ) : (
+                                      <span className="text-yellow-700">
+                                        Offline -{" "}
+                                        {otherParticipant?.lastSeen ? `Last seen ${formatTimeAgo(otherParticipant.lastSeen)}` : "Recently"}
+                                      </span>
+                                    )}
+                                  </p>
+                                ) : null}
                               </div>
                             </>
                           )
@@ -284,12 +349,23 @@ export default function MessagesPage() {
                               className={`flex gap-2 max-w-xs lg:max-w-md ${isOwnMessage ? "flex-row-reverse" : ""}`}
                             >
                               {!isOwnMessage && (
-                                <Avatar className="w-8 h-8">
-                                  <AvatarImage src={sender?.avatar || "/placeholder.svg"} />
-                                  <AvatarFallback className="text-xs">
-                                    <User className="w-3 h-3" />
-                                  </AvatarFallback>
-                                </Avatar>
+                                sender?.id ? (
+                                  <button type="button" className="shrink-0" onClick={() => goToUser(sender.id)}>
+                                    <Avatar className="w-8 h-8 cursor-pointer">
+                                      <AvatarImage src={getAvatarSrc(sender?.name, sender?.avatar)} />
+                                      <AvatarFallback className="text-xs">
+                                        <User className="w-3 h-3" />
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </button>
+                                ) : (
+                                  <Avatar className="w-8 h-8">
+                                    <AvatarImage src={getAvatarSrc(sender?.name, sender?.avatar)} />
+                                    <AvatarFallback className="text-xs">
+                                      <User className="w-3 h-3" />
+                                    </AvatarFallback>
+                                  </Avatar>
+                                )
                               )}
 
                               <div

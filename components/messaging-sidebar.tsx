@@ -11,15 +11,21 @@ import { Search, Plus, MoreVertical, MessageCircle } from "lucide-react"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
 import type { Conversation } from "@/types/messaging"
+import { getAvatarSrc } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 interface MessagingSidebarProps {
   onConversationSelect: (conversation: Conversation) => void
   selectedConversationId?: string
 }
 
-export function MessagingSidebar({ onConversationSelect, selectedConversationId }: MessagingSidebarProps) {
+export default function MessagingSidebar({ onConversationSelect, selectedConversationId }: MessagingSidebarProps) {
   const { user } = useAuth()
   const { conversations } = useMessaging()
+  const router = useRouter()
+  const goToUser = (targetUserId: string) => {
+    router.push(user?.id === targetUserId ? "/account" : `/profile/${targetUserId}`)
+  }
   const [searchQuery, setSearchQuery] = useState("")
 
   const filteredConversations = conversations.filter((conversation) => {
@@ -89,17 +95,34 @@ export function MessagingSidebar({ onConversationSelect, selectedConversationId 
                     onClick={() => onConversationSelect(conversation)}
                   >
                     <div className="relative">
-                      <Avatar>
-                        <AvatarImage src={otherParticipant.avatar || "/placeholder.svg"} />
-                        <AvatarFallback>{otherParticipant.name.charAt(0).toUpperCase()}</AvatarFallback>
-                      </Avatar>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          goToUser(otherParticipant.id)
+                        }}
+                      >
+                        <Avatar className="cursor-pointer">
+                          <AvatarImage src={getAvatarSrc(otherParticipant.name, otherParticipant.avatar)} />
+                          <AvatarFallback>{otherParticipant.name.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                      </button>
                       {otherParticipant.isOnline && (
                         <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-medium text-sm truncate">{otherParticipant.name}</h4>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            goToUser(otherParticipant.id)
+                          }}
+                          className="font-medium text-sm truncate hover:text-purple-600"
+                        >
+                          {otherParticipant.name}
+                        </button>
                         <span className="text-xs text-muted-foreground">
                           {conversation.lastMessage && formatTime(conversation.lastMessage.timestamp)}
                         </span>
@@ -128,5 +151,3 @@ export function MessagingSidebar({ onConversationSelect, selectedConversationId 
     </Card>
   )
 }
-
-export default MessagingSidebar

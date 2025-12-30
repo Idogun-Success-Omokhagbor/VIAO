@@ -1,6 +1,6 @@
 "use client"
 
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 
 interface ConfirmDialogProps {
@@ -31,7 +31,11 @@ export function ConfirmDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {description && <p className="text-sm text-gray-600">{description}</p>}
+          {description ? (
+            <DialogDescription className="text-gray-600">{description}</DialogDescription>
+          ) : (
+            <DialogDescription className="sr-only">Confirmation dialog</DialogDescription>
+          )}
         </DialogHeader>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>

@@ -1,6 +1,6 @@
 import "server-only"
 
-import { WebSocketServer } from "ws"
+import WebSocket, { WebSocketServer } from "ws"
 
 type WsWithMeta = WebSocket & { userId?: string }
 
@@ -19,7 +19,7 @@ function attachHandlers(registry: WsRegistry) {
   const { wss, userSockets } = registry
 
   wss.on("connection", (socket: WsWithMeta) => {
-    socket.on("message", (raw) => {
+    socket.on("message", (raw: WebSocket.RawData) => {
       try {
         const msg = JSON.parse(raw.toString())
         if (msg?.type === "auth" && typeof msg.userId === "string") {
@@ -53,6 +53,12 @@ export function ensureWSServer() {
   attachHandlers(registry)
   globalThis.__viaoWSS__ = registry
   return registry
+}
+
+export function isUserConnected(userId: string): boolean {
+  const registry = ensureWSServer()
+  const sockets = registry.userSockets.get(userId)
+  return (sockets?.size ?? 0) > 0
 }
 
 export function broadcastToUsers(userIds: string[], payload: any) {

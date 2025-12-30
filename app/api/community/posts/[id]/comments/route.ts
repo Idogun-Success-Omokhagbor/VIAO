@@ -42,7 +42,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         type: "COMMENT",
         title: `${actor?.name || "Someone"} commented on your post`,
         body: parsed.data.content.slice(0, 120),
-        data: { postId: params.id, actorId: session.sub },
+        data: { postId: params.id, actorId: session.sub, url: "/community" },
+        channel: "PUSH",
       })
     }
 

@@ -4,12 +4,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Calendar, Users } from "lucide-react"
+import { getAvatarSrc } from "@/lib/utils"
 
 interface UserProfileCardProps {
   user: {
     id: string
     name: string
     email: string
+    avatarUrl?: string
     avatar?: string
     bio?: string
     location?: string
@@ -20,12 +22,14 @@ interface UserProfileCardProps {
 }
 
 export function UserProfileCard({ user }: UserProfileCardProps) {
+  const avatarSrc = getAvatarSrc(user.name, user.avatarUrl ?? user.avatar)
+
   return (
     <Card>
       <CardContent className="p-6">
         <div className="flex items-start space-x-4">
           <Avatar className="h-16 w-16">
-            <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+            <AvatarImage src={avatarSrc} alt={user.name} />
             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex-1 space-y-2">

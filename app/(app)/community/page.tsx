@@ -16,47 +16,14 @@ import { Info } from "lucide-react"
 
 export default function CommunityPage() {
   const { posts, isLoading, error, refreshPosts } = useCommunity()
-  const { isAuthenticated, showAuthModal, user, updateUser } = useAuth()
+  const { isAuthenticated, showAuthModal, user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [showPostForm, setShowPostForm] = useState(false)
   const [sortBy, setSortBy] = useState("newest")
-  const [detectingLocation, setDetectingLocation] = useState(false)
-  const [detectError, setDetectError] = useState<string | null>(null)
 
   useEffect(() => {
     void refreshPosts()
   }, [refreshPosts])
-
-  useEffect(() => {
-    if (!isAuthenticated || user?.location) return
-    let isActive = true
-    setDetectingLocation(true)
-    setDetectError(null)
-
-    void (async () => {
-      try {
-        const res = await fetch("/api/location/detect", { cache: "no-store" })
-        if (!res.ok) throw new Error("Could not detect location")
-        const data = await res.json()
-        const location = data.location || data.city
-        if (!location) throw new Error("No location data returned")
-        await updateUser({ location })
-        if (isActive) {
-          await refreshPosts()
-        }
-      } catch (err) {
-        if (!isActive) return
-        const message = err instanceof Error ? err.message : "Failed to detect location"
-        setDetectError(message)
-      } finally {
-        if (isActive) setDetectingLocation(false)
-      }
-    })()
-
-    return () => {
-      isActive = false
-    }
-  }, [isAuthenticated, refreshPosts, updateUser, user?.location])
 
   useEffect(() => {
     const handleFocus = () => {
@@ -127,7 +94,7 @@ export default function CommunityPage() {
         <Button
           onClick={handleCreatePost}
           className="mt-4 md:mt-0 bg-purple-600 hover:bg-purple-700"
-          disabled={(!userLocation && isAuthenticated) || detectingLocation}
+          disabled={!userLocation && isAuthenticated}
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Post
@@ -137,12 +104,10 @@ export default function CommunityPage() {
       {!userLocation && (
         <Alert className="mb-8 bg-blue-50 text-blue-800 border-blue-200">
           <Info className="h-4 w-4" />
-          <AlertTitle>{detectingLocation ? "Detecting your city..." : "Set your city to access the community feed"}</AlertTitle>
+          <AlertTitle>Set your city to access the community feed</AlertTitle>
           <AlertDescription>
-            {detectingLocation
-              ? "Hang tight while we detect your location automatically."
-              : "Update your profile with your city or area to view and create posts from your community."}
-            {detectError && <span className="block text-red-600 mt-2">Location detection failed: {detectError}</span>}
+            Your city is detected after signup on the dashboard. If you skipped it, go to the dashboard and allow location
+            permission.
           </AlertDescription>
         </Alert>
       )}

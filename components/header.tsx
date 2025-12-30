@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { User, LogOut, Settings, Calendar, MessageSquare, MapPin, Users } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useMessaging } from "@/context/messaging-context"
@@ -11,6 +12,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { NotificationDropdown } from "@/components/notification-dropdown"
 import { useNotifications } from "@/context/notification-context"
+import { getAvatarSrc } from "@/lib/utils"
 
 export function Header() {
   const { user, logout } = useAuth()
@@ -76,9 +78,12 @@ export function Header() {
                 <NotificationDropdown />
 
                 <Link href="/account" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
-                    <User className="h-4 w-4 text-white" />
-                  </div>
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={getAvatarSrc(user.name, user.avatarUrl)} alt={user.name} />
+                    <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600">
+                      <User className="h-4 w-4 text-white" />
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="hidden md:block text-left">
                     <p className="text-sm font-medium">{user.name}</p>
                     <p className="text-xs text-muted-foreground">{user.email}</p>

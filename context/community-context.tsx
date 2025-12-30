@@ -33,6 +33,7 @@ export interface Post {
   type?: string
   tags: string[]
   images: string[]
+  imageUrl?: string
   mediaUrl?: string
   mediaType?: string
   likes: number
@@ -159,7 +160,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     setError(null)
     try {
-      const { location: _discardedLocation, ...postData } = post
+      const postData = post
       const res = await handleJson<{ post: any }>(
         fetch("/api/community/posts", {
           method: "POST",
@@ -186,7 +187,12 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           credentials: "include",
         }),
       )
-      setPosts((prev) => prev.map((p) => (p.id === postId ? mapPost(res.post) : p)))
+      const mapped = mapPost(res.post)
+      setPosts((prev) => {
+        const exists = prev.some((p) => p.id === postId)
+        if (!exists) return [mapped, ...prev]
+        return prev.map((p) => (p.id === postId ? mapped : p))
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to like post"
       setError(message)
@@ -204,7 +210,12 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ content }),
         }),
       )
-      setPosts((prev) => prev.map((p) => (p.id === postId ? mapPost(res.post) : p)))
+      const mapped = mapPost(res.post)
+      setPosts((prev) => {
+        const exists = prev.some((p) => p.id === postId)
+        if (!exists) return [mapped, ...prev]
+        return prev.map((p) => (p.id === postId ? mapped : p))
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to add comment"
       setError(message)
@@ -220,7 +231,12 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           credentials: "include",
         }),
       )
-      setPosts((prev) => prev.map((p) => (p.id === postId ? mapPost(res.post) : p)))
+      const mapped = mapPost(res.post)
+      setPosts((prev) => {
+        const exists = prev.some((p) => p.id === postId)
+        if (!exists) return [mapped, ...prev]
+        return prev.map((p) => (p.id === postId ? mapped : p))
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to like comment"
       setError(message)
@@ -249,7 +265,12 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify(updates),
         }),
       )
-      setPosts((prev) => prev.map((p) => (p.id === postId ? mapPost(res.post) : p)))
+      const mapped = mapPost(res.post)
+      setPosts((prev) => {
+        const exists = prev.some((p) => p.id === postId)
+        if (!exists) return [mapped, ...prev]
+        return prev.map((p) => (p.id === postId ? mapped : p))
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update post"
       setError(message)

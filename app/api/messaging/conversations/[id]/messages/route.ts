@@ -6,6 +6,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { broadcastToUsers, ensureWSServer } from "@/lib/ws-server"
+import { createNotification } from "@/lib/notifications"
 
 const sendSchema = z.object({
   content: z.string().min(1),
@@ -156,6 +157,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     broadcastToUsers(recipientIds, payload)
     broadcastToUsers([session.sub], payload)
+
+    if (recipientIds.length) {
+      const sender = await prisma.user.findUnique({ where: { id: session.sub }, select: { name: true } })
+      const senderName = sender?.name || "Someone"
+      await Promise.all(
+        recipientIds.map((recipientId) =>
+          createNotification({
+            userId: recipientId,
+            type: "MESSAGE",
+            title: `You have 1 message from ${senderName}`,
+            body: message.content.slice(0, 160),
+            data: { conversationId: params.id, senderId: session.sub, messageId: message.id, url: "/messages" },
+            channel: "PUSH",
+          }),
+        ),
+      )
+    }
 
     return NextResponse.json({
       message: {

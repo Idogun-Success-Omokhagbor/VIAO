@@ -19,6 +19,12 @@ export function getInitials(name?: string): string {
     .substring(0, 2)
 }
 
+export function getAvatarSrc(name?: string, avatarUrl?: string | null): string {
+  if (avatarUrl && avatarUrl.trim().length > 0) return avatarUrl
+  const seed = encodeURIComponent((name || "User").trim() || "User")
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`
+}
+
 export function getRelativeTime(date: string | Date): string {
   const now = new Date()
   const time = new Date(date)

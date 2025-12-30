@@ -6,10 +6,15 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 
+const dataImageUrlSchema = z
+  .string()
+  .max(8_000_000)
+  .regex(/^data:image\/[^;]+;base64,[A-Za-z0-9+/=]+$/)
+
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional(),
-  avatarUrl: z.string().url().optional().or(z.literal("")),
+  avatarUrl: z.union([z.string().url(), dataImageUrlSchema]).optional().or(z.literal("")),
   location: z.string().optional(),
   phone: z.string().optional(),
   bio: z.string().optional(),

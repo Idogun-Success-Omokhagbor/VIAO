@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,18 +29,63 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, isLoading: authLoading } = useAuth()
+  const { user, isLoading: authLoading, updateUser } = useAuth()
   const { events } = useEvents()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [showEventModal, setShowEventModal] = useState<Event | null>(null)
   const [showEventForm, setShowEventForm] = useState(false)
+  const [detectingLocation, setDetectingLocation] = useState(false)
+  const [detectError, setDetectError] = useState<string | null>(null)
+  const didAttemptLocation = useRef(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace("/")
     }
   }, [authLoading, user, router])
+
+  useEffect(() => {
+    if (authLoading || !user) return
+    if (user.location) return
+    if (didAttemptLocation.current) return
+
+    didAttemptLocation.current = true
+    setDetectingLocation(true)
+    setDetectError(null)
+
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setDetectingLocation(false)
+      setDetectError("Location permission is not supported by this browser")
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const lat = position.coords.latitude
+          const lon = position.coords.longitude
+          const res = await fetch(`/api/location/reverse?lat=${lat}&lon=${lon}`, { cache: "no-store" })
+          const data = await res.json().catch(() => null)
+          if (!res.ok) throw new Error(data?.error || "Could not detect location")
+          const location = data?.location || data?.city
+          if (!location) throw new Error("No location data returned")
+          await updateUser({ location })
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Failed to detect location"
+          setDetectError(message)
+        } finally {
+          setDetectingLocation(false)
+        }
+      },
+      (error) => {
+        const message = error?.message || "Location permission denied"
+        setDetectError(message)
+        setDetectingLocation(false)
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 10 * 60_000 },
+    )
+  }, [authLoading, updateUser, user])
 
   if (authLoading || !user) {
     return (
@@ -109,6 +154,17 @@ export default function DashboardPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {detectingLocation ? (
+          <div className="mb-6 rounded-md border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-800">
+            Detecting your location… Please allow location permission.
+          </div>
+        ) : null}
+        {detectError ? (
+          <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            Location detection failed: {detectError}
+          </div>
+        ) : null}
+
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
