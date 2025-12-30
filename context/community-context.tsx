@@ -26,12 +26,15 @@ export interface Post {
     name: string
     email?: string
     avatar?: string
+    location?: string
   }
   createdAt: string
   updatedAt: string
   type?: string
   tags: string[]
   images: string[]
+  mediaUrl?: string
+  mediaType?: string
   likes: number
   likedBy: string[]
   isLiked?: boolean
@@ -50,9 +53,9 @@ interface CommunityContextType {
     content: string
     tags?: string[]
     imageUrl?: string
+    mediaType?: string
     type?: string
     category?: string
-    location?: string
   }) => Promise<void>
   likePost: (postId: string, isLiked: boolean) => Promise<void>
   addComment: (postId: string, content: string) => Promise<void>
@@ -73,16 +76,19 @@ function mapPost(data: any): Post {
       name: data.author?.name ?? "Unknown",
       email: data.author?.email,
       avatar: data.author?.avatar ?? data.author?.avatarUrl ?? undefined,
+      location: data.author?.location ?? undefined,
     },
     createdAt: typeof data.createdAt === "string" ? data.createdAt : data.createdAt?.toString() ?? new Date().toISOString(),
     updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : data.updatedAt?.toString() ?? new Date().toISOString(),
     type: data.type,
     tags: data.tags ?? [],
     images: data.images ?? (data.imageUrl ? [data.imageUrl] : []),
+    mediaUrl: data.mediaUrl ?? data.imageUrl ?? undefined,
+    mediaType: data.mediaType ?? undefined,
     likes: data.likes ?? data.likedBy?.length ?? 0,
     likedBy: data.likedBy ?? [],
     isLiked: data.isLiked ?? false,
-    location: data.location,
+    location: data.location ?? data.author?.location ?? undefined,
     category: data.category,
     comments:
       data.comments?.map((comment: any) => ({
@@ -148,17 +154,18 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     imageUrl?: string
     type?: string
     category?: string
-    location?: string
+    mediaType?: string
   }) => {
     setIsLoading(true)
     setError(null)
     try {
+      const { location: _discardedLocation, ...postData } = post
       const res = await handleJson<{ post: any }>(
         fetch("/api/community/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(post),
+          body: JSON.stringify(postData),
         }),
       )
       setPosts((prev) => [mapPost(res.post), ...prev])

@@ -9,25 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu"
 import { EmojiPicker } from "@/components/emoji-picker"
-import { Send, Search, MessageSquare, User, Trash2 } from "lucide-react"
+import { Send, Search, MessageSquare, User } from "lucide-react"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
 import { formatTimeAgo } from "@/lib/utils"
@@ -51,13 +34,10 @@ export default function MessagesPage() {
     messages,
     acceptConversation,
     declineConversation,
-    deleteConversations,
-    clearConversationHistory,
   } = useMessaging()
   const { user, isAuthenticated, showAuthModal } = useAuth()
   const [newMessage, setNewMessage] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
-  const [confirmAction, setConfirmAction] = useState<{ type: "clear" | "delete"; ids: string[] } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -134,25 +114,6 @@ export default function MessagesPage() {
     conv.participants.some((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
-  const openConfirm = (type: "clear" | "delete", conversationId?: string) => {
-    const targetId = conversationId ?? activeConversation?.id
-    if (!targetId) return
-    setConfirmAction({ type, ids: [targetId] })
-  }
-
-  const handleConfirmAction = async () => {
-    if (!confirmAction) return
-    const { type, ids } = confirmAction
-    if (type === "clear") {
-      await clearConversationHistory(ids)
-      toast.success(ids.length > 1 ? "Chats cleared" : "Chat cleared")
-    } else {
-      await deleteConversations(ids)
-      toast.success(ids.length > 1 ? "Chats deleted" : "Chat deleted")
-    }
-    setConfirmAction(null)
-  }
-
   return (
     <>
       <div className="flex h-full min-h-0 flex-col bg-gray-50">
@@ -195,65 +156,48 @@ export default function MessagesPage() {
                       const lastMessage = conversation.lastMessage
 
                       return (
-                        <ContextMenu key={conversation.id}>
-                          <ContextMenuTrigger asChild>
-                            <div
-                              onClick={() => setActiveConversation(conversation)}
-                              onContextMenu={() => setActiveConversation(conversation)}
-                              className={`p-3 rounded-lg cursor-pointer transition-all mb-1 ${
-                                activeConversation?.id === conversation.id
-                                  ? "bg-purple-50 border border-purple-200"
-                                  : "hover:bg-gray-50"
-                              }`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className="relative">
-                                  <Avatar className="w-10 h-10">
-                                    <AvatarImage src={otherParticipant?.avatar || "/placeholder.svg"} />
-                                    <AvatarFallback>
-                                      <User className="w-4 h-4" />
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  {otherParticipant?.isOnline && (
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
-                                  )}
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <h3 className="font-medium text-gray-900 truncate">{otherParticipant?.name}</h3>
-                                  </div>
-
-                                  {lastMessage && (
-                                    <p className="text-sm text-gray-600 truncate">
-                                      {lastMessage.senderId === user?.id ? "You: " : ""}
-                                      {lastMessage.content}
-                                    </p>
-                                  )}
-
-                                  {conversation.unreadCount > 0 && (
-                                    <Badge className="mt-1 bg-purple-600 hover:bg-purple-700">
-                                      {conversation.unreadCount}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
+                        <div
+                          key={conversation.id}
+                          onClick={() => setActiveConversation(conversation)}
+                          className={`p-3 rounded-lg cursor-pointer transition-all mb-1 ${
+                            activeConversation?.id === conversation.id
+                              ? "bg-purple-50 border border-purple-200"
+                              : "hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="relative">
+                              <Avatar className="w-10 h-10">
+                                <AvatarImage src={otherParticipant?.avatar || "/placeholder.svg"} />
+                                <AvatarFallback>
+                                  <User className="w-4 h-4" />
+                                </AvatarFallback>
+                              </Avatar>
+                              {otherParticipant?.isOnline && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+                              )}
                             </div>
-                          </ContextMenuTrigger>
-                          <ContextMenuContent className="w-48">
-                            <ContextMenuItem onClick={() => openConfirm("clear", conversation.id)}>
-                              Clear chat
-                            </ContextMenuItem>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem
-                              onClick={() => openConfirm("delete", conversation.id)}
-                              className="text-red-600 focus:text-red-700"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete chat
-                            </ContextMenuItem>
-                          </ContextMenuContent>
-                        </ContextMenu>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <h3 className="font-medium text-gray-900 truncate">{otherParticipant?.name}</h3>
+                              </div>
+
+                              {lastMessage && (
+                                <p className="text-sm text-gray-600 truncate">
+                                  {lastMessage.senderId === user?.id ? "You: " : ""}
+                                  {lastMessage.content}
+                                </p>
+                              )}
+
+                              {conversation.unreadCount > 0 && (
+                                <Badge className="mt-1 bg-purple-600 hover:bg-purple-700">
+                                  {conversation.unreadCount}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       )
                     })
                   )}
@@ -409,29 +353,6 @@ export default function MessagesPage() {
           </div>
         </div>
       </div>
-      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmAction?.type === "delete" ? "Delete conversation?" : "Clear chat history?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmAction?.type === "delete"
-                ? "This removes the conversation from your list."
-                : "This clears the message history for this conversation."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className={confirmAction?.type === "delete" ? "bg-red-600 hover:bg-red-700" : ""}
-              onClick={handleConfirmAction}
-            >
-              {confirmAction?.type === "delete" ? "Delete" : "Clear"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }

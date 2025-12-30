@@ -95,21 +95,13 @@ export async function GET() {
         },
       },
       include: {
-        participants: { include: { user: true } },
+        participants: { select: { userId: true, clearedAt: true, hiddenAt: true, user: true } },
         messages: { orderBy: { createdAt: "desc" }, take: 1 },
       },
       orderBy: { updatedAt: "desc" },
     })
 
     const mapped = (await Promise.all(conversations.map((c) => mapConversation(c, session.sub)))).filter(Boolean)
-    console.log(
-      "[messaging] conversations",
-      mapped.map((c: any) => ({
-        id: c.id,
-        status: c.status,
-        participants: c.participants.map((p: any) => ({ id: p.id, lastSeen: p.lastSeen })),
-      })),
-    )
     return NextResponse.json({ conversations: mapped })
   } catch (error) {
     console.error("GET /api/messaging/conversations error:", error)
@@ -148,7 +140,7 @@ export async function POST(req: Request) {
         AND: [{ participants: { some: { userId } } }],
       },
       include: {
-        participants: { include: { user: true } },
+        participants: { select: { userId: true, clearedAt: true, hiddenAt: true, user: true } },
         messages: { orderBy: { createdAt: "desc" }, take: 1 },
       },
     })
@@ -162,7 +154,7 @@ export async function POST(req: Request) {
       const refreshed = await prisma.conversation.findFirst({
         where: { id: existing.id },
         include: {
-          participants: { include: { user: true } },
+          participants: { select: { userId: true, clearedAt: true, hiddenAt: true, user: true } },
           messages: { orderBy: { createdAt: "desc" }, take: 1 },
         },
       })
@@ -186,7 +178,7 @@ export async function POST(req: Request) {
         },
       },
       include: {
-        participants: { include: { user: true } },
+        participants: { select: { userId: true, clearedAt: true, hiddenAt: true, user: true } },
         messages: { orderBy: { createdAt: "desc" }, take: 1 },
       },
     })

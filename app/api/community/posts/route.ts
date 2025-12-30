@@ -11,28 +11,35 @@ const createPostSchema = z.object({
   content: z.string().min(1),
   tags: z.array(z.string().min(1)).optional(),
   imageUrl: z.string().url().optional().or(z.literal("")),
+  mediaType: z.string().optional(),
   type: z.string().optional(),
   category: z.string().optional(),
-  location: z.string().optional(),
 })
 
 export async function mapPost(post: any, sessionUserId?: string) {
+  const location = post.location ?? post.author?.location ?? null
+
   return {
     id: post.id,
     title: post.title,
     content: post.content,
     tags: post.tags ?? [],
     images: post.imageUrl ? [post.imageUrl] : [],
+    mediaUrl: post.imageUrl ?? undefined,
+    mediaType: post.mediaType ?? undefined,
+    category: post.category ?? undefined,
     likes: post.likedBy?.length ?? 0,
     likedBy: post.likedBy ?? [],
     isLiked: sessionUserId ? post.likedBy?.includes(sessionUserId) ?? false : false,
     createdAt: post.createdAt.toISOString(),
     updatedAt: post.updatedAt.toISOString(),
+    location: location ?? undefined,
     author: {
       id: post.author.id,
       name: post.author.name,
       email: post.author.email,
       avatar: post.author.avatarUrl ?? undefined,
+      location: post.author.location ?? undefined,
     },
     comments:
       post.comments?.map((comment: any) => ({
@@ -55,7 +62,23 @@ export async function mapPost(post: any, sessionUserId?: string) {
 export async function GET() {
   try {
     const session = await getSessionUser()
+    if (!session) return NextResponse.json({ posts: [] })
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.sub },
+      select: { id: true, location: true },
+    })
+
+    if (!user?.location) {
+      return NextResponse.json({ posts: [] })
+    }
+
     const posts = await prisma.communityPost.findMany({
+      where: {
+        author: {
+          location: { equals: user.location, mode: "insensitive" },
+        },
+      },
       include: {
         author: true,
         comments: {
@@ -86,6 +109,10 @@ export async function POST(req: Request) {
     }
 
     const data = parsed.data
+    const user = await prisma.user.findUnique({
+      where: { id: session.sub },
+      select: { id: true, location: true },
+    })
 
     const created = await prisma.communityPost.create({
       data: {
@@ -93,7 +120,10 @@ export async function POST(req: Request) {
         content: data.content,
         tags: data.tags ?? [],
         imageUrl: data.imageUrl || undefined,
+        mediaType: data.mediaType ?? undefined,
         type: (data.type as any) ?? "GENERAL",
+        category: data.category ?? undefined,
+        location: user?.location ?? undefined,
         authorId: session.sub,
       },
       include: {

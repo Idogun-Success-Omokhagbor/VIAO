@@ -98,9 +98,13 @@ model CommunityPost {
   content   String
   type      PostType  @default(GENERAL)
   tags      String[]
+  location  String?
   imageUrl  String?
+  mediaType String?
+  category  String?
   likes     Int       @default(0)
   likedBy   String[]  @default([])
+  views     String[]  @default([])
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 

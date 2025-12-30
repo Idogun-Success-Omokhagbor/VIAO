@@ -12,6 +12,8 @@ const updatePostSchema = z.object({
   content: z.string().min(1).optional(),
   tags: z.array(z.string().min(1)).optional(),
   imageUrl: z.string().url().optional().or(z.literal("")),
+  mediaType: z.string().optional(),
+  category: z.string().optional(),
 })
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
@@ -49,6 +51,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         content: parsed.data.content ?? undefined,
         tags: parsed.data.tags ?? undefined,
         imageUrl: parsed.data.imageUrl === "" ? null : parsed.data.imageUrl ?? undefined,
+        mediaType: parsed.data.mediaType ?? undefined,
+        category: parsed.data.category ?? undefined,
       },
       include: { author: true, comments: { include: { author: true }, orderBy: { createdAt: "desc" } } },
     })

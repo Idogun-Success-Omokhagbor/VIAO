@@ -1,19 +1,25 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Heart, MessageCircle, Share2, MoreHorizontal, Send, Trash2, User, Edit, MessageSquare } from "lucide-react"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Heart, MessageCircle, MoreHorizontal, Send, Trash2, User, Edit, MessageSquare, Bold, Italic, Underline, List, Smile, Upload, File as FileIcon, Download, X } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useCommunity, type Post } from "@/context/community-context"
 import { formatTimeAgo } from "@/lib/utils"
 import { useMessaging } from "@/context/messaging-context"
+import { useRouter } from "next/navigation"
 import MessagingModal from "@/components/messaging-modal"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { toast } from "sonner"
+import Picker from "@emoji-mart/react"
+import data from "@emoji-mart/data"
 
 interface CommunityPostProps {
   post: Post
@@ -21,13 +27,30 @@ interface CommunityPostProps {
 
 export default function CommunityPost({ post }: CommunityPostProps) {
   const { user, isAuthenticated, showAuthModal } = useAuth()
-  const { likePost, addComment, likeComment, deletePost } = useCommunity()
-  const { getOrCreateConversation } = useMessaging()
+  const { likePost, addComment, likeComment, deletePost, updatePost } = useCommunity()
+  const { getOrCreateConversation, conversations, setActiveConversation } = useMessaging()
+  const router = useRouter()
   const [showComments, setShowComments] = useState(false)
   const [newComment, setNewComment] = useState("")
   const [isPosting, setIsPosting] = useState(false)
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false)
   const [messageConversation, setMessageConversation] = useState<any>(null)
+  const [commentPage, setCommentPage] = useState(0)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editTitle, setEditTitle] = useState(post.title || "")
+  const [editContent, setEditContent] = useState(post.content || "")
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showTitleEmojiPicker, setShowTitleEmojiPicker] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [editImagePreview, setEditImagePreview] = useState<string>(post.mediaUrl || post.images?.[0] || "")
+  const [editImageData, setEditImageData] = useState<string>(post.mediaUrl || post.images?.[0] || "")
+  const [editMediaType, setEditMediaType] = useState<string>(post.mediaType || "")
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const editTitleRef = useRef<HTMLInputElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   if (!post || !post.author) {
     return null
@@ -38,15 +61,8 @@ export default function CommunityPost({ post }: CommunityPostProps) {
       showAuthModal("login")
       return
     }
-    if (user.id !== post.author.id) return
-    const ok = window.confirm("Delete this post?")
-    if (!ok) return
-    try {
-      await deletePost(post.id)
-    } catch (error) {
-      console.error("Failed to delete post:", error)
-      alert("Failed to delete post. Please try again.")
-    }
+    if (!isPostAuthor) return
+    setIsDeleteOpen(true)
   }
 
   const handleLike = () => {
@@ -87,6 +103,16 @@ export default function CommunityPost({ post }: CommunityPostProps) {
     void likeComment(post.id, commentId, isLiked)
   }
 
+  const pageSize = 3
+  const totalComments = post.comments?.length ?? 0
+  const maxPage = totalComments > 0 ? Math.max(Math.ceil(totalComments / pageSize) - 1, 0) : 0
+  const currentComments = post.comments.slice(commentPage * pageSize, commentPage * pageSize + pageSize)
+  const canShowMore = commentPage < maxPage
+  const canShowLess = commentPage > 0
+
+  const findConversationWith = (targetUserId: string) =>
+    conversations.find((conv) => conv.participants.some((p) => p.id === targetUserId))
+
   const handleMessageUser = (userId: string, userName: string) => {
     if (!isAuthenticated) {
       showAuthModal("login")
@@ -96,6 +122,13 @@ export default function CommunityPost({ post }: CommunityPostProps) {
 
     void (async () => {
       try {
+        const existing = findConversationWith(userId)
+        if (existing) {
+          setActiveConversation(existing)
+          router.push("/messages")
+          return
+        }
+
         const conv = await getOrCreateConversation(userId)
         setMessageConversation(conv)
         setIsMessageModalOpen(true)
@@ -107,37 +140,138 @@ export default function CommunityPost({ post }: CommunityPostProps) {
     })()
   }
 
+  const hasConversationWith = (targetUserId: string) => !!findConversationWith(targetUserId)
+
   const handleCloseMessaging = () => {
     setIsMessageModalOpen(false)
     setMessageConversation(null)
   }
 
-  const handleShare = async () => {
-    const shareData = {
-      title: `Post by ${post.author.name}`,
-      text: post.content,
-      url: window.location.href,
-    }
+  const applyEditTitleFormatting = (wrap: string, wrapEnd: string = wrap) => {
+    const input = editTitleRef.current
+    if (!input) return
+    const start = input.selectionStart ?? 0
+    const end = input.selectionEnd ?? 0
+    const before = editTitle.slice(0, start)
+    const selected = editTitle.slice(start, end)
+    const after = editTitle.slice(end)
+    const newValue = `${before}${wrap}${selected || "Title"}${wrapEnd}${after}`
+    setEditTitle(newValue)
+    const cursor = (before + wrap + (selected || "Title") + wrapEnd).length
+    requestAnimationFrame(() => {
+      input.focus()
+      input.setSelectionRange(cursor, cursor)
+    })
+  }
 
-    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData)
-      } catch (error) {
-        // User cancelled sharing
+  const applyEditFormatting = (wrap: string, wrapEnd: string = wrap) => {
+    const textarea = editTextareaRef.current
+    if (!textarea) return
+    const start = textarea.selectionStart ?? 0
+    const end = textarea.selectionEnd ?? 0
+    const before = editContent.slice(0, start)
+    const selected = editContent.slice(start, end)
+    const after = editContent.slice(end)
+    const newValue = `${before}${wrap}${selected || "text"}${wrapEnd}${after}`
+    setEditContent(newValue)
+    const cursor = (before + wrap + (selected || "text") + wrapEnd).length
+    requestAnimationFrame(() => {
+      textarea.focus()
+      textarea.setSelectionRange(cursor, cursor)
+    })
+  }
+
+  const handleEditEmojiSelect = (emoji: any) => {
+    setEditContent((prev) => `${prev}${emoji.native}`)
+    setShowEmojiPicker(false)
+    editTextareaRef.current?.focus()
+  }
+
+  const handleEditTitleEmojiSelect = (emoji: any) => {
+    setEditTitle((prev) => `${prev}${emoji.native}`)
+    setShowTitleEmojiPicker(false)
+    editTitleRef.current?.focus()
+  }
+
+  const handleEditImageUpload = async (file: File) => {
+    if (!file) return
+    if (file.size > 25 * 1024 * 1024) return
+    setIsUploading(true)
+    try {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result?.toString() || ""
+        setEditImagePreview(result)
+        setEditImageData(result)
+        setEditMediaType(file.type)
       }
-    } else {
-      // Fallback to clipboard
-      try {
-        await navigator.clipboard.writeText(`${post.content}\n\n${window.location.href}`)
-        alert("Post copied to clipboard!")
-      } catch (error) {
-        console.error("Failed to copy to clipboard:", error)
-      }
+      reader.readAsDataURL(file)
+    } finally {
+      setIsUploading(false)
     }
   }
 
-  const isPostAuthor = user?.id === post.author.id
+  const formatContent = (raw?: string) => {
+    if (!raw) return { __html: "" }
+    const escapeHtml = (str: string) =>
+      str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
+
+    // Escape everything first
+    let formatted = escapeHtml(raw)
+
+    // Basic markdown-like replacements on escaped text
+    formatted = formatted.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    formatted = formatted.replace(/\*(.+?)\*/g, "<em>$1</em>")
+    formatted = formatted.replace(/&lt;u&gt;(.+?)&lt;\/u&gt;/g, "<u>$1</u>")
+    formatted = formatted.replace(/(?:\r\n|\r|\n)/g, "<br />")
+    return { __html: formatted }
+  }
+
+  const openEditModal = () => {
+    if (!isPostAuthor) return
+    setEditTitle(post.title || "")
+    setEditContent(post.content || "")
+    setEditImagePreview(post.mediaUrl || post.images?.[0] || "")
+    setEditImageData(post.mediaUrl || post.images?.[0] || "")
+    setEditMediaType(post.mediaType || "")
+    setShowEmojiPicker(false)
+    setShowTitleEmojiPicker(false)
+    setIsEditOpen(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editTitle.trim() || !editContent.trim()) return
+    setIsSavingEdit(true)
+    try {
+      await updatePost(post.id, {
+        title: editTitle.trim(),
+        content: editContent.trim(),
+        imageUrl: editImageData || "",
+        mediaType: editMediaType || undefined,
+      })
+      setIsEditOpen(false)
+    } catch (err) {
+      console.error("Failed to update post:", err)
+      toast.error("Failed to update post.")
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
+
+  const isPostAuthor = Boolean(isAuthenticated && user?.id && post.author?.id && user.id === post.author.id)
   const isLiked = user ? post.likedBy.includes(user.id) : false
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true)
+    try {
+      await deletePost(post.id)
+      setIsDeleteOpen(false)
+    } catch (error) {
+      console.error("Failed to delete post:", error)
+      toast.error("Failed to delete post.")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   return (
     <>
@@ -167,9 +301,11 @@ export default function CommunityPost({ post }: CommunityPostProps) {
                       size="sm"
                       onClick={() => handleMessageUser(post.author.id, post.author.name)}
                       className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                      aria-label={hasConversationWith(post.author.id) ? "Open chat" : "Request to PM"}
+                      title={hasConversationWith(post.author.id) ? "Open chat" : "Request to PM"}
                     >
                       <MessageSquare className="h-3 w-3 mr-1" />
-                      Request to PM
+                      {!hasConversationWith(post.author.id) && "Request to PM"}
                     </Button>
                   )}
                 </div>
@@ -177,55 +313,81 @@ export default function CommunityPost({ post }: CommunityPostProps) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {post.location && (
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  {post.location}
-                </Badge>
+              {isPostAuthor && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem className="cursor-pointer" onClick={openEditModal}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Post
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={handleDeletePost}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Post
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {isPostAuthor && (
-                    <>
-                      <DropdownMenuItem className="cursor-pointer">
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Post
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={handleDeletePost}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Post
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  <DropdownMenuItem onClick={handleShare} className="cursor-pointer">
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Share Post
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="pt-0">
-          <p className="text-gray-700 mb-4 whitespace-pre-wrap">{post.content}</p>
-
-          {post.images && post.images.length > 0 && (
+          {(post.mediaUrl || (post.images && post.images.length > 0)) && (
             <div className="mb-4">
-              <img
-                src={post.images[0] || "/placeholder.svg"}
-                alt="Post image"
-                className="w-full h-64 object-cover rounded-lg"
-              />
+              {post.mediaUrl ? (
+                post.mediaType?.startsWith("video") ? (
+                  <video
+                    src={post.mediaUrl}
+                    className="w-full h-64 object-cover rounded-lg"
+                    controls
+                    muted
+                    playsInline
+                    onMouseEnter={(e) => e.currentTarget.play()}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.pause()
+                      e.currentTarget.currentTime = 0
+                    }}
+                  />
+                ) : post.mediaType?.startsWith("image") ? (
+                  <img src={post.mediaUrl} alt="Post media" className="w-full h-64 object-cover rounded-lg" />
+                ) : (
+                  <div className="flex items-center justify-between rounded-lg p-3 border bg-white">
+                    <div className="flex items-center gap-3">
+                      <FileIcon className="h-5 w-5 text-gray-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">Attachment</p>
+                        <p className="text-xs text-gray-500">{post.mediaType || "file"}</p>
+                      </div>
+                    </div>
+                    <a
+                      href={post.mediaUrl}
+                      download="attachment"
+                      className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download
+                    </a>
+                  </div>
+                )
+              ) : (
+                <img
+                  src={post.images?.[0] || "/placeholder.svg"}
+                  alt="Post image"
+                  className="w-full h-64 object-cover rounded-lg"
+                />
+              )}
             </div>
           )}
+
+          <div className="text-gray-700 mb-4 whitespace-pre-wrap" dangerouslySetInnerHTML={formatContent(post.content)} />
 
           {post.tags && post.tags.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -253,42 +415,54 @@ export default function CommunityPost({ post }: CommunityPostProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowComments(!showComments)}
+                onClick={() => {
+                  setShowComments((prev) => !prev)
+                  setCommentPage(0)
+                }}
                 className="text-gray-500 hover:text-purple-600"
               >
                 <MessageCircle className="h-4 w-4 mr-1" />
                 {post.comments?.length || 0}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleShare} className="text-gray-500 hover:text-blue-600">
-                <Share2 className="h-4 w-4 mr-1" />
-                Share
               </Button>
             </div>
           </div>
 
           {/* Comments Section */}
           {showComments && (
-            <div className="w-full mt-4 pt-4 border-t">
+            <div className="w-full mt-4 pt-4 border-t max-h-80 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {/* Existing Comments */}
               {post.comments && post.comments.length > 0 && (
-                <div className="space-y-3 mb-4">
-                  {post.comments.map((comment) => (
-                    <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
-                      <div className="flex items-start gap-3">
-                        <Avatar className="h-8 w-8 cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all">
+                <div className="space-y-2.5 mb-3 text-sm">
+                  {canShowLess && (
+                    <div className="flex justify-between items-center text-xs text-gray-500">
+                      <button
+                        className="text-purple-600 hover:text-purple-700 font-medium"
+                        onClick={() => setCommentPage((p) => Math.max(p - 1, 0))}
+                      >
+                        Show previous
+                      </button>
+                      <span>
+                        Showing {commentPage * pageSize + 1}-{Math.min((commentPage + 1) * pageSize, totalComments)} of {totalComments}
+                      </span>
+                    </div>
+                  )}
+                  {currentComments.map((comment) => (
+                    <div key={comment.id} className="bg-gray-50 rounded-md p-2.5">
+                      <div className="flex items-start gap-2.5">
+                        <Avatar className="h-7 w-7 cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all">
                           <AvatarImage
                             src={
                               comment.author.avatar ||
                               `/placeholder.svg?height=32&width=32&text=${comment.author.name?.substring(0, 2) || "U"}`
                             }
                           />
-                          <AvatarFallback className="text-xs">
+                          <AvatarFallback className="text-[10px]">
                             <User className="h-3 w-3" />
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-sm cursor-pointer hover:text-purple-600 transition-colors">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-medium text-[13px] cursor-pointer hover:text-purple-600 transition-colors">
                               {comment.author.name || "Unknown User"}
                             </span>
                             {user && user.id !== comment.author.id && (
@@ -297,14 +471,16 @@ export default function CommunityPost({ post }: CommunityPostProps) {
                                 size="sm"
                                 onClick={() => handleMessageUser(comment.author.id, comment.author.name)}
                                 className="h-5 px-1 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                aria-label={hasConversationWith(comment.author.id) ? "Open chat" : "Request to PM"}
+                                title={hasConversationWith(comment.author.id) ? "Open chat" : "Request to PM"}
                               >
                                 <MessageSquare className="h-3 w-3 mr-1" />
-                                Request to PM
+                                {!hasConversationWith(comment.author.id) && "Request to PM"}
                               </Button>
                             )}
-                            <span className="text-xs text-gray-500">{formatTimeAgo(comment.createdAt)}</span>
+                            <span className="text-[11px] text-gray-500">{formatTimeAgo(comment.createdAt)}</span>
                           </div>
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap mb-2">{comment.content}</p>
+                          <p className="text-[13px] text-gray-700 whitespace-pre-wrap mb-1.5">{comment.content}</p>
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
@@ -326,6 +502,21 @@ export default function CommunityPost({ post }: CommunityPostProps) {
                       </div>
                     </div>
                   ))}
+                  {canShowMore && (
+                    <div className="flex justify-between items-center text-xs text-gray-600">
+                      <span>
+                        Showing {commentPage * pageSize + 1}-{Math.min((commentPage + 1) * pageSize, totalComments)} of {totalComments}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-purple-600 border-purple-200 hover:bg-purple-50 h-8"
+                        onClick={() => setCommentPage((p) => Math.min(p + 1, maxPage))}
+                      >
+                        Show more
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -383,6 +574,208 @@ export default function CommunityPost({ post }: CommunityPostProps) {
       </Card>
 
       <MessagingModal isOpen={isMessageModalOpen} onClose={handleCloseMessaging} conversation={messageConversation ?? undefined} />
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Post</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700" htmlFor="edit-title">
+                Title
+              </label>
+              <Input
+                id="edit-title"
+                ref={editTitleRef}
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Update title"
+                className="pr-24"
+              />
+              <div className="flex items-center gap-2 rounded-lg border bg-white px-2 py-1 text-sm text-gray-600">
+                <span className="text-xs text-gray-500">Format</span>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={() => applyEditTitleFormatting("**", "**")}
+                >
+                  <Bold className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={() => applyEditTitleFormatting("*", "*")}
+                >
+                  <Italic className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={() => applyEditTitleFormatting("<u>", "</u>")}
+                >
+                  <Underline className="h-4 w-4" />
+                </Button>
+                <div className="relative">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => setShowTitleEmojiPicker((prev) => !prev)}
+                  >
+                    <Smile className="h-4 w-4" />
+                  </Button>
+                  {showTitleEmojiPicker && (
+                    <div className="absolute z-10 mt-2">
+                      <Picker data={data} onEmojiSelect={handleEditTitleEmojiSelect} theme="light" />
+                    </div>
+                  )}
+                </div>
+                <span className="ml-auto text-xs text-gray-400">Keep it concise</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700" htmlFor="edit-content">
+                Content
+              </label>
+              <div className="flex flex-wrap items-center gap-2 bg-gray-50 border rounded-lg px-3 py-2">
+                <Button type="button" variant="ghost" size="icon" onClick={() => applyEditFormatting("**", "**")}>
+                  <Bold className="h-4 w-4" />
+                </Button>
+                <Button type="button" variant="ghost" size="icon" onClick={() => applyEditFormatting("*", "*")}>
+                  <Italic className="h-4 w-4" />
+                </Button>
+                <Button type="button" variant="ghost" size="icon" onClick={() => applyEditFormatting("<u>", "</u>")}>
+                  <Underline className="h-4 w-4" />
+                </Button>
+                <Button type="button" variant="ghost" size="icon" onClick={() => setEditContent((prev) => `${prev}\n• `)}>
+                  <List className="h-4 w-4" />
+                </Button>
+                <div className="relative">
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setShowEmojiPicker((prev) => !prev)}>
+                    <Smile className="h-4 w-4" />
+                  </Button>
+                  {showEmojiPicker && (
+                    <div className="absolute z-10 mt-2">
+                      <Picker data={data} onEmojiSelect={handleEditEmojiSelect} theme="light" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1" />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  <Upload className="h-4 w-4" />
+                  {isUploading ? "Uploading..." : "Add media"}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="*/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) void handleEditImageUpload(file)
+                  }}
+                />
+              </div>
+              <Textarea
+                id="edit-content"
+                ref={editTextareaRef}
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="min-h-[140px]"
+              />
+              {editImagePreview && (
+                <div className="relative mt-3">
+                  {editMediaType?.startsWith("video") ? (
+                    <video
+                      src={editImagePreview}
+                      className="w-full h-48 object-cover rounded-lg"
+                      muted
+                      playsInline
+                      controls
+                      onMouseEnter={(e) => e.currentTarget.play()}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.pause()
+                        e.currentTarget.currentTime = 0
+                      }}
+                    />
+                  ) : editMediaType?.startsWith("image") ? (
+                    <img
+                      src={editImagePreview}
+                      alt="Attachment preview"
+                    className="w-full h-48 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between bg-gray-100 border rounded-lg p-3">
+                      <div className="flex items-center gap-3">
+                        <FileIcon className="h-5 w-5 text-gray-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Attachment</p>
+                          <p className="text-xs text-gray-500">{editMediaType || "file"}</p>
+                        </div>
+                      </div>
+                      <a
+                        href={editImagePreview}
+                        download="attachment"
+                        className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download
+                      </a>
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="absolute top-3 right-3 bg-white/80 hover:bg-white"
+                    onClick={() => {
+                      setEditImagePreview("")
+                      setEditImageData("")
+                      setEditMediaType("")
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isSavingEdit || !editTitle.trim() || !editContent.trim()}>
+              {isSavingEdit ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        title="Delete post?"
+        description="This will permanently remove your post for everyone in your city."
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={handleConfirmDelete}
+        loading={isDeleting}
+      />
     </>
   )
 }

@@ -40,6 +40,14 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
     }
   }, [conversationMessages])
 
+  useEffect(() => {
+    if (!isOpen) return
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.setSelectionRange(newMessage.length, newMessage.length)
+    })
+  }, [isOpen, conversation, newMessage.length])
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !conversation || !user) return
     await sendMessage(conversation.id, newMessage.trim())
