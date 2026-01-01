@@ -81,6 +81,7 @@ model User {
   boostCheckouts BoostCheckout[]
   boostReceipts BoostReceipt[]
   aiChatMessages AiChatMessage[]
+  adminAuditLogs AdminAuditLog[] @relation("AdminAuditLogs")
 }
 
 model Event {
@@ -306,6 +307,26 @@ model AiChatMessage {
   createdAt   DateTime   @default(now())
 
   @@index([userId, createdAt])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+
+  admin      User     @relation("AdminAuditLogs", fields: [adminId], references: [id], onDelete: Cascade)
+  adminId    String
+  adminEmail String
+
+  action     String
+  entityType String
+  entityId   String
+
+  before     Json?
+  after      Json?
+  metadata   Json?
+
+  @@index([adminId, createdAt])
+  @@index([entityType, entityId])
 }
 
 enum ConversationStatus {

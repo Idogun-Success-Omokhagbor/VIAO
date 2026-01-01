@@ -153,7 +153,7 @@ export async function POST(req: Request) {
 
     const history = Array.isArray(body?.history) ? body.history : []
 
-    const tools = [
+    const tools: any[] = [
       {
         type: "function",
         function: {

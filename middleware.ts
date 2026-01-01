@@ -22,6 +22,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   const protectedRoots = [
+    "/admin",
     "/dashboard",
     "/community",
     "/messages",
@@ -50,8 +51,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  const adminOnly = pathname === "/admin" || pathname.startsWith("/admin/")
+  if (adminOnly && role !== "ADMIN") {
+    const url = request.nextUrl.clone()
+    url.pathname = "/dashboard"
+    return NextResponse.redirect(url)
+  }
+
   const organizerOnly = pathname === "/events" || pathname.startsWith("/events/") || pathname === "/receipts" || pathname.startsWith("/receipts/")
-  if (organizerOnly && role !== "ORGANIZER") {
+  if (organizerOnly && role !== "ORGANIZER" && role !== "ADMIN") {
     const url = request.nextUrl.clone()
     url.pathname = "/dashboard"
     return NextResponse.redirect(url)
@@ -62,6 +70,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/admin/:path*",
     "/dashboard/:path*",
     "/community/:path*",
     "/messages/:path*",

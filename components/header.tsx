@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { LogOut, Calendar, MessageSquare, Users, Receipt } from "lucide-react"
+import { LogOut, Calendar, MessageSquare, Users, Receipt, Shield } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useMessaging } from "@/context/messaging-context"
 import { AuthModal } from "@/components/auth-modal"
@@ -17,7 +17,7 @@ export function Header() {
   const { user, logout } = useAuth()
   const { unreadCount } = useMessaging()
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ""
 
   const isActive = (path: string) => pathname === path
 
@@ -35,6 +35,17 @@ export function Header() {
 
             {user && (
               <nav className="hidden md:flex items-center space-x-6">
+                {user.role === "ADMIN" && (
+                  <Link
+                    href="/admin"
+                    className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
+                      pathname.startsWith("/admin") ? "text-primary" : "text-muted-foreground"
+                    }`}
+                  >
+                    <Shield className="h-4 w-4" />
+                    <span>Admin</span>
+                  </Link>
+                )}
                 {user.role === "ORGANIZER" && (
                   <Link
                     href="/events"
