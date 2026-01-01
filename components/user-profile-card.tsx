@@ -30,7 +30,7 @@ export function UserProfileCard({ user }: UserProfileCardProps) {
         <div className="flex items-start space-x-4">
           <Avatar className="h-16 w-16">
             <AvatarImage src={avatarSrc} alt={user.name} />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{(user.name || "U").slice(0, 1).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-1 space-y-2">
             <h3 className="text-lg font-semibold">{user.name}</h3>

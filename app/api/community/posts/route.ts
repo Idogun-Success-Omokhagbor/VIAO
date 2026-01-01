@@ -5,6 +5,7 @@ import { z } from "zod"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
+import { mapPost } from "@/lib/community-post"
 
 const createPostSchema = z.object({
   title: z.string().min(1),
@@ -16,73 +17,65 @@ const createPostSchema = z.object({
   category: z.string().optional(),
 })
 
-export async function mapPost(post: any, sessionUserId?: string) {
-  const location = post.location ?? post.author?.location ?? null
-
-  return {
-    id: post.id,
-    title: post.title,
-    content: post.content,
-    tags: post.tags ?? [],
-    images: post.imageUrl ? [post.imageUrl] : [],
-    mediaUrl: post.imageUrl ?? undefined,
-    mediaType: post.mediaType ?? undefined,
-    category: post.category ?? undefined,
-    likes: post.likedBy?.length ?? 0,
-    likedBy: post.likedBy ?? [],
-    isLiked: sessionUserId ? post.likedBy?.includes(sessionUserId) ?? false : false,
-    createdAt: post.createdAt.toISOString(),
-    updatedAt: post.updatedAt.toISOString(),
-    location: location ?? undefined,
-    author: {
-      id: post.author.id,
-      name: post.author.name,
-      email: post.author.email,
-      avatar: post.author.avatarUrl ?? undefined,
-      location: post.author.location ?? undefined,
-    },
-    comments:
-      post.comments?.map((comment: any) => ({
-        id: comment.id,
-        content: comment.content,
-        likes: comment.likedBy?.length ?? 0,
-        likedBy: comment.likedBy ?? [],
-        isLiked: sessionUserId ? comment.likedBy?.includes(sessionUserId) ?? false : false,
-        createdAt: comment.createdAt.toISOString(),
-        author: {
-          id: comment.author.id,
-          name: comment.author.name,
-          email: comment.author.email,
-          avatar: comment.author.avatarUrl ?? undefined,
-        },
-      })) ?? [],
-  }
-}
-
 export async function GET() {
   try {
     const session = await getSessionUser()
-    if (!session) return NextResponse.json({ posts: [] })
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.sub },
-      select: { id: true, location: true },
-    })
-
-    if (!user?.location) {
-      return NextResponse.json({ posts: [] })
-    }
+    const user = session
+      ? await prisma.user.findUnique({
+          where: { id: session.sub },
+          select: { id: true, location: true },
+        })
+      : null
 
     const posts = await prisma.communityPost.findMany({
-      where: {
+      where:
+        user?.location && user.location.trim().length > 0
+          ? {
+              OR: [
+                { location: { equals: user.location, mode: "insensitive" } },
+                { author: { location: { equals: user.location, mode: "insensitive" } } },
+                { location: null },
+                { location: "" },
+                { author: { location: null } },
+                { author: { location: "" } },
+              ],
+            }
+          : undefined,
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        tags: true,
+        location: true,
+        mediaType: true,
+        category: true,
+        likedBy: true,
+        createdAt: true,
+        updatedAt: true,
         author: {
-          location: { equals: user.location, mode: "insensitive" },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+            location: true,
+          },
         },
-      },
-      include: {
-        author: true,
         comments: {
-          include: { author: true },
+          select: {
+            id: true,
+            content: true,
+            likedBy: true,
+            createdAt: true,
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
+          },
           orderBy: { createdAt: "desc" },
         },
       },

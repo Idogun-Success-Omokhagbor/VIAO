@@ -5,7 +5,7 @@ import { z } from "zod"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
-import { mapPost } from "../route"
+import { mapPost } from "@/lib/community-post"
 
 const updatePostSchema = z.object({
   title: z.string().min(1).optional(),

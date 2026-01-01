@@ -16,7 +16,7 @@ import { useAuth } from "@/context/auth-context"
 import { getAvatarSrc } from "@/lib/utils"
 
 export function AccountDashboard() {
-  const { user, updateProfile } = useAuth()
+  const { user, updateUser } = useAuth()
   const avatarSrc = getAvatarSrc(user?.name, user?.avatarUrl ?? (user as any)?.avatar)
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
@@ -29,7 +29,7 @@ export function AccountDashboard() {
   })
 
   const handleSave = async () => {
-    await updateProfile(formData)
+    await updateUser(formData)
     setIsEditing(false)
   }
 
@@ -89,7 +89,7 @@ export function AccountDashboard() {
               <div className="flex items-center gap-4">
                 <Avatar className="w-20 h-20">
                   <AvatarImage src={avatarSrc} />
-                  <AvatarFallback className="text-lg">{user?.name?.charAt(0)?.toUpperCase() || "U"}</AvatarFallback>
+                  <AvatarFallback className="text-lg">{(user?.name || "U").slice(0, 1).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
                   <Button variant="outline" size="sm">

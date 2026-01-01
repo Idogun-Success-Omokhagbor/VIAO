@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
-import { mapPost } from "../../../community/posts/route"
+import { mapPost } from "@/lib/community-post"
 
 const DEFAULT_TAKE = 5
 const MAX_TAKE = 20

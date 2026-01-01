@@ -32,6 +32,68 @@
   .hide-scrollbar [data-radix-scroll-area-scrollbar] {
     display: none !important;
   }
+
+  .leaflet-div-icon.viao-marker-container {
+    background: transparent;
+    border: none;
+  }
+
+  .viao-marker {
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: var(--viao-marker-color, #6b7280);
+    border: 2px solid rgba(255, 255, 255, 0.96);
+    box-shadow: 0 10px 18px rgba(0, 0, 0, 0.14), 0 0 0 6px rgba(0, 0, 0, 0.05);
+    position: relative;
+  }
+
+  .viao-marker::after {
+    content: "";
+    position: absolute;
+    inset: -10px;
+    border-radius: 9999px;
+    background: radial-gradient(circle, var(--viao-marker-color) 0%, transparent 70%);
+    opacity: 0.22;
+  }
+
+  .viao-user-marker {
+    background: #2563eb;
+    border-color: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 10px 18px rgba(0, 0, 0, 0.14), 0 0 0 8px rgba(37, 99, 235, 0.18);
+  }
+
+  .viao-marker--boosted {
+    border-color: rgba(250, 204, 21, 0.98);
+    box-shadow: 0 10px 18px rgba(0, 0, 0, 0.16), 0 0 0 7px rgba(250, 204, 21, 0.22);
+  }
+
+  .viao-marker--boosted::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 9999px;
+    border: 2px solid rgba(250, 204, 21, 0.9);
+    animation: viao-marker-pulse 1.6s ease-out infinite;
+  }
+
+  .viao-user-pin {
+    width: 30px;
+    height: 38px;
+    transform: translateZ(0);
+    filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.18));
+  }
+
+  @keyframes viao-marker-pulse {
+    0% {
+      transform: scale(0.8);
+      opacity: 0.85;
+    }
+    100% {
+      transform: scale(1.85);
+      opacity: 0;
+    }
+  }
 }
 
 @layer base {

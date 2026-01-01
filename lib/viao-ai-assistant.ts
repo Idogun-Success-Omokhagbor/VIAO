@@ -14,7 +14,7 @@ interface AIResponse {
 }
 
 // Mock events data with Swiss cities - this could be connected to your actual events context
-const mockEvents: Event[] = [
+const mockEvents: any[] = [
   {
     id: "1",
     title: "Zurich Tech Meetup",
@@ -253,7 +253,7 @@ export class ViaoAIAssistant {
   }
 
   private filterEvents(query: AIQuery): Event[] {
-    let filteredEvents = [...mockEvents]
+    let filteredEvents = [...mockEvents] as Event[]
 
     // Filter by location
     if (query.location) {
@@ -399,42 +399,34 @@ export class ViaoAIAssistant {
 }
 
 export async function getViaoAIResponse(query: string): Promise<AIResponse> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-
-  const lowerQuery = query.toLowerCase()
-
-  // Determine response type based on query content
-  if (lowerQuery.includes("hello") || lowerQuery.includes("hi") || lowerQuery.includes("hey")) {
-    return responses.greeting
-  }
-
-  if (lowerQuery.includes("event") || lowerQuery.includes("activity") || lowerQuery.includes("happening")) {
-    return responses.events
-  }
-
-  if (
-    lowerQuery.includes("zurich") ||
-    lowerQuery.includes("geneva") ||
-    lowerQuery.includes("basel") ||
-    lowerQuery.includes("bern") ||
-    lowerQuery.includes("lausanne") ||
-    lowerQuery.includes("where")
-  ) {
-    return responses.location
-  }
-
-  if (
-    lowerQuery.includes("create") ||
-    lowerQuery.includes("organize") ||
-    lowerQuery.includes("host") ||
-    lowerQuery.includes("promote")
-  ) {
-    return responses.organizer
-  }
-
-  return responses.default
+  return getViaoAIResponseWithHistory(query)
 }
 
-// Legacy export for backward compatibility
-export const viaoAI = getViaoAIResponse
+export async function getViaoAIResponseWithHistory(
+  query: string,
+  history?: Array<{ role: "user" | "assistant"; content: string }>,
+): Promise<AIResponse> {
+  const res = await fetch("/api/ai/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ message: query, history: Array.isArray(history) ? history : [] }),
+  })
+
+  const data = (await res.json().catch(() => null)) as { message?: string; suggestions?: string[]; error?: string } | null
+
+  if (!res.ok) {
+    throw new Error(data?.error || "AI request failed")
+  }
+
+  return {
+    message: data?.message || "",
+    suggestions: Array.isArray(data?.suggestions) ? data?.suggestions : undefined,
+  }
+}
+
+// Legacy export for backward compatibility (returns plain message string)
+export async function viaoAI(query: string): Promise<string> {
+  const res = await getViaoAIResponse(query)
+  return res.message
+}

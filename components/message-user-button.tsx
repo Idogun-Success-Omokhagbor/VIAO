@@ -7,6 +7,7 @@ import { MessagingModal } from "./messaging-modal"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
 import { toast } from "sonner"
+import type { Conversation } from "@/types/messaging"
 
 interface MessageUserButtonProps {
   userId: string
@@ -28,7 +29,7 @@ export function MessageUserButton({
   const { user } = useAuth()
   const { getOrCreateConversation, conversations } = useMessaging()
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [conversation, setConversation] = useState(null)
+  const [conversation, setConversation] = useState<Conversation | null>(null)
   const [isRequesting, setIsRequesting] = useState(false)
 
   const existingConversation = useMemo(
@@ -88,7 +89,7 @@ export function MessageUserButton({
         <MessageCircle className="w-4 h-4 mr-2" />
         {statusLabel}
       </Button>
-     <MessagingModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} conversation={conversation} />
+      <MessagingModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} conversation={conversation ?? undefined} />
     </>
   )
 }

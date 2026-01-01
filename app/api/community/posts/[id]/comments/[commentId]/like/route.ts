@@ -4,7 +4,7 @@ import { NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
-import { mapPost } from "../../../../route"
+import { mapPost } from "@/lib/community-post"
 import { createNotification } from "@/lib/notifications"
 
 export async function POST(_: Request, { params }: { params: { id: string; commentId: string } }) {

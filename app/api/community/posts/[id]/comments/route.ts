@@ -5,7 +5,7 @@ import { z } from "zod"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
-import { mapPost } from "../../route"
+import { mapPost } from "@/lib/community-post"
 import { createNotification } from "@/lib/notifications"
 
 const createCommentSchema = z.object({

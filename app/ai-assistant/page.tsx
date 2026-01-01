@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Bot, Send, Mic, Volume2, VolumeX } from "lucide-react"
-import { viaoAI } from "@/lib/viao-ai-assistant"
+import { Bot, Send } from "lucide-react"
+import { getViaoAIResponseWithHistory } from "@/lib/viao-ai-assistant"
 import { Header } from "@/components/header"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 interface Message {
   id: string
@@ -41,10 +43,40 @@ function ChatWithViao() {
   ])
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isSpeaking, setIsSpeaking] = useState(false)
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch("/api/ai/chat", { credentials: "include", cache: "no-store" })
+        const data = (await res.json().catch(() => null)) as { messages?: any[]; error?: string } | null
+        if (!res.ok) return
+        const raw = Array.isArray(data?.messages) ? data!.messages : []
+        if (raw.length === 0) return
+
+        setMessages(
+          raw
+            .filter((m) => m && typeof m.content === "string")
+            .map((m) => ({
+              id: String(m.id ?? `${Date.now()}`),
+              text: String(m.content ?? ""),
+              sender: m.role === "user" ? "user" : "assistant",
+              timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+            })),
+        )
+      } catch {
+      }
+    }
+
+    void load()
+  }, [])
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return
+
+    const history = messages
+      .filter((m) => typeof m.text === "string" && m.text.trim().length > 0)
+      .slice(-12)
+      .map((m) => ({ role: m.sender === "user" ? ("user" as const) : ("assistant" as const), content: m.text }))
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -58,18 +90,19 @@ function ChatWithViao() {
     setIsLoading(true)
 
     try {
-      const response = await viaoAI(inputValue)
+      const response = await getViaoAIResponseWithHistory(inputValue, history)
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: response,
+        text: response.message,
         sender: "assistant",
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
+      const errText = error instanceof Error ? error.message : "AI request failed"
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "I'm sorry, I'm having trouble processing your request right now. Please try again later.",
+        text: `Sorry — I couldn't respond right now. ${errText}`,
         sender: "assistant",
         timestamp: new Date(),
       }
@@ -96,14 +129,6 @@ function ChatWithViao() {
             <Bot className="w-5 h-5" />
             Chat with Viao
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsSpeaking(!isSpeaking)}
-            className="text-white hover:bg-white/20"
-          >
-            {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </Button>
         </CardTitle>
       </CardHeader>
 
@@ -116,7 +141,16 @@ function ChatWithViao() {
                   message.sender === "user" ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-900"
                 }`}
               >
-                <p className="text-sm leading-relaxed">{message.text}</p>
+                <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: (props: any) => <a {...props} className="underline" target="_blank" rel="noreferrer" />,
+                    }}
+                  >
+                    {message.text}
+                  </ReactMarkdown>
+                </div>
                 <p className={`text-xs mt-1 ${message.sender === "user" ? "text-purple-200" : "text-gray-500"}`}>
                   {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </p>
@@ -145,9 +179,6 @@ function ChatWithViao() {
 
         <div className="p-4 border-t">
           <div className="flex space-x-2">
-            <Button variant="outline" size="sm">
-              <Mic className="w-4 h-4" />
-            </Button>
             <div className="flex-1 relative">
               <Input
                 value={inputValue}

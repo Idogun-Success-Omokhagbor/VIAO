@@ -19,14 +19,16 @@ import {
   Check,
   Zap,
   Crown,
-  CreditCard,
 } from "lucide-react"
 import { useEvents } from "@/context/events-context"
 import { useAuth } from "@/context/auth-context"
 import PaymentModal from "./payment-modal"
+import type { Event } from "@/types/event"
 
 interface EventFormProps {
   onClose: () => void
+  mode?: "create" | "edit"
+  event?: Event
 }
 
 interface FormData {
@@ -38,9 +40,42 @@ interface FormData {
   location: string
   price: number
   maxAttendees: number | null
-  imageUrl: string
+  imageUrls: string[]
   boostLevel: number
   shouldBoost: boolean
+}
+
+async function compressImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file
+
+  const MAX_DIM = 1280
+  const QUALITY = 0.82
+
+  const bitmap = await createImageBitmap(file)
+
+  const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height))
+  const targetW = Math.max(1, Math.round(bitmap.width * scale))
+  const targetH = Math.max(1, Math.round(bitmap.height * scale))
+
+  const canvas = document.createElement("canvas")
+  canvas.width = targetW
+  canvas.height = targetH
+
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return file
+
+  ctx.drawImage(bitmap, 0, 0, targetW, targetH)
+
+  const outType = file.type === "image/png" ? "image/png" : "image/jpeg"
+
+  const blob: Blob = await new Promise((resolve) => {
+    canvas.toBlob((b) => resolve(b ?? file), outType, outType === "image/jpeg" ? QUALITY : undefined)
+  })
+
+  const ext = outType === "image/png" ? "png" : "jpg"
+  const baseName = (file.name || "image").replace(/\.[^/.]+$/, "")
+  const outName = `${baseName}.${ext}`
+  return new File([blob], outName, { type: outType })
 }
 
 const categories = [
@@ -73,28 +108,36 @@ const boostOptions = [
   },
 ]
 
-export function EventForm({ onClose }: EventFormProps) {
-  const { createEvent } = useEvents()
+export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
+  const { createEvent, updateEvent } = useEvents()
   const { user } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isOrganizer = user?.role === "ORGANIZER"
+  const isEdit = mode === "edit"
 
+  const totalSteps = isEdit ? 3 : 4
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [createdEventId, setCreatedEventId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState<FormData>({
-    title: "",
-    description: "",
-    category: "",
-    date: "",
-    time: "19:00",
-    location: "",
-    price: 0,
-    maxAttendees: null,
-    imageUrl: "",
+    title: event?.title ?? "",
+    description: event?.description ?? "",
+    category: event?.category ?? "",
+    date: event?.date ? event.date.split("T")[0] : "",
+    time: event?.time ?? "19:00",
+    location: typeof event?.location === "string" ? event.location : "",
+    price: event?.price ?? 0,
+    maxAttendees: event?.maxAttendees ?? null,
+    imageUrls:
+      Array.isArray(event?.imageUrls) && event.imageUrls.length > 0
+        ? event.imageUrls
+        : event?.imageUrl
+          ? [event.imageUrl]
+          : [],
     boostLevel: 1,
     shouldBoost: false,
   })
@@ -137,7 +180,7 @@ export function EventForm({ onClose }: EventFormProps) {
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep((prev) => Math.min(prev + 1, 4))
+      setCurrentStep((prev) => Math.min(prev + 1, totalSteps))
     }
   }
 
@@ -153,81 +196,161 @@ export function EventForm({ onClose }: EventFormProps) {
     }
   }
 
-  const handleImageUpload = async (file: File) => {
-    if (!file) return
+  const handleImagesUpload = async (files: FileList) => {
+    if (!files || files.length === 0) return
 
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      setErrors((prev) => ({ ...prev, image: "Please select an image file" }))
-      return
-    }
+    const remaining = 5 - formData.imageUrls.length
+    if (remaining <= 0) return
 
-    // Validate file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, image: "Image must be smaller than 5MB" }))
-      return
-    }
-
+    const filesToUpload = Array.from(files).slice(0, remaining)
     setIsUploading(true)
-    try {
-      // Simulate upload delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      // Create object URL for preview
-      const imageUrl = URL.createObjectURL(file)
-      setFormData((prev) => ({ ...prev, imageUrl }))
+    try {
+      for (const file of filesToUpload) {
+        if (!file.type.startsWith("image/")) {
+          setErrors((prev) => ({ ...prev, image: "Please select image files only" }))
+          continue
+        }
+
+        if (file.size > 2 * 1024 * 1024) {
+          setErrors((prev) => ({ ...prev, image: "Each image must be smaller than 2MB" }))
+          continue
+        }
+
+        const safeFile = await compressImage(file)
+
+        const fd = new FormData()
+        fd.append("file", safeFile)
+        const res = await fetch("/api/upload", { method: "POST", body: fd })
+        const data = (await res.json()) as { url?: string; error?: string }
+        if (!res.ok || !data.url) {
+          throw new Error(data.error || "Upload failed")
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          imageUrls: [...prev.imageUrls, data.url as string].slice(0, 5),
+        }))
+      }
+
       setErrors((prev) => ({ ...prev, image: "" }))
     } catch (error) {
-      setErrors((prev) => ({ ...prev, image: "Failed to upload image" }))
+      setErrors((prev) => ({ ...prev, image: error instanceof Error ? error.message : "Failed to upload images" }))
     } finally {
       setIsUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
     }
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (options?: { draft?: boolean }) => {
     if (!isOrganizer) return
     if (!validateStep(3)) return
 
-    if (formData.shouldBoost) {
-      setShowPaymentModal(true)
+    if (!isEdit && options?.draft) {
+      setIsSubmitting(true)
+      try {
+        const dateTime = new Date(`${formData.date}T${formData.time || "00:00"}`)
+        await createEvent({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          date: dateTime.toISOString(),
+          time: formData.time,
+          location: formData.location,
+          price: formData.price ?? null,
+          maxAttendees: formData.maxAttendees ?? null,
+          imageUrls: formData.imageUrls,
+          isBoosted: false,
+          boostUntil: null,
+          status: "DRAFT",
+        })
+        onClose()
+      } catch {
+        setErrors((prev) => ({
+          ...prev,
+          submit: "Failed to save draft. Please try again.",
+        }))
+      } finally {
+        setIsSubmitting(false)
+      }
       return
     }
 
-    await createEventAndClose()
+    if (!isEdit && formData.shouldBoost) {
+      setIsSubmitting(true)
+      try {
+        const dateTime = new Date(`${formData.date}T${formData.time || "00:00"}`)
+        const created = await createEvent({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          date: dateTime.toISOString(),
+          time: formData.time,
+          location: formData.location,
+          price: formData.price ?? null,
+          maxAttendees: formData.maxAttendees ?? null,
+          imageUrls: formData.imageUrls,
+          isBoosted: false,
+          boostUntil: null,
+          status: "PUBLISHED",
+        })
+        setCreatedEventId(created.id)
+        setShowPaymentModal(true)
+      } catch {
+        setErrors((prev) => ({
+          ...prev,
+          submit: "Failed to create event. Please try again.",
+        }))
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
+
+    await saveAndClose()
   }
 
-  const createEventAndClose = async () => {
+  const saveAndClose = async () => {
     setIsSubmitting(true)
     try {
       const dateTime = new Date(`${formData.date}T${formData.time || "00:00"}`)
-      const boostDurationHours = formData.shouldBoost ? (formData.boostLevel === 2 ? 48 : 24) : 0
-      const boostUntil = formData.shouldBoost ? new Date(dateTime.getTime() + boostDurationHours * 60 * 60 * 1000) : null
 
-      await createEvent({
-        title: formData.title,
-        description: formData.description,
-        category: formData.category,
-        date: dateTime.toISOString(),
-        time: formData.time,
-        location: formData.location,
-        price: formData.price ?? null,
-        maxAttendees: formData.maxAttendees ?? null,
-        imageUrl: formData.imageUrl || undefined,
-        isBoosted: formData.shouldBoost,
-        boostUntil: boostUntil ? boostUntil.toISOString() : null,
-      })
+      if (isEdit) {
+        if (!event?.id) throw new Error("Missing event")
+        await updateEvent(event.id, {
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          date: dateTime.toISOString(),
+          time: formData.time,
+          location: formData.location,
+          price: formData.price ?? null,
+          maxAttendees: formData.maxAttendees ?? null,
+          imageUrls: formData.imageUrls,
+        })
+      } else {
+        await createEvent({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          date: dateTime.toISOString(),
+          time: formData.time,
+          location: formData.location,
+          price: formData.price ?? null,
+          maxAttendees: formData.maxAttendees ?? null,
+          imageUrls: formData.imageUrls,
+          isBoosted: false,
+          boostUntil: null,
+          status: "PUBLISHED",
+        })
+      }
 
       onClose()
-    } catch (error) {
-      setErrors((prev) => ({ ...prev, submit: "Failed to create event. Please try again." }))
+    } catch {
+      setErrors((prev) => ({ ...prev, submit: isEdit ? "Failed to update event. Please try again." : "Failed to create event. Please try again." }))
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  const handlePaymentSuccess = async () => {
-    setShowPaymentModal(false)
-    await createEventAndClose()
   }
 
   const formatDate = (dateString: string) => {
@@ -261,23 +384,17 @@ export function EventForm({ onClose }: EventFormProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Create New Event</h2>
-            <p className="text-gray-600">Share your event with the community</p>
+            <h2 className="text-2xl font-bold text-gray-900">{isEdit ? "Edit Event" : "Create New Event"}</h2>
+            <p className="text-gray-600">{isEdit ? "Update your event details" : "Share your event with the community"}</p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        {!isOrganizer && (
-          <div className="mb-6 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-            Only organizer accounts can create, edit, boost, or delete events. You can still browse and RSVP as a User.
-          </div>
-        )}
-
         {/* Progress Indicator */}
         <div className="flex items-center justify-center mb-8">
-          {[1, 2, 3, 4].map((step) => (
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
             <div key={step} className="flex items-center">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -286,7 +403,9 @@ export function EventForm({ onClose }: EventFormProps) {
               >
                 {step < currentStep ? <Check className="w-4 h-4" /> : step}
               </div>
-              {step < 4 && <div className={`w-16 h-1 mx-2 ${step < currentStep ? "bg-purple-600" : "bg-gray-200"}`} />}
+              {step < totalSteps && (
+                <div className={`w-16 h-1 mx-2 ${step < currentStep ? "bg-purple-600" : "bg-gray-200"}`} />
+              )}
             </div>
           ))}
         </div>
@@ -407,14 +526,14 @@ export function EventForm({ onClose }: EventFormProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
-                    <Label htmlFor="price">Ticket Price ($)</Label>
+                    <Label htmlFor="price">Ticket Price (CHF)</Label>
                     <Input
                       id="price"
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="1"
                       value={formData.price}
-                      onChange={(e) => handleInputChange("price", Number.parseFloat(e.target.value) || 0)}
+                      onChange={(e) => handleInputChange("price", Number.parseInt(e.target.value || "0", 10) || 0)}
                       placeholder="0.00"
                       className={errors.price ? "border-red-500" : ""}
                     />
@@ -437,32 +556,39 @@ export function EventForm({ onClose }: EventFormProps) {
                 </div>
 
                 <div className="mb-6">
-                  <Label>Event Image (Optional)</Label>
+                  <Label>Event Images (Optional, up to 5)</Label>
                   <div className="mt-2">
-                    {formData.imageUrl ? (
-                      <div className="relative">
-                        <img
-                          src={formData.imageUrl || "/placeholder.svg"}
-                          alt="Event preview"
-                          className="w-full h-48 object-cover rounded-lg"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2 bg-white/80 hover:bg-white"
-                          onClick={() => setFormData((prev) => ({ ...prev, imageUrl: "" }))}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                    {formData.imageUrls.length > 0 && (
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        {formData.imageUrls.map((url, idx) => (
+                          <div key={url} className="relative">
+                            <img src={url} alt={`Event image ${idx + 1}`} className="w-full h-28 object-cover rounded-lg" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-1 right-1 bg-white/80 hover:bg-white"
+                              onClick={() =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  imageUrls: prev.imageUrls.filter((_, i) => i !== idx),
+                                }))
+                              }
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
+                    )}
+
+                    {formData.imageUrls.length < 5 && (
                       <div
-                        className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-purple-400 transition-colors"
+                        className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-purple-400 transition-colors"
                         onClick={() => fileInputRef.current?.click()}
                       >
                         <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-gray-600">{isUploading ? "Uploading..." : "Click to upload an image"}</p>
-                        <p className="text-sm text-gray-500 mt-1">PNG, JPG up to 5MB</p>
+                        <p className="text-gray-600">{isUploading ? "Uploading..." : "Click to upload images"}</p>
+                        <p className="text-sm text-gray-500 mt-1">PNG, JPG up to 2MB each</p>
                       </div>
                     )}
                     <input
@@ -470,9 +596,10 @@ export function EventForm({ onClose }: EventFormProps) {
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      multiple
                       onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) handleImageUpload(file)
+                        const files = e.target.files
+                        if (files) void handleImagesUpload(files)
                       }}
                     />
                     {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image}</p>}
@@ -482,7 +609,7 @@ export function EventForm({ onClose }: EventFormProps) {
             </div>
           )}
 
-          {currentStep === 4 && (
+          {!isEdit && currentStep === 4 && (
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-semibold mb-4">Boost Your Event (Optional)</h3>
@@ -492,7 +619,7 @@ export function EventForm({ onClose }: EventFormProps) {
                   <Checkbox
                     id="shouldBoost"
                     checked={formData.shouldBoost}
-                    onCheckedChange={(checked) => handleInputChange("shouldBoost", checked)}
+                    onCheckedChange={(checked) => handleInputChange("shouldBoost", checked === true)}
                   />
                   <Label htmlFor="shouldBoost" className="text-sm font-medium">
                     Boost this event for maximum visibility
@@ -550,9 +677,9 @@ export function EventForm({ onClose }: EventFormProps) {
                   <Card className="mt-2">
                     <CardHeader className="p-0">
                       <div className="h-32 bg-gradient-to-br from-purple-400 to-blue-500 rounded-t-lg relative">
-                        {formData.imageUrl ? (
+                        {formData.imageUrls.length > 0 ? (
                           <img
-                            src={formData.imageUrl || "/placeholder.svg"}
+                            src={formData.imageUrls[0] || "/placeholder.svg"}
                             alt="Event preview"
                             className="w-full h-full object-cover rounded-t-lg"
                           />
@@ -626,31 +753,33 @@ export function EventForm({ onClose }: EventFormProps) {
             Previous
           </Button>
 
-          <div className="text-sm text-gray-500">Step {currentStep} of 4</div>
+          <div className="text-sm text-gray-500">Step {currentStep} of {totalSteps}</div>
 
-          {currentStep < 4 ? (
+          {currentStep < totalSteps ? (
             <Button onClick={handleNext} className="bg-purple-600 hover:bg-purple-700">
               Next
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting || !isOrganizer}
-              className="bg-purple-600 hover:bg-purple-700"
-              title={!isOrganizer ? "Only organizers can create events" : undefined}
-            >
-              {isSubmitting ? (
-                "Creating..."
-              ) : formData.shouldBoost ? (
-                <>
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Pay & Create Event
-                </>
-              ) : (
-                "Create Event"
+            <div className="flex items-center gap-2">
+              {!isEdit && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={() => void handleSubmit({ draft: true })}
+                >
+                  Save Draft
+                </Button>
               )}
-            </Button>
+              <Button
+                onClick={() => void handleSubmit()}
+                disabled={isSubmitting}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isSubmitting ? "Saving..." : isEdit ? "Update Event" : "Create Event"}
+              </Button>
+            </div>
           )}
         </div>
 
@@ -662,7 +791,7 @@ export function EventForm({ onClose }: EventFormProps) {
         <PaymentModal
           isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
-          onPaymentSuccess={handlePaymentSuccess}
+          eventId={createdEventId ?? ""}
           eventTitle={formData.title}
           boostLevel={formData.boostLevel}
         />

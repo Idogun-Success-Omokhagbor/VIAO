@@ -1,6 +1,7 @@
 import "server-only"
 
-import WebSocket, { WebSocketServer } from "ws"
+import type WebSocket from "ws"
+import type { RawData, WebSocketServer } from "ws"
 
 type WsWithMeta = WebSocket & { userId?: string }
 
@@ -19,7 +20,7 @@ function attachHandlers(registry: WsRegistry) {
   const { wss, userSockets } = registry
 
   wss.on("connection", (socket: WsWithMeta) => {
-    socket.on("message", (raw: WebSocket.RawData) => {
+    socket.on("message", (raw: RawData) => {
       try {
         const msg = JSON.parse(raw.toString())
         if (msg?.type === "auth" && typeof msg.userId === "string") {
@@ -48,7 +49,12 @@ function attachHandlers(registry: WsRegistry) {
 export function ensureWSServer() {
   if (globalThis.__viaoWSS__) return globalThis.__viaoWSS__
 
-  const wss = new WebSocketServer({ port: WS_PORT })
+  process.env.WS_NO_BUFFER_UTIL = "1"
+  process.env.WS_NO_UTF_8_VALIDATE = "1"
+
+  const { WebSocketServer: WebSocketServerImpl } = require("ws") as typeof import("ws")
+
+  const wss = new WebSocketServerImpl({ port: WS_PORT })
   const registry: WsRegistry = { wss, userSockets: new Map() }
   attachHandlers(registry)
   globalThis.__viaoWSS__ = registry

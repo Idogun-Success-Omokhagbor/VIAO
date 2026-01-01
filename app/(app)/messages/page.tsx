@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmojiPicker } from "@/components/emoji-picker"
-import { Send, Search, MessageSquare, User, Check, CheckCheck } from "lucide-react"
+import { Send, Search, MessageSquare, Check, CheckCheck } from "lucide-react"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
 import { getAvatarSrc, formatTimeAgo, formatTime } from "@/lib/utils"
@@ -204,7 +204,7 @@ export default function MessagesPage() {
                                   <Avatar className="w-10 h-10 cursor-pointer">
                                     <AvatarImage src={getAvatarSrc(otherParticipant?.name, otherParticipant?.avatar)} />
                                     <AvatarFallback>
-                                      <User className="w-4 h-4" />
+                                      {(otherParticipant?.name || "U").slice(0, 1).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
                                 </button>
@@ -212,7 +212,7 @@ export default function MessagesPage() {
                                 <Avatar className="w-10 h-10">
                                   <AvatarImage src={getAvatarSrc(otherParticipant?.name, otherParticipant?.avatar)} />
                                   <AvatarFallback>
-                                    <User className="w-4 h-4" />
+                                    {(otherParticipant?.name || "U").slice(0, 1).toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
                               )}
@@ -278,7 +278,7 @@ export default function MessagesPage() {
                                   <Avatar className="w-10 h-10 cursor-pointer">
                                     <AvatarImage src={getAvatarSrc(otherParticipant?.name, otherParticipant?.avatar)} />
                                     <AvatarFallback>
-                                      <User className="w-4 h-4" />
+                                      {(otherParticipant?.name || "U").slice(0, 1).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
                                 </button>
@@ -286,7 +286,7 @@ export default function MessagesPage() {
                                 <Avatar className="w-10 h-10">
                                   <AvatarImage src={getAvatarSrc(otherParticipant?.name, otherParticipant?.avatar)} />
                                   <AvatarFallback>
-                                    <User className="w-4 h-4" />
+                                    {(otherParticipant?.name || "U").slice(0, 1).toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
                               )}
@@ -354,7 +354,7 @@ export default function MessagesPage() {
                                     <Avatar className="w-8 h-8 cursor-pointer">
                                       <AvatarImage src={getAvatarSrc(sender?.name, sender?.avatar)} />
                                       <AvatarFallback className="text-xs">
-                                        <User className="w-3 h-3" />
+                                        {(sender?.name || "U").slice(0, 1).toUpperCase()}
                                       </AvatarFallback>
                                     </Avatar>
                                   </button>
@@ -362,7 +362,7 @@ export default function MessagesPage() {
                                   <Avatar className="w-8 h-8">
                                     <AvatarImage src={getAvatarSrc(sender?.name, sender?.avatar)} />
                                     <AvatarFallback className="text-xs">
-                                      <User className="w-3 h-3" />
+                                      {(sender?.name || "U").slice(0, 1).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
                                 )

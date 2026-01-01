@@ -49,7 +49,7 @@ export class AIEventAnalyzer {
     }
   }
 
-  private categorizeEvent(event: Event): string {
+  categorizeEvent(event: Event): string {
     const title = event.title.toLowerCase()
     const description = event.description.toLowerCase()
 
@@ -177,6 +177,10 @@ export class AIEventAnalyzer {
 }
 
 export const aiEventAnalyzer = new AIEventAnalyzer()
+
+export function analyzeEvent(event: Event): EventAnalysis {
+  return aiEventAnalyzer.analyzeEvent(event)
+}
 
 export function getEventRecommendations(events: Event[], userPreferences?: string[]): Event[] {
   return events

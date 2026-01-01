@@ -10,14 +10,17 @@ interface EventsContextType {
   isLoading: boolean
   error: string | null
   addEvent: (event: Event) => void
-  createEvent: (data: CreateEventData) => Promise<void>
+  createEvent: (data: CreateEventData) => Promise<Event>
   updateEvent: (id: string, data: Partial<Event>) => Promise<void>
   deleteEvent: (id: string) => Promise<void>
   setFilters: (filters: EventFilters) => void
   refreshEvents: () => Promise<void>
-  boostEvent: (id: string) => Promise<void>
   rsvpEvent: (id: string) => Promise<void>
+  setRsvpStatus: (id: string, status: "GOING" | "MAYBE" | "NOT_GOING") => Promise<void>
   cancelRsvp: (id: string) => Promise<void>
+  saveEvent: (id: string) => Promise<void>
+  unsaveEvent: (id: string) => Promise<void>
+  reportEvent: (id: string, reason: string, details?: string) => Promise<void>
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined)
@@ -50,6 +53,19 @@ async function handleJson<T>(resPromise: Promise<Response> | Response): Promise<
 }
 
 function mapEvent(event: any): Event {
+  const safeImageUrl =
+    typeof event.imageUrl === "string" && event.imageUrl.startsWith("data:")
+      ? `/api/events/${event.id}/image`
+      : (event.imageUrl ?? null)
+  const safeImageUrls = Array.isArray(event.imageUrls)
+    ? event.imageUrls
+        .map((u: unknown, idx: number) =>
+          typeof u === "string" && u.startsWith("data:") ? `/api/events/${event.id}/image?index=${idx}` : u,
+        )
+        .filter((u: unknown) => typeof u === "string" && u.length > 0)
+    : safeImageUrl
+      ? [safeImageUrl]
+      : []
   return {
     id: event.id,
     title: event.title,
@@ -57,16 +73,31 @@ function mapEvent(event: any): Event {
     date: event.date,
     time: event.time,
     location: event.location,
+    startsAt: event.startsAt ?? null,
+    endsAt: event.endsAt ?? null,
+    city: event.city ?? null,
+    venue: event.venue ?? null,
+    address: event.address ?? null,
+    lat: event.lat ?? null,
+    lng: event.lng ?? null,
+    status: event.status ?? "PUBLISHED",
+    isCancelled: event.isCancelled ?? false,
+    cancelledAt: event.cancelledAt ?? null,
     category: event.category,
-    imageUrl: event.imageUrl ?? null,
+    imageUrl: safeImageUrl,
+    imageUrls: safeImageUrls,
     price: event.price ?? null,
     isBoosted: event.isBoosted,
+    boostLevel: typeof event.boostLevel === "number" ? event.boostLevel : event.isBoosted ? 1 : 0,
     boostUntil: event.boostUntil ?? null,
     maxAttendees: event.maxAttendees ?? null,
     organizerId: event.organizerId,
     organizerName: event.organizerName,
+    organizerAvatarUrl: event.organizerAvatarUrl ?? null,
     attendeesCount: event.attendeesCount ?? 0,
     isGoing: event.isGoing ?? false,
+    rsvpStatus: event.rsvpStatus ?? null,
+    isSaved: event.isSaved ?? false,
     createdAt: event.createdAt,
     updatedAt: event.updatedAt,
   }
@@ -104,7 +135,7 @@ export function EventsProvider({ children }: EventsProviderProps) {
     if (filters.isFree && (event.price ?? 0) > 0) return false
 
     if (filters.dateRange) {
-      const eventDate = new Date(event.date)
+      const eventDate = new Date(event.startsAt ?? event.date)
       if (eventDate < filters.dateRange.start || eventDate > filters.dateRange.end) return false
     }
 
@@ -132,7 +163,9 @@ export function EventsProvider({ children }: EventsProviderProps) {
           body: JSON.stringify(data),
         }),
       )
-      setEvents((prev) => [mapEvent(res.event), ...prev])
+      const created = mapEvent(res.event)
+      setEvents((prev) => [created, ...prev])
+      return created
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create event"
       setError(message)
@@ -196,6 +229,28 @@ export function EventsProvider({ children }: EventsProviderProps) {
     }
   }
 
+  const setRsvpStatus = async (id: string, status: "GOING" | "MAYBE" | "NOT_GOING") => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await handleJson<{ event: Event }>(
+        fetch(`/api/events/${id}/rsvp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ status }),
+        }),
+      )
+      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update RSVP"
+      setError(message)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const cancelRsvp = async (id: string) => {
     setIsLoading(true)
     setError(null)
@@ -213,14 +268,48 @@ export function EventsProvider({ children }: EventsProviderProps) {
     }
   }
 
-  const boostEvent = async (id: string) => {
+  const saveEvent = async (id: string) => {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await handleJson<{ event: Event }>(fetch(`/api/events/${id}/boost`, { method: "POST", credentials: "include" }))
+      const res = await handleJson<{ event: Event }>(fetch(`/api/events/${id}/save`, { method: "POST", credentials: "include" }))
       setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to boost event"
+      const message = err instanceof Error ? err.message : "Failed to save event"
+      setError(message)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const unsaveEvent = async (id: string) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await handleJson<{ event: Event }>(fetch(`/api/events/${id}/save`, { method: "DELETE", credentials: "include" }))
+      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to unsave event"
+      setError(message)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const reportEvent = async (id: string, reason: string, details?: string) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      await handleJson(fetch(`/api/events/${id}/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason, details }),
+      }))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to report event"
       setError(message)
       throw err
     } finally {
@@ -240,9 +329,12 @@ export function EventsProvider({ children }: EventsProviderProps) {
     deleteEvent,
     setFilters,
     refreshEvents,
-    boostEvent,
     rsvpEvent,
+    setRsvpStatus,
     cancelRsvp,
+    saveEvent,
+    unsaveEvent,
+    reportEvent,
   }
 
   return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>

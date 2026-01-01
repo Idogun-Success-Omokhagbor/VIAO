@@ -36,6 +36,7 @@ export interface Post {
   imageUrl?: string
   mediaUrl?: string
   mediaType?: string
+  hasMedia?: boolean
   likes: number
   likedBy: string[]
   isLiked?: boolean
@@ -86,6 +87,7 @@ function mapPost(data: any): Post {
     images: data.images ?? (data.imageUrl ? [data.imageUrl] : []),
     mediaUrl: data.mediaUrl ?? data.imageUrl ?? undefined,
     mediaType: data.mediaType ?? undefined,
+    hasMedia: data.hasMedia ?? Boolean(data.mediaType),
     likes: data.likes ?? data.likedBy?.length ?? 0,
     likedBy: data.likedBy ?? [],
     isLiked: data.isLiked ?? false,

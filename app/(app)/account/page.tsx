@@ -361,11 +361,7 @@ export default function AccountPage() {
                   <Avatar className="h-20 w-20">
                     <AvatarImage src={getAvatarSrc(user?.name, user?.avatarUrl)} alt={user?.name} />
                     <AvatarFallback className="text-lg">
-                      {user?.name
-                        ?.split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .toUpperCase()}
+                      {(user?.name || "U").slice(0, 1).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <Button

@@ -19,10 +19,9 @@ export function getInitials(name?: string): string {
     .substring(0, 2)
 }
 
-export function getAvatarSrc(name?: string, avatarUrl?: string | null): string {
+export function getAvatarSrc(_name?: string, avatarUrl?: string | null): string | undefined {
   if (avatarUrl && avatarUrl.trim().length > 0) return avatarUrl
-  const seed = encodeURIComponent((name || "User").trim() || "User")
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`
+  return undefined
 }
 
 export function getRelativeTime(date: string | Date): string {
@@ -184,6 +183,22 @@ export function formatDateTime(date: string | Date): string {
   }
 
   return dateObj.toLocaleString()
+}
+
+export function formatBoostCountdown(boostUntil?: string | null, nowMs: number = Date.now()): string | null {
+  if (!boostUntil) return null
+  const until = new Date(boostUntil)
+  if (Number.isNaN(until.getTime())) return null
+  const diffMs = until.getTime() - nowMs
+  if (diffMs <= 0) return null
+
+  const totalMinutes = Math.floor(diffMs / (1000 * 60))
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+
+  if (hours <= 0) return `${minutes}m`
+  if (minutes <= 0) return `${hours}h`
+  return `${hours}h ${minutes}m`
 }
 
 export function getRandomColor(): string {

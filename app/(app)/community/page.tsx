@@ -42,8 +42,19 @@ export default function CommunityPage() {
   const userLocation = user?.location?.trim() || ""
 
   const locationFilteredPosts = userLocation
-    ? posts.filter((post) => post.location?.toLowerCase() === userLocation.toLowerCase())
-    : []
+    ? posts.filter((post) => {
+        const normalizedUserLoc = userLocation.toLowerCase()
+        const postLoc = post.location?.toLowerCase().trim()
+        const authorLoc = post.author?.location?.toLowerCase().trim()
+
+        const matchesUser =
+          (postLoc && postLoc === normalizedUserLoc) || (authorLoc && authorLoc === normalizedUserLoc)
+
+        const hasNoLocation = !postLoc && !authorLoc
+
+        return matchesUser || hasNoLocation
+      })
+    : posts
 
   const filteredPosts = locationFilteredPosts.filter((post) => {
     if (!post) return false
@@ -75,9 +86,6 @@ export default function CommunityPage() {
       showAuthModal("login")
       return
     }
-    if (!userLocation) {
-      return
-    }
     setShowPostForm(true)
   }
 
@@ -94,26 +102,13 @@ export default function CommunityPage() {
         <Button
           onClick={handleCreatePost}
           className="mt-4 md:mt-0 bg-purple-600 hover:bg-purple-700"
-          disabled={!userLocation && isAuthenticated}
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Post
         </Button>
       </div>
 
-      {!userLocation && (
-        <Alert className="mb-8 bg-blue-50 text-blue-800 border-blue-200">
-          <Info className="h-4 w-4" />
-          <AlertTitle>Set your city to access the community feed</AlertTitle>
-          <AlertDescription>
-            Your city is detected after signup on the dashboard. If you skipped it, go to the dashboard and allow location
-            permission.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {userLocation && (
-        <>
+      <>
       {/* Search and Filters */}
       <div className="mb-8">
         <div className="flex flex-col md:flex-row gap-4 mb-4">
@@ -179,8 +174,8 @@ export default function CommunityPage() {
           </DialogContent>
         </Dialog>
       )}
-        </>
-      )}
+
+      </>
     </div>
   )
 }

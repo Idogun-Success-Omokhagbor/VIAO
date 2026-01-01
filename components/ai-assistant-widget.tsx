@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { MessageCircle, Send, Mic, Volume2, VolumeX, X, Minimize2 } from "lucide-react"
-import { getViaoAIResponse } from "@/lib/viao-ai-assistant"
+import { MessageCircle, Send, X, Minimize2 } from "lucide-react"
+import { getViaoAIResponseWithHistory } from "@/lib/viao-ai-assistant"
 import { toast } from "sonner"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 interface Message {
   id: string
@@ -43,62 +45,49 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
   ])
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isListening, setIsListening] = useState(false)
-  const [isSpeaking, setIsSpeaking] = useState(false)
-  const [speechEnabled, setSpeechEnabled] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const recognitionRef = useRef<any>(null)
-  const synthRef = useRef<any>(null)
 
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch("/api/ai/chat", { credentials: "include", cache: "no-store" })
+        const data = (await res.json().catch(() => null)) as { messages?: any[]; error?: string } | null
+        if (!res.ok) return
+        const raw = Array.isArray(data?.messages) ? data!.messages : []
+        if (raw.length === 0) return
+
+        setMessages(
+          raw
+            .filter((m) => m && typeof m.content === "string")
+            .map((m) => ({
+              id: String(m.id ?? `${Date.now()}`),
+              content: String(m.content ?? ""),
+              isUser: m.role === "user",
+              timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+              suggestions: Array.isArray(m.suggestions) ? m.suggestions : undefined,
+            })),
+        )
+      } catch {
+      }
+    }
+
+    void load()
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  useEffect(() => {
-    // Initialize speech recognition
-    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
-      recognitionRef.current = new SpeechRecognition()
-      recognitionRef.current.continuous = false
-      recognitionRef.current.interimResults = false
-      recognitionRef.current.lang = "en-US"
-
-      recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript
-        setInputValue(transcript)
-        setIsListening(false)
-      }
-
-      recognitionRef.current.onerror = () => {
-        setIsListening(false)
-        toast.error("Speech recognition failed. Please try again.")
-      }
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false)
-      }
-    }
-
-    // Initialize speech synthesis
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      synthRef.current = window.speechSynthesis
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop()
-      }
-      if (synthRef.current) {
-        synthRef.current.cancel()
-      }
-    }
-  }, [])
-
   const handleSendMessage = async (content: string = inputValue) => {
     if (!content.trim() || isLoading) return
+
+    const history = messages
+      .filter((m) => typeof m.content === "string" && m.content.trim().length > 0)
+      .slice(-12)
+      .map((m) => ({ role: m.isUser ? ("user" as const) : ("assistant" as const), content: m.content }))
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -112,7 +101,7 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
     setIsLoading(true)
 
     try {
-      const response = await getViaoAIResponse(content.trim())
+      const response = await getViaoAIResponseWithHistory(content.trim(), history)
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -123,41 +112,19 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
       }
 
       setMessages((prev) => [...prev, aiMessage])
-
-      // Speak the response if speech is enabled
-      if (speechEnabled && synthRef.current && !isSpeaking) {
-        const utterance = new SpeechSynthesisUtterance(response.message)
-        utterance.onstart = () => setIsSpeaking(true)
-        utterance.onend = () => setIsSpeaking(false)
-        synthRef.current.speak(utterance)
-      }
     } catch (error) {
       toast.error("Failed to get AI response. Please try again.")
+
+      const errText = error instanceof Error ? error.message : "AI request failed"
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: `Sorry — I couldn't respond right now. ${errText}`,
+        isUser: false,
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleVoiceInput = () => {
-    if (!recognitionRef.current) {
-      toast.error("Speech recognition is not supported in your browser.")
-      return
-    }
-
-    if (isListening) {
-      recognitionRef.current.stop()
-      setIsListening(false)
-    } else {
-      recognitionRef.current.start()
-      setIsListening(true)
-    }
-  }
-
-  const toggleSpeech = () => {
-    setSpeechEnabled(!speechEnabled)
-    if (isSpeaking && synthRef.current) {
-      synthRef.current.cancel()
-      setIsSpeaking(false)
     }
   }
 
@@ -186,13 +153,6 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-lg">AI Assistant</CardTitle>
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" onClick={toggleSpeech} className="h-8 w-8">
-            {speechEnabled ? (
-              <Volume2 className={`h-4 w-4 ${isSpeaking ? "text-green-500" : ""}`} />
-            ) : (
-              <VolumeX className="h-4 w-4" />
-            )}
-          </Button>
           <Button variant="ghost" size="icon" onClick={() => setIsMinimized(!isMinimized)} className="h-8 w-8">
             <Minimize2 className="h-4 w-4" />
           </Button>
@@ -214,7 +174,16 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
                         message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"
                       }`}
                     >
-                      {message.content}
+                      <div className="whitespace-pre-wrap">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            a: (props: any) => <a {...props} className="underline" target="_blank" rel="noreferrer" />,
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   </div>
 
@@ -264,15 +233,6 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
               onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
               disabled={isLoading}
             />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleVoiceInput}
-              disabled={isLoading}
-              className={isListening ? "bg-red-100 border-red-300" : ""}
-            >
-              <Mic className={`h-4 w-4 ${isListening ? "text-red-500" : ""}`} />
-            </Button>
             <Button onClick={() => handleSendMessage()} disabled={isLoading || !inputValue.trim()} size="icon">
               <Send className="h-4 w-4" />
             </Button>

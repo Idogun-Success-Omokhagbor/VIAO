@@ -4,14 +4,13 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, LogOut, Settings, Calendar, MessageSquare, MapPin, Users } from "lucide-react"
+import { LogOut, Calendar, MessageSquare, Users, Receipt } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useMessaging } from "@/context/messaging-context"
 import { AuthModal } from "@/components/auth-modal"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { NotificationDropdown } from "@/components/notification-dropdown"
-import { useNotifications } from "@/context/notification-context"
 import { getAvatarSrc } from "@/lib/utils"
 
 export function Header() {
@@ -36,15 +35,17 @@ export function Header() {
 
             {user && (
               <nav className="hidden md:flex items-center space-x-6">
-                <Link
-                  href="/events"
-                  className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
-                    isActive("/events") ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  <Calendar className="h-4 w-4" />
-                  <span>Events</span>
-                </Link>
+                {user.role === "ORGANIZER" && (
+                  <Link
+                    href="/events"
+                    className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
+                      isActive("/events") ? "text-primary" : "text-muted-foreground"
+                    }`}
+                  >
+                    <Calendar className="h-4 w-4" />
+                    <span>Events</span>
+                  </Link>
+                )}
                 <Link
                   href="/community"
                   className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
@@ -68,6 +69,18 @@ export function Header() {
                     </Badge>
                   )}
                 </Link>
+
+                {user.role === "ORGANIZER" && (
+                  <Link
+                    href="/receipts"
+                    className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
+                      isActive("/receipts") ? "text-primary" : "text-muted-foreground"
+                    }`}
+                  >
+                    <Receipt className="h-4 w-4" />
+                    <span>Receipts</span>
+                  </Link>
+                )}
               </nav>
             )}
           </div>
@@ -75,13 +88,19 @@ export function Header() {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
+                <Link href="/my-events">
+                  <Button variant="ghost" size="icon" aria-label="My Events">
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </Link>
+
                 <NotificationDropdown />
 
                 <Link href="/account" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={getAvatarSrc(user.name, user.avatarUrl)} alt={user.name} />
-                    <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600">
-                      <User className="h-4 w-4 text-white" />
+                    <AvatarFallback className="bg-white text-gray-900">
+                      <span className="text-sm font-semibold">{(user.name || "U").slice(0, 1).toUpperCase()}</span>
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden md:block text-left">

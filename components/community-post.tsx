@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Heart, MessageCircle, MoreHorizontal, Send, Trash2, User, Edit, MessageSquare, Bold, Italic, Underline, List, Smile, Upload, File as FileIcon, Download, X } from "lucide-react"
+import { Heart, MessageCircle, MoreHorizontal, Send, Trash2, Edit, MessageSquare, Bold, Italic, Underline, List, Smile, Upload, File as FileIcon, Download, X } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useCommunity, type Post } from "@/context/community-context"
 import { formatTimeAgo, getAvatarSrc } from "@/lib/utils"
@@ -47,6 +47,10 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showTitleEmojiPicker, setShowTitleEmojiPicker] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [resolvedMediaUrl, setResolvedMediaUrl] = useState<string>(post.mediaUrl || post.images?.[0] || "")
+  const [resolvedMediaType, setResolvedMediaType] = useState<string>(post.mediaType || "")
+  const [isMediaLoading, setIsMediaLoading] = useState(false)
+  const mediaRef = useRef<HTMLDivElement | null>(null)
   const [editImagePreview, setEditImagePreview] = useState<string>(post.mediaUrl || post.images?.[0] || "")
   const [editImageData, setEditImageData] = useState<string>(post.mediaUrl || post.images?.[0] || "")
   const [editMediaType, setEditMediaType] = useState<string>(post.mediaType || "")
@@ -59,6 +63,54 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
   if (!post || !post.author) {
     return null
   }
+
+  useEffect(() => {
+    setResolvedMediaUrl(post.mediaUrl || post.images?.[0] || "")
+    setResolvedMediaType(post.mediaType || "")
+  }, [post.id])
+
+  useEffect(() => {
+    if (resolvedMediaUrl) return
+    if (!post.hasMedia) return
+
+    const node = mediaRef.current
+    if (!node) return
+
+    let cancelled = false
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return
+        observer.disconnect()
+
+        void (async () => {
+          setIsMediaLoading(true)
+          try {
+            const res = await fetch(`/api/community/posts/${post.id}/media`, { credentials: "include", cache: "no-store" })
+            if (!res.ok) return
+            const data = (await res.json().catch(() => null)) as { mediaUrl?: string; mediaType?: string } | null
+            if (cancelled) return
+            if (data?.mediaUrl) {
+              setResolvedMediaUrl(data.mediaUrl)
+              setResolvedMediaType(data.mediaType || "")
+            }
+          } catch {
+            // ignore
+          } finally {
+            if (!cancelled) setIsMediaLoading(false)
+          }
+        })()
+      },
+      { rootMargin: "250px" },
+    )
+
+    observer.observe(node)
+
+    return () => {
+      cancelled = true
+      observer.disconnect()
+    }
+  }, [post.hasMedia, post.id, resolvedMediaUrl])
 
   const handleDeletePost = async () => {
     if (!isAuthenticated || !user) {
@@ -289,7 +341,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                     src={getAvatarSrc(post.author.name, (post.author as any).avatarUrl ?? post.author.avatar)}
                   />
                   <AvatarFallback>
-                    <User className="h-5 w-5" />
+                    {(post.author.name || "U").slice(0, 1).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </button>
@@ -347,35 +399,37 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
         </CardHeader>
 
         <CardContent className="pt-0">
-          {(post.mediaUrl || (post.images && post.images.length > 0)) && (
-            <div className="mb-4">
-              {post.mediaUrl ? (
-                post.mediaType?.startsWith("video") ? (
+          {(resolvedMediaUrl || post.hasMedia || (post.images && post.images.length > 0)) && (
+            <div ref={mediaRef} className="mb-4">
+              {resolvedMediaUrl ? (
+                resolvedMediaType?.startsWith("video") ? (
                   <video
-                    src={post.mediaUrl}
+                    src={resolvedMediaUrl}
                     className="w-full h-64 object-cover rounded-lg"
                     controls
                     muted
                     playsInline
-                    onMouseEnter={(e) => e.currentTarget.play()}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.pause()
-                      e.currentTarget.currentTime = 0
-                    }}
+                    preload="metadata"
                   />
-                ) : post.mediaType?.startsWith("image") ? (
-                  <img src={post.mediaUrl} alt="Post media" className="w-full h-64 object-cover rounded-lg" />
+                ) : resolvedMediaType?.startsWith("image") ? (
+                  <img
+                    src={resolvedMediaUrl}
+                    alt="Post media"
+                    className="w-full h-64 object-cover rounded-lg"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 ) : (
                   <div className="flex items-center justify-between rounded-lg p-3 border bg-white">
                     <div className="flex items-center gap-3">
                       <FileIcon className="h-5 w-5 text-gray-600" />
                       <div>
                         <p className="text-sm font-medium text-gray-800">Attachment</p>
-                        <p className="text-xs text-gray-500">{post.mediaType || "file"}</p>
+                        <p className="text-xs text-gray-500">{resolvedMediaType || "file"}</p>
                       </div>
                     </div>
                     <a
-                      href={post.mediaUrl}
+                      href={resolvedMediaUrl}
                       download="attachment"
                       className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
                     >
@@ -384,12 +438,22 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                     </a>
                   </div>
                 )
-              ) : (
+              ) : post.images?.[0] ? (
                 <img
                   src={post.images?.[0] || "/placeholder.svg"}
                   alt="Post image"
                   className="w-full h-64 object-cover rounded-lg"
+                  loading="lazy"
+                  decoding="async"
                 />
+              ) : (
+                <div className="w-full h-64 rounded-lg bg-gray-100 flex items-center justify-center">
+                  {isMediaLoading ? (
+                    <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <div className="w-full h-full rounded-lg bg-gray-100 animate-pulse" />
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -462,7 +526,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                               src={getAvatarSrc(comment.author.name, (comment.author as any).avatarUrl ?? comment.author.avatar)}
                             />
                             <AvatarFallback className="text-[10px]">
-                              <User className="h-3 w-3" />
+                              {(comment.author.name || "U").slice(0, 1).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                         </button>
@@ -538,7 +602,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                       src={getAvatarSrc(user?.name, user?.avatarUrl)}
                     />
                     <AvatarFallback className="text-xs">
-                      <User className="h-3 w-3" />
+                      {(user?.name || "U").slice(0, 1).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 flex gap-2">
