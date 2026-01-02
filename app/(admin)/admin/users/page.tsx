@@ -136,7 +136,6 @@ export default function AdminUsersPage() {
                 <SelectItem value="ALL">All roles</SelectItem>
                 <SelectItem value="USER">User</SelectItem>
                 <SelectItem value="ORGANIZER">Organizer</SelectItem>
-                <SelectItem value="ADMIN">Admin</SelectItem>
               </SelectContent>
             </Select>
           </div>

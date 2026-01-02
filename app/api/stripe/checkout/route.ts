@@ -5,6 +5,7 @@ import crypto from "crypto"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { stripe } from "@/lib/stripe"
+import { getSiteConfig } from "@/lib/site-config"
 
 export const runtime = "nodejs"
 
@@ -18,6 +19,11 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.role !== "ORGANIZER") {
     return NextResponse.json({ error: "Only organizers can boost events" }, { status: 403 })
+  }
+
+  const config = await getSiteConfig()
+  if (!config.stripeEnabled) {
+    return NextResponse.json({ error: "Boosting is currently disabled" }, { status: 403 })
   }
 
   if (!stripe) {

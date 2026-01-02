@@ -97,7 +97,24 @@ export async function GET() {
       },
       orderBy: { date: "asc" },
     })
-    return NextResponse.json({ events: events.map((e) => mapEvent(e, session?.sub)) })
+
+    const mapped = events.map((e) => mapEvent(e, session?.sub))
+    mapped.sort((a, b) => {
+      const aLevel = typeof (a as any).boostLevel === "number" ? ((a as any).boostLevel as number) : 0
+      const bLevel = typeof (b as any).boostLevel === "number" ? ((b as any).boostLevel as number) : 0
+
+      if (aLevel !== bLevel) return bLevel - aLevel
+
+      const aUntil = typeof (a as any).boostUntil === "string" ? new Date((a as any).boostUntil as string).getTime() : Number.NEGATIVE_INFINITY
+      const bUntil = typeof (b as any).boostUntil === "string" ? new Date((b as any).boostUntil as string).getTime() : Number.NEGATIVE_INFINITY
+      if (aUntil !== bUntil) return bUntil - aUntil
+
+      const aDate = new Date((a as any).date as string).getTime()
+      const bDate = new Date((b as any).date as string).getTime()
+      return aDate - bDate
+    })
+
+    return NextResponse.json({ events: mapped })
   } catch (error) {
     console.error("GET /api/events error:", error)
     return NextResponse.json({ error: "Failed to fetch events" }, { status: 500 })

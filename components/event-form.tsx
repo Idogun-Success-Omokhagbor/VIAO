@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -24,6 +24,10 @@ import { useEvents } from "@/context/events-context"
 import { useAuth } from "@/context/auth-context"
 import PaymentModal from "./payment-modal"
 import type { Event } from "@/types/event"
+
+type SiteConfig = {
+  stripeEnabled?: boolean
+}
 
 interface EventFormProps {
   onClose: () => void
@@ -102,7 +106,7 @@ const boostOptions = [
     level: 2,
     name: "Premium Boost",
     price: 15,
-    duration: "48 hours",
+    duration: "72 hours",
     features: ["All Basic features", "Crown badge", "Trending section", "Priority searches", "Social media promotion"],
     color: "bg-gradient-to-r from-yellow-400 to-orange-500 text-white",
   },
@@ -122,6 +126,7 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [createdEventId, setCreatedEventId] = useState<string | null>(null)
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
 
   const [formData, setFormData] = useState<FormData>({
     title: event?.title ?? "",
@@ -141,6 +146,25 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
     boostLevel: 1,
     shouldBoost: false,
   })
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch("/api/site-config", { cache: "no-store", credentials: "include" })
+        const json = (await res.json().catch(() => null)) as any
+        if (!res.ok) throw new Error(json?.error || "Failed to load site configuration")
+        if (!cancelled) setSiteConfig((json?.config ?? null) as SiteConfig | null)
+      } catch {
+        if (!cancelled) setSiteConfig(null)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const validateStep = (step: number): boolean => {
     const newErrors: Record<string, string> = {}
@@ -277,6 +301,10 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
     }
 
     if (!isEdit && formData.shouldBoost) {
+      if (siteConfig?.stripeEnabled === false) {
+        setErrors((prev) => ({ ...prev, shouldBoost: "Boosting is currently disabled" }))
+        return
+      }
       setIsSubmitting(true)
       try {
         const dateTime = new Date(`${formData.date}T${formData.time || "00:00"}`)
@@ -295,7 +323,9 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
           status: "PUBLISHED",
         })
         setCreatedEventId(created.id)
-        setShowPaymentModal(true)
+        if (siteConfig?.stripeEnabled !== false) {
+          setShowPaymentModal(true)
+        }
       } catch {
         setErrors((prev) => ({
           ...prev,

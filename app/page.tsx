@@ -16,6 +16,27 @@ import { Footer } from "@/components/footer"
 import { Header } from "@/components/header"
 import { AIAssistantWidget } from "@/components/ai-assistant-widget"
 
+type SiteConfig = {
+  maintenanceMode?: boolean
+  announcement?: string
+}
+
+type EventsResponse = {
+  events?: Event[]
+  error?: string
+}
+
+type SiteConfigResponse = {
+  config?: SiteConfig
+  error?: string
+}
+
+function getErrorMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined
+  const msg = (payload as { error?: unknown }).error
+  return typeof msg === "string" ? msg : undefined
+}
+
 function getSafeImageSrc(src?: string | null) {
   if (!src) return "/placeholder.svg"
   return src
@@ -34,6 +55,7 @@ export default function HomePage() {
   const [events, setEvents] = useState<Event[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
 
   const [q, setQ] = useState("")
   const [activeCategory, setActiveCategory] = useState<string>("ALL")
@@ -52,10 +74,11 @@ export default function HomePage() {
       setError(null)
       try {
         const res = await fetch("/api/events", { cache: "no-store", credentials: "include" })
-        const json = (await res.json().catch(() => null)) as any
-        if (!res.ok) throw new Error(json?.error || "Failed to load events")
-        const next = Array.isArray(json?.events) ? (json.events as Event[]) : []
-        if (!cancelled) setEvents(next)
+        const json = (await res.json().catch(() => null)) as unknown
+        if (!res.ok) throw new Error(getErrorMessage(json) || "Failed to load events")
+        const next = (json && typeof json === "object" ? (json as EventsResponse) : null)?.events
+        const list = Array.isArray(next) ? next : []
+        if (!cancelled) setEvents(list)
       } catch (e) {
         if (!cancelled) {
           setEvents([])
@@ -68,6 +91,26 @@ export default function HomePage() {
 
     void load()
 
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch("/api/site-config", { cache: "no-store", credentials: "include" })
+        const json = (await res.json().catch(() => null)) as unknown
+        if (!res.ok) throw new Error(getErrorMessage(json) || "Failed to load site configuration")
+        const config = (json && typeof json === "object" ? (json as SiteConfigResponse) : null)?.config
+        if (!cancelled) setSiteConfig(config ?? null)
+      } catch {
+        if (!cancelled) setSiteConfig(null)
+      }
+    }
+
+    void load()
     return () => {
       cancelled = true
     }
@@ -122,6 +165,11 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      {siteConfig?.maintenanceMode ? (
+        <div className="border-b bg-amber-50 px-6 py-2 text-sm text-amber-900">
+          {siteConfig.announcement?.trim() ? siteConfig.announcement : "The site is currently in maintenance mode."}
+        </div>
+      ) : null}
       <main>
         <section className="relative overflow-hidden border-b bg-white">
           <div className="pointer-events-none absolute inset-0">

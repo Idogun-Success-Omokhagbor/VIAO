@@ -167,7 +167,7 @@ export async function PATCH(req: Request) {
       createdAt: true,
       eventId: true,
       reporterId: true,
-      event: { select: { id: true, title: true, isCancelled: true, cancelledAt: true, status: true } },
+      event: { select: { id: true, title: true, isCancelled: true, cancelledAt: true, status: true, organizerId: true } },
     },
   })
 
@@ -182,7 +182,18 @@ export async function PATCH(req: Request) {
     await prisma.$transaction(async (tx) => {
       await tx.eventReport.update({ where: { id: reportId }, data: { status: nextStatus }, select: { id: true } })
 
-      await tx.adminAuditLog.create({
+      await tx.notification.create({
+        data: {
+          userId: report.reporterId,
+          type: "MESSAGE",
+          title: "Report updated",
+          body: `Your report about “${report.event.title}” is now marked as ${nextStatus.toLowerCase()}.`,
+          data: { reportId, eventId: report.eventId, status: nextStatus },
+        },
+        select: { id: true },
+      })
+
+      await (tx as any).adminAuditLog.create({
         data: {
           adminId: session.sub,
           adminEmail: session.email,
@@ -205,7 +216,29 @@ export async function PATCH(req: Request) {
     await tx.event.update({ where: { id: report.eventId }, data: eventNext, select: { id: true } })
     await tx.eventReport.update({ where: { id: reportId }, data: { status: "REVIEWED" }, select: { id: true } })
 
-    await tx.adminAuditLog.create({
+    await tx.notification.create({
+      data: {
+        userId: report.reporterId,
+        type: "MESSAGE",
+        title: "Event cancelled",
+        body: `Thanks for reporting “${report.event.title}”. Our team has cancelled this event.`,
+        data: { reportId, eventId: report.eventId },
+      },
+      select: { id: true },
+    })
+
+    await tx.notification.create({
+      data: {
+        userId: report.event.organizerId,
+        type: "MESSAGE",
+        title: "Event cancelled",
+        body: `Your event “${report.event.title}” was cancelled by an admin after a report review.`,
+        data: { reportId, eventId: report.eventId, reason: report.reason },
+      },
+      select: { id: true },
+    })
+
+    await (tx as any).adminAuditLog.create({
       data: {
         adminId: session.sub,
         adminEmail: session.email,
@@ -219,7 +252,7 @@ export async function PATCH(req: Request) {
       select: { id: true },
     })
 
-    await tx.adminAuditLog.create({
+    await (tx as any).adminAuditLog.create({
       data: {
         adminId: session.sub,
         adminEmail: session.email,

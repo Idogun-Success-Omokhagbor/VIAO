@@ -1,10 +1,25 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { X, Zap, Crown, Check } from "lucide-react"
+
+type SiteConfig = {
+  stripeEnabled?: boolean
+}
+
+type SiteConfigResponse = {
+  config?: SiteConfig
+  error?: string
+}
+
+function getErrorMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined
+  const msg = (payload as { error?: unknown }).error
+  return typeof msg === "string" ? msg : undefined
+}
 
 interface PaymentModalProps {
   isOpen: boolean
@@ -17,6 +32,28 @@ interface PaymentModalProps {
 export default function PaymentModal({ isOpen, onClose, eventId, eventTitle, boostLevel }: PaymentModalProps) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [selectedLevel, setSelectedLevel] = useState<1 | 2>(boostLevel === 2 ? 2 : 1)
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch("/api/site-config", { cache: "no-store", credentials: "include" })
+        const json = (await res.json().catch(() => null)) as unknown
+        if (!res.ok) throw new Error(getErrorMessage(json) || "Failed to load site configuration")
+        const data = (json && typeof json === "object" ? (json as SiteConfigResponse) : null)?.config
+        if (!cancelled) setSiteConfig(data ?? null)
+      } catch {
+        if (!cancelled) setSiteConfig(null)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -24,8 +61,11 @@ export default function PaymentModal({ isOpen, onClose, eventId, eventTitle, boo
   const boostPrice = effectiveLevel === 1 ? 5 : 15
   const boostName = effectiveLevel === 1 ? "Basic Boost" : "Premium Boost"
 
+  const boostingEnabled = siteConfig?.stripeEnabled !== false
+
   const handlePayment = async () => {
     if (!eventId) return
+    if (!boostingEnabled) return
     setIsProcessing(true)
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -39,7 +79,7 @@ export default function PaymentModal({ isOpen, onClose, eventId, eventTitle, boo
         throw new Error(data?.error || "Failed to start checkout")
       }
       window.location.assign(data.url)
-    } catch (err) {
+    } catch {
       setIsProcessing(false)
     }
   }
@@ -159,6 +199,12 @@ export default function PaymentModal({ isOpen, onClose, eventId, eventTitle, boo
             You will be redirected to Stripe Checkout to complete payment securely.
           </div>
 
+          {!boostingEnabled ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Boosting is currently disabled by the site administrator.
+            </div>
+          ) : null}
+
           {/* Payment Form */}
           <div />
 
@@ -171,7 +217,7 @@ export default function PaymentModal({ isOpen, onClose, eventId, eventTitle, boo
 
             <Button
               onClick={handlePayment}
-              disabled={isProcessing}
+              disabled={isProcessing || !boostingEnabled}
               className={`w-full ${
                 effectiveLevel === 1 ? "bg-blue-600 hover:bg-blue-700" : "bg-purple-600 hover:bg-purple-700"
               }`}

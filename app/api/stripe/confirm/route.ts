@@ -4,6 +4,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { stripe } from "@/lib/stripe"
+import { getSiteConfig } from "@/lib/site-config"
 
 export const runtime = "nodejs"
 
@@ -16,6 +17,11 @@ export async function POST(req: Request) {
   if (!sessionUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (sessionUser.role !== "ORGANIZER") {
     return NextResponse.json({ error: "Only organizers can confirm boosts" }, { status: 403 })
+  }
+
+  const config = await getSiteConfig()
+  if (!config.stripeEnabled) {
+    return NextResponse.json({ error: "Boosting is currently disabled" }, { status: 403 })
   }
 
   if (!stripe) {

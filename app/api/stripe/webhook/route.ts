@@ -3,6 +3,7 @@ import crypto from "crypto"
 
 import { prisma } from "@/lib/prisma"
 import { stripe } from "@/lib/stripe"
+import { getSiteConfig } from "@/lib/site-config"
 
 export const runtime = "nodejs"
 
@@ -61,12 +62,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Stripe is not configured" }, { status: 500 })
   }
 
-  const hmacSecret =
-    process.env.STRIPE_SESSION_HASH_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_SECRET_KEY
-  if (!hmacSecret) {
-    return NextResponse.json({ error: "Missing Stripe hash configuration" }, { status: 400 })
-  }
-
   const signature = req.headers.get("stripe-signature")
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
@@ -83,6 +78,17 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : "Invalid signature"
     console.error("Stripe webhook signature verification failed:", message)
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
+  }
+
+  const config = await getSiteConfig()
+  if (!config.stripeEnabled) {
+    return NextResponse.json({ received: true })
+  }
+
+  const hmacSecret =
+    process.env.STRIPE_SESSION_HASH_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_SECRET_KEY
+  if (!hmacSecret) {
+    return NextResponse.json({ error: "Missing Stripe hash configuration" }, { status: 400 })
   }
 
   try {
@@ -158,6 +164,17 @@ export async function POST(req: Request) {
                 eventId,
                 organizerId,
                 boostCheckoutId: checkout.id,
+              },
+              select: { id: true } as any,
+            })
+
+            await (tx as any).notification.create({
+              data: {
+                userId: organizerId,
+                type: "MESSAGE",
+                title: "Boost activated",
+                body: `Your event “${existing.title}” is now boosted for ${level === 2 ? 72 : 24} hours.`,
+                data: { eventId, level, boostUntil: boostUntil.toISOString() },
               },
               select: { id: true } as any,
             })

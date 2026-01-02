@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { makeSession, setSessionCookie } from "@/lib/session"
+import { getSiteConfig } from "@/lib/site-config"
 
 const roleSchema = z.preprocess(
   (val) => (typeof val === "string" ? val.toUpperCase() : val),
@@ -19,6 +20,11 @@ const signupSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const config = await getSiteConfig()
+    if (!config.allowSignups) {
+      return NextResponse.json({ error: "Signups are currently disabled" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { name, email, password, role, interests } = signupSchema.parse(body)
 

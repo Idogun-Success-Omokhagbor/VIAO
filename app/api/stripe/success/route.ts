@@ -4,6 +4,7 @@ import crypto from "crypto"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { stripe } from "@/lib/stripe"
+import { getSiteConfig } from "@/lib/site-config"
 
 export const runtime = "nodejs"
 
@@ -67,6 +68,11 @@ export async function GET(req: Request) {
   }
   if (sessionUser.role !== "ORGANIZER") {
     return NextResponse.redirect(new URL("/dashboard?error=forbidden", url.origin))
+  }
+
+  const config = await getSiteConfig()
+  if (!config.stripeEnabled) {
+    return NextResponse.redirect(new URL("/events?payment=error&reason=boosting_disabled", url.origin))
   }
 
   if (!stripe) {
@@ -175,6 +181,17 @@ export async function GET(req: Request) {
           eventId,
           organizerId,
           boostCheckoutId: checkout.id,
+        },
+        select: { id: true } as any,
+      })
+
+      await (tx as any).notification.create({
+        data: {
+          userId: organizerId,
+          type: "MESSAGE",
+          title: "Boost activated",
+          body: `Your event “${existing.title}” is now boosted for ${level === 2 ? 72 : 24} hours.`,
+          data: { eventId, level, boostUntil: boostUntil.toISOString() },
         },
         select: { id: true } as any,
       })

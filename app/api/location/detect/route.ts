@@ -1,7 +1,7 @@
-"use server"
-
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
+
+export const dynamic = "force-dynamic"
 
 type GeoLookupResponse = {
   city?: string

@@ -60,14 +60,11 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  if (!post || !post.author) {
-    return null
-  }
-
   useEffect(() => {
+    if (!post?.id) return
     setResolvedMediaUrl(post.mediaUrl || post.images?.[0] || "")
     setResolvedMediaType(post.mediaType || "")
-  }, [post.id])
+  }, [post?.id, post?.images, post?.mediaType, post?.mediaUrl])
 
   useEffect(() => {
     if (resolvedMediaUrl) return

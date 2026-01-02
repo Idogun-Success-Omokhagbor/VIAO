@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +14,21 @@ import { useRouter } from "next/navigation"
 import { X, Mail, Lock, User, Calendar, Eye, EyeOff } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { toast } from "sonner"
+
+type SiteConfig = {
+  allowSignups?: boolean
+}
+
+type SiteConfigResponse = {
+  config?: SiteConfig
+  error?: string
+}
+
+function getErrorMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined
+  const msg = (payload as { error?: unknown }).error
+  return typeof msg === "string" ? msg : undefined
+}
 
 interface AuthModalProps {
   isOpen: boolean
@@ -37,6 +52,7 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
   const [signUpTooShort, setSignUpTooShort] = useState(false)
   const [signUpFieldErrors, setSignUpFieldErrors] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<"signin" | "signup">(initialTab)
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
   const [forgotMode, setForgotMode] = useState(false)
   const [resetEmail, setResetEmail] = useState("")
   const [resetCode, setResetCode] = useState("")
@@ -57,6 +73,27 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
     email: "",
     password: "",
   })
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch("/api/site-config", { cache: "no-store", credentials: "include" })
+        const json = (await res.json().catch(() => null)) as unknown
+        if (!res.ok) throw new Error(getErrorMessage(json) || "Failed to load site configuration")
+        const config = (json && typeof json === "object" ? (json as SiteConfigResponse) : null)?.config
+        if (!cancelled) setSiteConfig(config ?? null)
+      } catch {
+        if (!cancelled) setSiteConfig(null)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen])
 
   // Sign Up Form State
   const [signUpData, setSignUpData] = useState({
@@ -165,6 +202,13 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
+    const signupsAllowed = siteConfig?.allowSignups !== false
+    if (!signupsAllowed) {
+      const message = "Signups are currently disabled"
+      setSignUpError(message)
+      toast.error(message)
+      return
+    }
     setIsLoading(true)
     setSignUpError(null)
     setSignUpSubmitted(true)
@@ -250,6 +294,8 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
   ]
 
   if (!isOpen) return null
+
+  const signupsAllowed = siteConfig?.allowSignups !== false
 
   const isSignup = activeTab === "signup"
 
@@ -580,6 +626,11 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
             <TabsContent value="signup" className="space-y-4">
               <form onSubmit={handleSignUp} className="space-y-4">
                 {signUpError && <p className="text-sm text-red-600">{signUpError}</p>}
+                {!signupsAllowed ? (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    Signups are currently disabled.
+                  </div>
+                ) : null}
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -719,7 +770,7 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
                   </Label>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading || !signupsAllowed}>
                   {isLoading ? "Creating Account..." : "Create Account"}
                 </Button>
               </form>

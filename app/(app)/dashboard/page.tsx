@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -11,9 +12,10 @@ import { Calendar, MapPin, Users, Plus, Search, Filter } from "lucide-react"
 import { useEvents } from "@/context/events-context"
 import { useAuth } from "@/context/auth-context"
 import EventModal from "@/components/event-modal"
-import InteractiveMap from "@/components/interactive-map"
 import { getLocationString } from "@/lib/utils"
 import type { Event } from "@/types/event"
+
+const InteractiveMap = dynamic(() => import("@/components/interactive-map"), { ssr: false })
 
 const CATEGORY_COLORS: Record<string, string> = {
   Technology: "bg-blue-500",
