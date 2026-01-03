@@ -50,8 +50,33 @@ export async function POST(req: Request) {
   const name = boostLevel === 2 ? "Premium Boost" : "Basic Boost"
   const duration = boostLevel === 2 ? "72 hours" : "24 hours"
 
-  const origin = req.headers.get("origin")
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin
+  const normalizeUrl = (value: string | null | undefined) => {
+    if (!value) return null
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    return withProto.replace(/\/+$/, "")
+  }
+
+  const isLocalhostUrl = (value: string | null | undefined) => {
+    if (!value) return false
+    try {
+      const host = new URL(value).hostname
+      return host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0"
+    } catch {
+      return false
+    }
+  }
+
+  const envAppUrl = normalizeUrl(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL)
+  const origin = normalizeUrl(req.headers.get("origin"))
+  const forwardedProto = (req.headers.get("x-forwarded-proto") || "").split(",")[0]?.trim() || ""
+  const forwardedHost = (req.headers.get("x-forwarded-host") || "").split(",")[0]?.trim() || ""
+  const host = (req.headers.get("host") || "").split(",")[0]?.trim() || ""
+
+  const derived = normalizeUrl(forwardedHost ? `${forwardedProto || "https"}://${forwardedHost}` : host ? `${forwardedProto || "https"}://${host}` : null)
+
+  const appUrl = (envAppUrl && !isLocalhostUrl(envAppUrl) ? envAppUrl : derived || origin || envAppUrl)
   if (!appUrl) return NextResponse.json({ error: "Missing app URL" }, { status: 500 })
 
   const hmacSecret =

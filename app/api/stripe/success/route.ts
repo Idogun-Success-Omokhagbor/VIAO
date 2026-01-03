@@ -62,31 +62,57 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const sessionId = url.searchParams.get("session_id")
 
+  const normalizeUrl = (value: string | null | undefined) => {
+    if (!value) return null
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    return withProto.replace(/\/+$/, "")
+  }
+
+  const isLocalhostUrl = (value: string | null | undefined) => {
+    if (!value) return false
+    try {
+      const host = new URL(value).hostname
+      return host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0"
+    } catch {
+      return false
+    }
+  }
+
+  const envAppUrl = normalizeUrl(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL)
+  const forwardedProto = (req.headers.get("x-forwarded-proto") || "").split(",")[0]?.trim() || ""
+  const forwardedHost = (req.headers.get("x-forwarded-host") || "").split(",")[0]?.trim() || ""
+  const host = (req.headers.get("host") || "").split(",")[0]?.trim() || ""
+  const derived = normalizeUrl(forwardedHost ? `${forwardedProto || "https"}://${forwardedHost}` : host ? `${forwardedProto || "https"}://${host}` : null)
+
+  const publicOrigin = (envAppUrl && !isLocalhostUrl(envAppUrl) ? envAppUrl : derived || url.origin)
+
   const sessionUser = await getSessionUser()
   if (!sessionUser) {
-    return NextResponse.redirect(new URL("/?error=unauthorized", url.origin))
+    return NextResponse.redirect(new URL("/?error=unauthorized", publicOrigin))
   }
   if (sessionUser.role !== "ORGANIZER") {
-    return NextResponse.redirect(new URL("/dashboard?error=forbidden", url.origin))
+    return NextResponse.redirect(new URL("/dashboard?error=forbidden", publicOrigin))
   }
 
   const config = await getSiteConfig()
   if (!config.stripeEnabled) {
-    return NextResponse.redirect(new URL("/events?payment=error&reason=boosting_disabled", url.origin))
+    return NextResponse.redirect(new URL("/events?payment=error&reason=boosting_disabled", publicOrigin))
   }
 
   if (!stripe) {
-    return NextResponse.redirect(new URL("/events?payment=error&reason=stripe_not_configured", url.origin))
+    return NextResponse.redirect(new URL("/events?payment=error&reason=stripe_not_configured", publicOrigin))
   }
 
   if (!sessionId) {
-    return NextResponse.redirect(new URL("/events?payment=error&reason=missing_session", url.origin))
+    return NextResponse.redirect(new URL("/events?payment=error&reason=missing_session", publicOrigin))
   }
 
   const hmacSecret =
     process.env.STRIPE_SESSION_HASH_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_SECRET_KEY
   if (!hmacSecret) {
-    return NextResponse.redirect(new URL("/events?payment=error&reason=missing_hash_secret", url.origin))
+    return NextResponse.redirect(new URL("/events?payment=error&reason=missing_hash_secret", publicOrigin))
   }
 
   const sessionHash = crypto.createHmac("sha256", hmacSecret).update(sessionId).digest("hex")
@@ -96,7 +122,7 @@ export async function GET(req: Request) {
     const paymentStatus = (checkoutSession as any).payment_status as string | undefined
 
     if (paymentStatus !== "paid") {
-      return NextResponse.redirect(new URL(`/events?payment=error&reason=not_paid&session_id=${encodeURIComponent(sessionId)}`, url.origin))
+      return NextResponse.redirect(new URL(`/events?payment=error&reason=not_paid&session_id=${encodeURIComponent(sessionId)}`, publicOrigin))
     }
 
     const metadata = (checkoutSession as any).metadata as Record<string, string> | undefined
@@ -106,11 +132,11 @@ export async function GET(req: Request) {
     const level = levelRaw === "2" ? 2 : 1
 
     if (!eventId || !organizerId) {
-      return NextResponse.redirect(new URL(`/events?payment=error&reason=missing_metadata&session_id=${encodeURIComponent(sessionId)}`, url.origin))
+      return NextResponse.redirect(new URL(`/events?payment=error&reason=missing_metadata&session_id=${encodeURIComponent(sessionId)}`, publicOrigin))
     }
 
     if (organizerId !== sessionUser.sub) {
-      return NextResponse.redirect(new URL(`/events?payment=error&reason=forbidden&eventId=${encodeURIComponent(eventId)}`, url.origin))
+      return NextResponse.redirect(new URL(`/events?payment=error&reason=forbidden&eventId=${encodeURIComponent(eventId)}`, publicOrigin))
     }
 
     const amountTotal = (checkoutSession as any).amount_total
@@ -197,9 +223,9 @@ export async function GET(req: Request) {
       })
     })
 
-    return NextResponse.redirect(new URL(`/events`, url.origin))
+    return NextResponse.redirect(new URL(`/events`, publicOrigin))
   } catch (error) {
     console.error("GET /api/stripe/success error:", error)
-    return NextResponse.redirect(new URL(`/events?payment=error&reason=server_error&session_id=${encodeURIComponent(sessionId)}`, url.origin))
+    return NextResponse.redirect(new URL(`/events?payment=error&reason=server_error&session_id=${encodeURIComponent(sessionId)}`, publicOrigin))
   }
 }
