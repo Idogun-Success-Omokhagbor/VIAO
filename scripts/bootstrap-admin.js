@@ -28,6 +28,11 @@ async function main() {
   loadEnvFile(path.join(root, ".env"), { override: false })
   loadEnvFile(path.join(root, ".env.local"), { override: true })
 
+  if (!process.env.DATABASE_URL) {
+    console.warn("Admin bootstrap skipped: DATABASE_URL is not set")
+    return
+  }
+
   const adminEmail = (process.env.ADMIN_EMAIL || "idogunsuccessomokhagbor@outlook.com").toLowerCase()
   const adminPassword = process.env.ADMIN_PASSWORD || "Omokhagbor.0"
 

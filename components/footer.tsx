@@ -61,8 +61,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/help" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Help Center
+                <Link href="/support" className="text-gray-300 hover:text-white text-sm transition-colors">
+                  Support
                 </Link>
               </li>
             </ul>
@@ -70,31 +70,16 @@ export function Footer() {
 
           {/* For Organizers */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg">For Organizers</h3>
+            <h3 className="font-semibold text-lg">Legal</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/create-event" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Create Event
+                <Link href="/privacy" className="text-gray-300 hover:text-white text-sm transition-colors">
+                  Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link href="/pricing" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Pricing
-                </Link>
-              </li>
-              <li>
-                <Link href="/resources" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Resources
-                </Link>
-              </li>
-              <li>
-                <Link href="/success-stories" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Success Stories
-                </Link>
-              </li>
-              <li>
-                <Link href="/organizer-guide" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Organizer Guide
+                <Link href="/terms" className="text-gray-300 hover:text-white text-sm transition-colors">
+                  Terms of Service
                 </Link>
               </li>
             </ul>
@@ -142,9 +127,6 @@ export function Footer() {
               </Link>
               <Link href="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">
                 Terms of Service
-              </Link>
-              <Link href="/cookies" className="text-gray-400 hover:text-white text-sm transition-colors">
-                Cookie Policy
               </Link>
             </div>
           </div>
