@@ -252,14 +252,17 @@ export default function EventModal({ event, onClose }: EventModalProps) {
     <>
       <Card className="w-full bg-white">
         {/* Header with close button */}
-        <div className="relative">
+        <div className="sticky top-0 z-20 flex justify-end p-4 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white rounded-full p-2 transition-colors"
+            className="bg-white/90 hover:bg-white rounded-full p-2 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
+        </div>
 
+        <div className="relative">
           {/* Hero Image */}
           <div className="relative h-64 md:h-80 overflow-hidden rounded-t-lg">
             <img

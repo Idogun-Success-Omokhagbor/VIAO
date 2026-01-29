@@ -101,8 +101,11 @@ export default function EventDeepLinkPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+        onClick={() => router.push("/events")}
+      >
+        <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
           <EventModal event={event} onClose={() => router.push("/events")} />
         </div>
       </div>
