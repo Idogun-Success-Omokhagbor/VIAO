@@ -51,12 +51,24 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             build
 
+      - name: Package Simulator App
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_simulator_app == 'true') || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) }}
+        run: |
+          APP_PATH=$(find "$RUNNER_TEMP/DerivedData/Build/Products" -maxdepth 2 -type d -name "*.app" -path "*Debug-iphonesimulator*" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found under $RUNNER_TEMP/DerivedData/Build/Products"
+            find "$RUNNER_TEMP/DerivedData/Build/Products" -maxdepth 3 -type d -name "*.app" -print || true
+            exit 1
+          fi
+          echo "Found simulator app at: $APP_PATH"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$RUNNER_TEMP/Viao-Debug-iphonesimulator.app.zip"
+
       - name: Upload Simulator App Artifact
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_simulator_app == 'true') || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) }}
         uses: actions/upload-artifact@v4
         with:
           name: Viao-Debug-iphonesimulator-app
-          path: ${{ runner.temp }}/DerivedData/Build/Products/Debug-iphonesimulator/Viao.app
+          path: ${{ runner.temp }}/Viao-Debug-iphonesimulator.app.zip
 
       - name: Archive (Release, unsigned)
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_archive == 'true') || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) }}
