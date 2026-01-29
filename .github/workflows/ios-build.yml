@@ -11,6 +11,14 @@ on:
         options:
           - "true"
           - "false"
+      build_simulator_app:
+        description: "Build a Debug iOS Simulator .app artifact"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
   push:
     paths:
       - "IOS/**"
@@ -40,7 +48,15 @@ jobs:
             -sdk iphonesimulator \
             -destination "generic/platform=iOS Simulator" \
             -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             build
+
+      - name: Upload Simulator App Artifact
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_simulator_app == 'true') || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Viao-Debug-iphonesimulator-app
+          path: ${{ runner.temp }}/DerivedData/Build/Products/Debug-iphonesimulator/Viao.app
 
       - name: Archive (Release, unsigned)
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_archive == 'true') || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) }}
