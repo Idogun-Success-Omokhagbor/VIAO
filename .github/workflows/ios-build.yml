@@ -38,7 +38,7 @@ jobs:
             -project "IOS/Viao/Viao.xcodeproj" \
             -scheme "Viao" \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,name=Any iOS Simulator Device" \
+            -destination "generic/platform=iOS Simulator" \
             -configuration Debug \
             build
 
