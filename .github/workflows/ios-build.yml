@@ -43,7 +43,7 @@ jobs:
             build
 
       - name: Archive (Release, unsigned)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_archive == 'true' }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_archive == 'true') || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) }}
         run: |
           xcodebuild \
             -project "IOS/Viao/Viao.xcodeproj" \
@@ -56,7 +56,7 @@ jobs:
             archive
 
       - name: Upload Archive Artifact
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_archive == 'true' }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_archive == 'true') || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) }}
         uses: actions/upload-artifact@v4
         with:
           name: Viao-Release-xcarchive
