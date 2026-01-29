@@ -29,3 +29,20 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+
+**/xcuserdata/
+**/DerivedData/
+
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+Pods/
+Carthage/Build/
+
+*.mobileprovision
+*.p12

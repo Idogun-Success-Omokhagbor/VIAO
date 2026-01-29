@@ -192,15 +192,34 @@ export default function EventModal({ event, onClose }: EventModalProps) {
 
   const handleShare = () => {
     const eventUrl = `${window.location.origin}/events/${event.id}`
-    if (navigator.share) {
-      navigator.share({
-        title: event.title,
-        text: event.description,
-        url: eventUrl,
-      })
-    } else {
-      navigator.clipboard.writeText(eventUrl)
+    const fallbackCopy = async () => {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(eventUrl)
+          return
+        }
+      } catch {
+      }
+      try {
+        window.prompt("Copy this link", eventUrl)
+      } catch {
+      }
     }
+
+    if (navigator.share) {
+      Promise.resolve(
+        navigator.share({
+          title: event.title,
+          text: event.description,
+          url: eventUrl,
+        }),
+      ).catch(() => {
+        void fallbackCopy()
+      })
+      return
+    }
+
+    void fallbackCopy()
   }
 
   const handleBoost = (level: 1 | 2) => {
