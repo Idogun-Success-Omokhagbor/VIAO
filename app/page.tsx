@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Footer } from "@/components/footer"
 import { Header } from "@/components/header"
-import { AIAssistantWidget } from "@/components/ai-assistant-widget"
+import FloatingButton from "@/components/floating-button"
 
 type SiteConfig = {
   maintenanceMode?: boolean
@@ -428,7 +428,7 @@ export default function HomePage() {
         </section>
       </main>
       <Footer />
-      <AIAssistantWidget />
+      <FloatingButton />
     </div>
   )
 }

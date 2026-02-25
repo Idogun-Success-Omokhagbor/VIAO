@@ -34,7 +34,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build
 
-      - name: Package Simulator Artifact
+      - name: Verify Simulator App
         run: |
           APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphonesimulator/Viao.app"
           if [ ! -d "$APP_PATH" ]; then
@@ -42,7 +42,6 @@ jobs:
             find "$RUNNER_TEMP/DerivedData/Build/Products" -maxdepth 3 -type d || true
             exit 1
           fi
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$RUNNER_TEMP/Viao-simulator-app.zip"
 
       - name: Archive (Release, unsigned)
         run: |
@@ -60,7 +59,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Viao-Release-simulator-app
-          path: ${{ runner.temp }}/Viao-simulator-app.zip
+          path: ${{ runner.temp }}/DerivedData/Build/Products/Release-iphonesimulator/Viao.app
           if-no-files-found: error
 
       - name: Upload Archive Artifact

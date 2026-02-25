@@ -1,9 +1,13 @@
 "use client"
 
 import { useState } from "react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { MessageCircle, X } from "lucide-react"
-import AIAssistantWidget from "./ai-assistant-widget"
+
+const AIAssistantWidget = dynamic(() => import("./ai-assistant-widget"), {
+  ssr: false,
+})
 
 export default function FloatingButton() {
   const [isOpen, setIsOpen] = useState(false)
@@ -18,7 +22,7 @@ export default function FloatingButton() {
         {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
       </Button>
 
-      <AIAssistantWidget isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      {isOpen ? <AIAssistantWidget isOpen={isOpen} onClose={() => setIsOpen(false)} /> : null}
     </>
   )
 }

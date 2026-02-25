@@ -59,6 +59,7 @@ export default function EventModal({ event, onClose }: EventModalProps) {
   const [isSaved, setIsSaved] = useState(event.isSaved ?? false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [boostLevel, setBoostLevel] = useState<0 | 1 | 2>(0)
+  const [isCalendarLoading, setIsCalendarLoading] = useState(false)
 
   const [nowTick, setNowTick] = useState(() => Date.now())
 
@@ -106,24 +107,25 @@ export default function EventModal({ event, onClose }: EventModalProps) {
   }
 
   const handleAddToCalendar = () => {
-    const url = `/api/events/${encodeURIComponent(event.id)}/calendar`
-    const ua = navigator.userAgent || ""
-    const platform = navigator.platform || ""
-    const isIOSApp = /ViaoIOSApp/i.test(ua)
-    const isIOSDevice = /iPad|iPhone|iPod/i.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    if (isCalendarLoading) return
+    setIsCalendarLoading(true)
 
-    if (isIOSApp || isIOSDevice) {
+    const url = `/api/events/${encodeURIComponent(event.id)}/calendar`
+    try {
       window.location.assign(url)
-      return
+    } catch {
+      const a = document.createElement("a")
+      a.href = url
+      a.rel = "noopener"
+      a.target = "_self"
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
     }
 
-    const a = document.createElement("a")
-    a.href = url
-    a.rel = "noopener"
-    a.download = ""
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
+    window.setTimeout(() => {
+      setIsCalendarLoading(false)
+    }, 1200)
   }
 
   const handleSetStatus = async (status: "GOING" | "MAYBE" | "NOT_GOING") => {
@@ -391,7 +393,7 @@ export default function EventModal({ event, onClose }: EventModalProps) {
           {/* Organizer */}
           <div>
             <h3 className="font-semibold mb-3">Organized by</h3>
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 items-center space-x-3">
                 <Avatar>
                   <AvatarImage src={event.organizerAvatarUrl ?? undefined} />
@@ -407,7 +409,7 @@ export default function EventModal({ event, onClose }: EventModalProps) {
                   userId={event.organizerId}
                   userName={event.organizerName ?? "Organizer"}
                   size="default"
-                  className="w-full md:w-auto whitespace-normal text-center"
+                  className="w-full lg:w-auto whitespace-normal text-center"
                 />
               )}
             </div>
@@ -421,8 +423,9 @@ export default function EventModal({ event, onClose }: EventModalProps) {
                   This event has been cancelled.
                 </div>
               )}
-              <div className="flex flex-col gap-3 md:flex-row">
+              <div className="flex flex-col gap-3 lg:flex-row">
                 <Button
+                  type="button"
                   onClick={handleRSVP}
                   className={`flex-1 min-h-11 whitespace-normal text-center ${
                     isRSVPed ? "bg-green-600 hover:bg-green-700" : "bg-purple-600 hover:bg-purple-700"
@@ -434,13 +437,14 @@ export default function EventModal({ event, onClose }: EventModalProps) {
 
                 {rsvpStatus === "GOING" ? (
                   <Button
+                    type="button"
                     variant="outline"
                     onClick={handleAddToCalendar}
                     className="min-h-11 whitespace-normal text-center"
-                    disabled={isCancelled}
+                    disabled={isCancelled || isCalendarLoading}
                   >
                     <FileDown className="h-4 w-4 mr-2" />
-                    Add to Calendar
+                    {isCalendarLoading ? "Adding..." : "Add to Calendar"}
                   </Button>
                 ) : null}
               </div>

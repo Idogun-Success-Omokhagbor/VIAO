@@ -1,7 +1,7 @@
 import type React from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { AIAssistantWidget } from "@/components/ai-assistant-widget"
+import FloatingButton from "@/components/floating-button"
 
 export default function WebsiteLayout({
   children,
@@ -13,7 +13,7 @@ export default function WebsiteLayout({
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
-      <AIAssistantWidget />
+      <FloatingButton />
     </div>
   )
 }

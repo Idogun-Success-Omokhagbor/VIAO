@@ -16,7 +16,7 @@ class ViewController: UIViewController, WKNavigationDelegate,WKUIDelegate {
     
     @IBOutlet var webView: WKWebView!
     
-    private let startUrl = "https://www.viao.ch/"
+    private let startUrl = "https://viao.ch/"
     private var progressView: UIProgressView!
     private var didShowPhotoAlert = false
     private let locationManager = CLLocationManager()
