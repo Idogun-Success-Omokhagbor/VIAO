@@ -50,7 +50,7 @@ export default function AppLayout({
   }, [])
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-[100dvh] min-h-[100dvh] bg-gray-50 flex flex-col overflow-hidden">
       <Header />
       {siteConfig?.maintenanceMode ? (
         <div className="border-b bg-amber-50 px-4 py-2 text-sm text-amber-900">

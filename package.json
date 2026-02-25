@@ -9,6 +9,7 @@
     "lint": "next lint",
     "start": "next start",
     "bootstrap:admin": "node scripts/bootstrap-admin.js",
+    "bootstrap:review": "node scripts/bootstrap-review-accounts.js",
     "postinstall": "prisma generate --schema prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema prisma/schema.prisma",

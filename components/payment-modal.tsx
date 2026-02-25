@@ -85,8 +85,8 @@ export default function PaymentModal({ isOpen, onClose, eventId, eventTitle, boo
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md bg-white">
+    <div className="fixed inset-0 z-[4100] bg-black/50 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto">
+      <Card className="w-full max-w-md max-h-[92dvh] overflow-y-auto bg-white">
         <CardHeader className="relative">
           <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />

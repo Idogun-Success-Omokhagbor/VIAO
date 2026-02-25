@@ -164,10 +164,10 @@ export default function MyEventsPage() {
 
         {selectedEvent && (
           <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 z-[4000] bg-black/50 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto"
             onClick={() => setSelectedEvent(null)}
           >
-            <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="max-w-4xl w-full max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
             </div>
           </div>
@@ -233,3 +233,4 @@ function EventGrid({ events, onOpen }: { events: Event[]; onOpen: (e: Event) => 
     </div>
   )
 }
+

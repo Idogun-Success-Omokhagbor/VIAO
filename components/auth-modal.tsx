@@ -301,13 +301,11 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 z-[4100] bg-black/50 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto"
       onClick={handleClose}
     >
       <Card
-        className={`w-full bg-white shadow-2xl ${
-          isSignup ? "max-w-4xl max-h-[90vh] flex flex-col" : "max-w-md"
-        }`}
+        className={`w-full max-h-[92dvh] bg-white shadow-2xl flex flex-col ${isSignup ? "max-w-4xl" : "max-w-md"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <CardHeader className="relative">
@@ -323,7 +321,7 @@ export function AuthModal({ isOpen, onClose, initialTab = "signin" }: AuthModalP
           <CardDescription className="text-center">Join Switzerland's premier events community</CardDescription>
         </CardHeader>
 
-        <CardContent className={isSignup ? "overflow-y-auto" : ""}>
+        <CardContent className="overflow-y-auto">
           <Tabs
             value={activeTab}
             onValueChange={(value) => {

@@ -33,6 +33,12 @@ export default function AccountPage() {
   const router = useRouter()
   const { user, updateUser, isAuthenticated, showAuthModal, refresh } = useAuth()
   const { toast } = useToast()
+  const [clientCapabilities, setClientCapabilities] = useState({
+    isNativeIOSWrapper: false,
+    supportsWebPush: false,
+  })
+  const { isNativeIOSWrapper, supportsWebPush } = clientCapabilities
+  const canConfigurePushInClient = !isNativeIOSWrapper && supportsWebPush
   const [isEditing, setIsEditing] = useState(false)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [isConfiguringPush, setIsConfiguringPush] = useState(false)
@@ -104,6 +110,15 @@ export default function AccountPage() {
     if (!isAuthenticated) return
     void fetchSessions()
   }, [isAuthenticated])
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return
+    const ua = navigator.userAgent || ""
+    setClientCapabilities({
+      isNativeIOSWrapper: /ViaoIOSApp/i.test(ua),
+      supportsWebPush: "serviceWorker" in navigator && "PushManager" in window,
+    })
+  }, [])
 
   if (!isAuthenticated) {
     return (
@@ -203,6 +218,9 @@ export default function AccountPage() {
   }
 
   const enablePushNotifications = async () => {
+    if (isNativeIOSWrapper) {
+      throw new Error("Push notifications are not available inside the iOS app web view.")
+    }
     if (typeof window === "undefined") throw new Error("Not available")
     if (!("serviceWorker" in navigator)) throw new Error("Service workers are not supported")
     if (!("PushManager" in window)) throw new Error("Push notifications are not supported")
@@ -243,6 +261,7 @@ export default function AccountPage() {
   }
 
   const disablePushNotifications = async () => {
+    if (isNativeIOSWrapper) return
     if (typeof window === "undefined") return
     if (!("serviceWorker" in navigator)) return
 
@@ -255,6 +274,7 @@ export default function AccountPage() {
 
   const handlePushToggle = async (checked: boolean) => {
     if (!user) return
+    if (!canConfigurePushInClient) return
     setIsConfiguringPush(true)
     try {
       if (checked) {
@@ -531,12 +551,21 @@ export default function AccountPage() {
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <Label className="text-base">Push Notifications</Label>
-                        <p className="text-sm text-gray-600">Receive push notifications in your browser</p>
+                        <p className="text-sm text-gray-600">
+                          {isNativeIOSWrapper
+                            ? "Browser push is unavailable in the iOS app web view."
+                            : supportsWebPush
+                              ? "Receive push notifications in your browser"
+                              : "Push notifications are not supported in this browser."}
+                        </p>
                       </div>
                       <Switch
                         checked={!!(user?.preferences as any)?.pushNotifications}
-                        disabled={isConfiguringPush}
-                        onCheckedChange={(checked) => void handlePushToggle(checked)}
+                        disabled={isConfiguringPush || !canConfigurePushInClient}
+                        onCheckedChange={(checked) => {
+                          if (!canConfigurePushInClient) return
+                          void handlePushToggle(checked)
+                        }}
                       />
                     </div>
 

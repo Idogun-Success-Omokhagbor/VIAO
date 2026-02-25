@@ -146,7 +146,7 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
 
   return (
     <Card
-      className={`fixed bottom-6 right-6 w-96 shadow-xl z-50 transition-all duration-300 ${
+      className={`fixed bottom-2 right-2 sm:bottom-6 sm:right-6 w-[calc(100vw-1rem)] sm:w-96 max-h-[calc(100dvh-1rem)] shadow-xl z-50 transition-all duration-300 ${
         isMinimized ? "h-14" : "h-[500px]"
       }`}
     >
@@ -163,7 +163,7 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
       </CardHeader>
 
       {!isMinimized && (
-        <CardContent className="flex flex-col h-[420px]">
+        <CardContent className="flex flex-col h-[420px] max-h-[calc(100dvh-8rem)]">
           <ScrollArea className="flex-1 pr-4">
             <div className="space-y-4">
               {messages.map((message) => (

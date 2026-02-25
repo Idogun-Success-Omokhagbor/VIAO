@@ -368,7 +368,7 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
     <div
       className={
         isFullscreen
-          ? "fixed inset-0 z-[2000] w-screen h-screen bg-gradient-to-br from-green-100 via-blue-50 to-purple-100 overflow-hidden"
+          ? "fixed inset-0 z-[2000] w-screen h-[100dvh] bg-gradient-to-br from-green-100 via-blue-50 to-purple-100 overflow-hidden"
           : "relative w-full h-full bg-gradient-to-br from-green-100 via-blue-50 to-purple-100 rounded-lg overflow-hidden"
       }
     >
@@ -410,7 +410,7 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
       </div>
 
       {/* Control Panel */}
-      <div className="absolute top-4 left-4 z-[1100] flex gap-2">
+      <div className={isFullscreen ? "absolute top-4 left-4 z-[2100] flex gap-2" : "absolute top-4 left-4 z-30 flex gap-2"}>
         <Button
           onClick={() => handleNearMe({ focus: true })}
           variant="secondary"
@@ -427,7 +427,13 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
       </div>
 
       {/* Legend */}
-      <div className="absolute top-4 right-4 z-[1100] flex flex-col items-end gap-2">
+      <div
+        className={
+          isFullscreen
+            ? "absolute top-4 right-4 z-[2100] flex flex-col items-end gap-2"
+            : "absolute top-4 right-4 z-30 flex flex-col items-end gap-2"
+        }
+      >
         <Button
           onClick={() => setIsFullscreen((v) => !v)}
           variant="secondary"
@@ -459,7 +465,7 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
       {/* Event Tooltip */}
       {hoveredEvent && hoveredPoint && (
         <div
-          className="absolute z-[1200] pointer-events-auto"
+          className={isFullscreen ? "absolute z-[2200] pointer-events-auto" : "absolute z-40 pointer-events-auto"}
           style={{
             left: hoveredPoint.x,
             top: hoveredPoint.y,
@@ -505,7 +511,7 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
 
       {/* No Events Message */}
       {events.length === 0 && (
-        <div className="absolute inset-0 z-[1100] flex items-center justify-center">
+        <div className={isFullscreen ? "absolute inset-0 z-[2100] flex items-center justify-center" : "absolute inset-0 z-30 flex items-center justify-center"}>
           <div className="text-center text-gray-500">
             <MapPin className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No events to display on map</p>

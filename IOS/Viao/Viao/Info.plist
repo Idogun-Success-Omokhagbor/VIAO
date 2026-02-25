@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>To detect nearby events, the app requires permission to access your location.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>To detect nearby events, the app requires permission to access your location.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -14,6 +12,12 @@
 	<string>Camera access is needed to capture a photo for your profile.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone access is needed for audio features in the app.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Calendar access is needed to add your events automatically.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Calendar access is needed to add your events automatically.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Calendar access is needed to add your events automatically.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

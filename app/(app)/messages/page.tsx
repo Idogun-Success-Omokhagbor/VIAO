@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmojiPicker } from "@/components/emoji-picker"
-import { Send, Search, MessageSquare, Check, CheckCheck } from "lucide-react"
+import { Send, Search, MessageSquare, Check, CheckCheck, ArrowLeft } from "lucide-react"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
 import { getAvatarSrc, formatTimeAgo, formatTime } from "@/lib/utils"
@@ -146,7 +146,7 @@ export default function MessagesPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
             <div className="flex h-full min-h-0">
               {/* Sidebar - Conversations List */}
-              <div className="w-80 border-r border-gray-200 flex flex-col min-h-0">
+              <div className={`w-full md:w-80 border-r border-gray-200 flex flex-col min-h-0 ${activeConversation ? "hidden md:flex" : "flex"}`}>
                 {/* Header */}
                 <div className="p-4 border-b border-gray-200">
                 <div className="flex items-center justify-between mb-4">
@@ -262,13 +262,23 @@ export default function MessagesPage() {
               </div>
 
               {/* Main Chat Area */}
-              <div className="flex-1 flex flex-col min-h-0">
+              <div className={`flex-1 flex-col min-h-0 ${activeConversation ? "flex" : "hidden md:flex"}`}>
                 {activeConversation ? (
                   <>
                     {/* Chat Header */}
                     <div className="p-4 border-b border-gray-200 bg-white">
                       <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="md:hidden"
+                          aria-label="Back to conversations"
+                          onClick={() => setActiveConversation(null)}
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                        </Button>
                         {(() => {
                           const otherParticipant = activeConversation.participants.find((p) => p.id !== user?.id)
                           return (

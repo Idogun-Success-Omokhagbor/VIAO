@@ -37,28 +37,6 @@ function getBoostCountdownToneClass(boostUntil: string | null | undefined, now: 
   return "bg-red-600 text-white"
 }
 
-function formatIcsDate(date: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return (
-    date.getUTCFullYear() +
-    pad(date.getUTCMonth() + 1) +
-    pad(date.getUTCDate()) +
-    "T" +
-    pad(date.getUTCHours()) +
-    pad(date.getUTCMinutes()) +
-    pad(date.getUTCSeconds()) +
-    "Z"
-  )
-}
-
-function sanitizeIcsText(value: string) {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/\r?\n/g, "\\n")
-    .replace(/,/g, "\\,")
-    .replace(/;/g, "\\;")
-}
-
 function getSafeImageSrc(src?: string | null) {
   if (!src) return "/placeholder.svg"
   return src
@@ -128,37 +106,24 @@ export default function EventModal({ event, onClose }: EventModalProps) {
   }
 
   const handleAddToCalendar = () => {
-    const start = new Date((event.startsAt ?? event.date) as any)
-    const end = event.endsAt ? new Date(event.endsAt as any) : new Date(start.getTime() + 2 * 60 * 60 * 1000)
-    const now = new Date()
-    const uid = `${event.id}@viao`
+    const url = `/api/events/${encodeURIComponent(event.id)}/calendar`
+    const ua = navigator.userAgent || ""
+    const platform = navigator.platform || ""
+    const isIOSApp = /ViaoIOSApp/i.test(ua)
+    const isIOSDevice = /iPad|iPhone|iPod/i.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1)
 
-    const ics =
-      "BEGIN:VCALENDAR\r\n" +
-      "VERSION:2.0\r\n" +
-      "PRODID:-//Viao//My Events//EN\r\n" +
-      "CALSCALE:GREGORIAN\r\n" +
-      "METHOD:PUBLISH\r\n" +
-      "BEGIN:VEVENT\r\n" +
-      `UID:${sanitizeIcsText(uid)}\r\n` +
-      `DTSTAMP:${formatIcsDate(now)}\r\n` +
-      `DTSTART:${formatIcsDate(start)}\r\n` +
-      `DTEND:${formatIcsDate(end)}\r\n` +
-      `SUMMARY:${sanitizeIcsText(event.title)}\r\n` +
-      `DESCRIPTION:${sanitizeIcsText(event.description || "")}\r\n` +
-      `LOCATION:${sanitizeIcsText(event.location || "")}\r\n` +
-      "END:VEVENT\r\n" +
-      "END:VCALENDAR\r\n"
+    if (isIOSApp || isIOSDevice) {
+      window.location.assign(url)
+      return
+    }
 
-    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `${event.title.replace(/[^a-z0-9\-_ ]/gi, "").slice(0, 60) || "event"}.ics`
+    a.rel = "noopener"
+    a.download = ""
     document.body.appendChild(a)
     a.click()
     a.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   const handleSetStatus = async (status: "GOING" | "MAYBE" | "NOT_GOING") => {
@@ -352,10 +317,10 @@ export default function EventModal({ event, onClose }: EventModalProps) {
         </div>
 
         <CardHeader>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex-1">
               <CardTitle className="text-2xl md:text-3xl mb-2">{event.title}</CardTitle>
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 <Badge variant="outline">
                   <span
                     className={`inline-block h-3 w-3 rounded-full mr-2 ${CATEGORY_COLORS[event.category] || "bg-gray-400"}`}
@@ -370,7 +335,7 @@ export default function EventModal({ event, onClose }: EventModalProps) {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-2 ml-4">
+            <div className="flex flex-wrap gap-2 sm:ml-4">
               <Button
                 variant="outline"
                 size="sm"
@@ -405,9 +370,9 @@ export default function EventModal({ event, onClose }: EventModalProps) {
               <Clock className="h-4 w-4 mr-2" />
               {event.time}
             </div>
-            <div className="flex items-center text-gray-600">
+            <div className="flex items-center text-gray-600 min-w-0">
               <MapPin className="h-4 w-4 mr-2" />
-              {event.location}
+              <span className="break-words">{event.location}</span>
             </div>
             <div className="flex items-center text-gray-600">
               <DollarSign className="h-4 w-4 mr-2" />
@@ -426,19 +391,24 @@ export default function EventModal({ event, onClose }: EventModalProps) {
           {/* Organizer */}
           <div>
             <h3 className="font-semibold mb-3">Organized by</h3>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex min-w-0 items-center space-x-3">
                 <Avatar>
                   <AvatarImage src={event.organizerAvatarUrl ?? undefined} />
                   <AvatarFallback>{(event.organizerName || "O").slice(0, 1).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div>
-                  <p className="font-medium">{event.organizerName ?? "Organizer"}</p>
+                <div className="min-w-0">
+                  <p className="font-medium break-words">{event.organizerName ?? "Organizer"}</p>
                   <p className="text-sm text-gray-600">Event Organizer</p>
                 </div>
               </div>
               {!isEventOrganizer && event.organizerId && (
-                <MessageUserButton userId={event.organizerId} userName={event.organizerName ?? "Organizer"} />
+                <MessageUserButton
+                  userId={event.organizerId}
+                  userName={event.organizerName ?? "Organizer"}
+                  size="default"
+                  className="w-full md:w-auto whitespace-normal text-center"
+                />
               )}
             </div>
           </div>
@@ -451,32 +421,33 @@ export default function EventModal({ event, onClose }: EventModalProps) {
                   This event has been cancelled.
                 </div>
               )}
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-3 md:flex-row">
                 <Button
                   onClick={handleRSVP}
-                  className={`flex-1 ${
+                  className={`flex-1 min-h-11 whitespace-normal text-center ${
                     isRSVPed ? "bg-green-600 hover:bg-green-700" : "bg-purple-600 hover:bg-purple-700"
                   }`}
                   disabled={isRsvpLoading || isCancelled}
                 >
-                  {isRsvpLoading ? "Processing..." : rsvpStatus === "GOING" ? "✓ You&apos;re Going!" : "RSVP to Event"}
+                  {isRsvpLoading ? "Processing..." : rsvpStatus === "GOING" ? "✓ You're Going!" : "RSVP to Event"}
                 </Button>
 
                 {rsvpStatus === "GOING" ? (
                   <Button
                     variant="outline"
                     onClick={handleAddToCalendar}
+                    className="min-h-11 whitespace-normal text-center"
                     disabled={isCancelled}
                   >
                     <FileDown className="h-4 w-4 mr-2" />
-                    Add to calendar
+                    Add to Calendar
                   </Button>
                 ) : null}
               </div>
 
               {isRSVPed && (
                 <p className="text-sm text-green-600 mt-2 text-center">
-                  Great! We&apos;ll send you event updates and reminders.
+                  Great! We'll send you event updates and reminders.
                 </p>
               )}
             </div>

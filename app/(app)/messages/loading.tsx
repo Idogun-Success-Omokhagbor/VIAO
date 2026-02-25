@@ -4,10 +4,10 @@ export default function MessagesLoading() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc(100vh-8rem)]">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc(100dvh-8rem)]">
           <div className="flex h-full">
             {/* Sidebar Skeleton */}
-            <div className="w-80 border-r border-gray-200 flex flex-col">
+            <div className="w-full md:w-80 border-r border-gray-200 flex flex-col">
               <div className="p-4 border-b border-gray-200">
                 <div className="flex items-center justify-between mb-4">
                   <Skeleton className="h-6 w-20" />

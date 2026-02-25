@@ -169,7 +169,7 @@ export default function CommunityPage() {
       {/* Create Post Modal */}
       {showPostForm && (
         <Dialog open={showPostForm} onOpenChange={setShowPostForm}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+          <DialogContent className="max-w-2xl max-h-[92dvh] overflow-y-auto p-0">
             <CommunityPostForm onClose={() => setShowPostForm(false)} />
           </DialogContent>
         </Dialog>

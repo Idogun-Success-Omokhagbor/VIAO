@@ -617,26 +617,26 @@ export default function EventsPage() {
 
       {showEventModal && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 z-[4000] bg-black/50 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto"
           onClick={() => setShowEventModal(null)}
         >
-          <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="max-w-4xl w-full max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <EventModal event={showEventModal!} onClose={() => setShowEventModal(null)} />
           </div>
         </div>
       )}
 
       {showEventForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[4000] bg-black/50 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[92dvh] overflow-y-auto">
             <EventForm onClose={() => setShowEventForm(false)} />
           </div>
         </div>
       )}
 
       {editEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[4000] bg-black/50 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[92dvh] overflow-y-auto">
             <EventForm onClose={() => setEditEvent(null)} mode="edit" event={editEvent} />
           </div>
         </div>
@@ -727,3 +727,4 @@ export default function EventsPage() {
     </div>
   )
 }
+
