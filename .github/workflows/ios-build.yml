@@ -22,6 +22,28 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Build Simulator App (Release, unsigned)
+        run: |
+          xcodebuild \
+            -project "IOS/Viao/Viao.xcodeproj" \
+            -scheme "Viao" \
+            -configuration Release \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Package Simulator Artifact
+        run: |
+          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphonesimulator/Viao.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Expected simulator app not found at: $APP_PATH"
+            find "$RUNNER_TEMP/DerivedData/Build/Products" -maxdepth 3 -type d || true
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$RUNNER_TEMP/Viao-simulator-app.zip"
+
       - name: Archive (Release, unsigned)
         run: |
           xcodebuild \
@@ -34,8 +56,16 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             archive
 
+      - name: Upload Simulator Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Viao-Release-simulator-app
+          path: ${{ runner.temp }}/Viao-simulator-app.zip
+          if-no-files-found: error
+
       - name: Upload Archive Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Viao-Release-xcarchive
           path: ${{ runner.temp }}/Viao.xcarchive
+          if-no-files-found: error

@@ -46,3 +46,10 @@ Carthage/Build/
 
 *.mobileprovision
 *.p12
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
+__MACOSX/
+**/__MACOSX/
+._*
