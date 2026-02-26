@@ -7,27 +7,60 @@ interface WsOptions {
   onMessage: Listener
 }
 
-const WS_PORT = process.env.NEXT_PUBLIC_WS_PORT || "3001"
+const WS_URL = (process.env.NEXT_PUBLIC_WS_URL || "").trim()
+const WS_PORT = (process.env.NEXT_PUBLIC_WS_PORT || "").trim()
 const WS_PATH = process.env.NEXT_PUBLIC_WS_PATH || ""
 
 function buildUrl() {
   if (typeof window === "undefined") return ""
+  if (WS_URL) return WS_URL
+
+  // In production, avoid guessing a websocket endpoint unless explicitly configured.
+  if (process.env.NODE_ENV === "production" && !WS_PORT) return ""
+
   const { protocol, hostname } = window.location
   const isSecure = protocol === "https:"
-  const hostPort = WS_PORT || (isSecure ? "443" : "80")
-  return `${isSecure ? "wss" : "ws"}://${hostname}:${hostPort}${WS_PATH}`
+  const hostPort = WS_PORT || (process.env.NODE_ENV === "development" ? "3001" : "")
+  const portPart = hostPort ? `:${hostPort}` : ""
+  return `${isSecure ? "wss" : "ws"}://${hostname}${portPart}${WS_PATH}`
 }
 
 export function createWsClient({ userId, onMessage }: WsOptions) {
   let socket: WebSocket | null = null
   let closed = false
   let retryMs = 1000
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+  const scheduleReconnect = () => {
+    if (closed) return
+    if (reconnectTimer) return
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      connect()
+    }, retryMs)
+    retryMs = Math.min(retryMs * 2, 15000)
+  }
 
   const connect = () => {
     if (closed) return
+
+    // iOS wrapper relies on polling fallback to avoid WKWebView websocket crashes.
+    try {
+      const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : ""
+      if (/ViaoIOSApp/i.test(ua)) return
+    } catch {
+      // ignore
+    }
+
     const url = buildUrl()
     if (!url) return
-    socket = new WebSocket(url)
+
+    try {
+      socket = new WebSocket(url)
+    } catch {
+      scheduleReconnect()
+      return
+    }
 
     socket.addEventListener("open", () => {
       retryMs = 1000
@@ -45,8 +78,7 @@ export function createWsClient({ userId, onMessage }: WsOptions) {
 
     socket.addEventListener("close", () => {
       if (closed) return
-      setTimeout(connect, retryMs)
-      retryMs = Math.min(retryMs * 2, 15000)
+      scheduleReconnect()
     })
 
     socket.addEventListener("error", () => {
@@ -59,6 +91,10 @@ export function createWsClient({ userId, onMessage }: WsOptions) {
   return {
     close() {
       closed = true
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer)
+        reconnectTimer = null
+      }
       socket?.close()
     },
   }
