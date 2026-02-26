@@ -53,7 +53,17 @@ export default function MessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    const target = messagesEndRef.current
+    if (!target) return
+    try {
+      target.scrollIntoView({ behavior: "smooth", block: "end" })
+    } catch {
+      try {
+        target.scrollIntoView(false)
+      } catch {
+        // no-op
+      }
+    }
   }
 
   const conversationMessages =
@@ -114,11 +124,20 @@ export default function MessagesPage() {
     const next = newMessage.slice(0, start) + emoji + newMessage.slice(end)
     setNewMessage(next)
 
-    requestAnimationFrame(() => {
-      el.focus()
-      const cursor = start + emoji.length
-      el.setSelectionRange(cursor, cursor)
-    })
+    const run = () => {
+      try {
+        el.focus()
+        const cursor = start + emoji.length
+        el.setSelectionRange(cursor, cursor)
+      } catch {
+        // iOS WebView can reject programmatic selection in some states
+      }
+    }
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(run)
+    } else {
+      run()
+    }
   }
 
   const filteredConversations = conversations.filter((conv) =>

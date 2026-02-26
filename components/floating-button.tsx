@@ -1,13 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { MessageCircle, X } from "lucide-react"
-
-const AIAssistantWidget = dynamic(() => import("./ai-assistant-widget"), {
-  ssr: false,
-})
+import AIAssistantWidget from "./ai-assistant-widget"
 
 export default function FloatingButton() {
   const [isOpen, setIsOpen] = useState(false)

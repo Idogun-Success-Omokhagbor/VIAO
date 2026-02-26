@@ -50,6 +50,20 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
 
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen
 
+  const scrollToLatestMessage = () => {
+    const target = messagesEndRef.current
+    if (!target) return
+    try {
+      target.scrollIntoView({ behavior: "smooth", block: "end" })
+    } catch {
+      try {
+        target.scrollIntoView(false)
+      } catch {
+        // no-op
+      }
+    }
+  }
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -78,7 +92,7 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
   }, [])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    scrollToLatestMessage()
   }, [messages])
 
   const handleSendMessage = async (content: string = inputValue) => {

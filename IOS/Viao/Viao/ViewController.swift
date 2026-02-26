@@ -32,7 +32,7 @@ class ViewController: UIViewController, WKNavigationDelegate,WKUIDelegate {
         
         // Load initial URL
         if let url = URL(string: startUrl) {
-            let request = URLRequest(url: url)
+            let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
             webView.load(request)
         }
     }

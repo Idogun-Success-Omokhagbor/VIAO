@@ -47,10 +47,21 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
 
   useEffect(() => {
     if (!isOpen) return
-    requestAnimationFrame(() => {
-      inputRef.current?.focus()
-      inputRef.current?.setSelectionRange(newMessage.length, newMessage.length)
-    })
+    const run = () => {
+      const input = inputRef.current
+      if (!input) return
+      try {
+        input.focus()
+        input.setSelectionRange(newMessage.length, newMessage.length)
+      } catch {
+        // iOS WebView can reject programmatic selection in some states
+      }
+    }
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(run)
+    } else {
+      run()
+    }
   }, [isOpen, conversation, newMessage.length])
 
   const handleSendMessage = async () => {
@@ -78,11 +89,20 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
     const next = newMessage.slice(0, start) + emoji + newMessage.slice(end)
     setNewMessage(next)
 
-    requestAnimationFrame(() => {
-      el.focus()
-      const cursor = start + emoji.length
-      el.setSelectionRange(cursor, cursor)
-    })
+    const run = () => {
+      try {
+        el.focus()
+        const cursor = start + emoji.length
+        el.setSelectionRange(cursor, cursor)
+      } catch {
+        // iOS WebView can reject programmatic selection in some states
+      }
+    }
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(run)
+    } else {
+      run()
+    }
   }
 
   const otherParticipant = conversation?.participants.find((p) => p.id !== user?.id)
