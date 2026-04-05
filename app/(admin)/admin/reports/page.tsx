@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { RefreshCcw, Search } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
 
 type ReportStatus = "OPEN" | "REVIEWED" | "DISMISSED"
 
@@ -57,6 +58,14 @@ type PendingAction =
   | { type: "CANCEL_EVENT"; reportId: string; eventId: string; title: string }
   | null
 
+type ReportActionPayload =
+  | { reportId: string; action: "CANCEL_EVENT" }
+  | { reportId: string; action: "SET_STATUS"; status: ReportStatus }
+
+function isReportStatus(value: string): value is ReportStatus | "ALL" {
+  return value === "ALL" || value === "OPEN" || value === "REVIEWED" || value === "DISMISSED"
+}
+
 export default function AdminReportsPage() {
   const [q, setQ] = useState("")
   const [status, setStatus] = useState<ReportStatus | "ALL">("OPEN")
@@ -84,30 +93,30 @@ export default function AdminReportsPage() {
     return params.toString()
   }, [eventId, from, page, q, status, to])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/admin/reports?${query}`, { credentials: "include", cache: "no-store" })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to load reports")
-      setData(json as ReportsResponse)
+      const json = await readJsonOrNull<ReportsResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Failed to load reports"))
+      setData(json)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load reports")
       setData(null)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [query])
 
   useEffect(() => {
     void load()
-  }, [query])
+  }, [load])
 
   const canPrev = page > 1
   const canNext = data ? page * data.pageSize < data.total : false
 
-  const act = async (payload: any) => {
+  const act = async (payload: ReportActionPayload) => {
     setSaving(true)
     setError(null)
     try {
@@ -117,8 +126,8 @@ export default function AdminReportsPage() {
         credentials: "include",
         body: JSON.stringify(payload),
       })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Action failed")
+      const json = await readJsonOrNull<{ success?: boolean; error?: string }>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Action failed"))
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed")
@@ -160,7 +169,7 @@ export default function AdminReportsPage() {
             <div>
               <Select value={status} onValueChange={(v) => {
                 setPage(1)
-                setStatus(v as any)
+                if (isReportStatus(v)) setStatus(v)
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Status" />

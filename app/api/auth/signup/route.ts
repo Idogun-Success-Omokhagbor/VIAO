@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { makeSession, setSessionCookie } from "@/lib/session"
+import { authUserSelect, mapAuthUser } from "@/lib/current-user"
 import { getSiteConfig } from "@/lib/site-config"
+import { getClientIp } from "@/lib/request-utils"
 
 const roleSchema = z.preprocess(
   (val) => (typeof val === "string" ? val.toUpperCase() : val),
@@ -42,30 +44,15 @@ export async function POST(request: Request) {
         role,
         interests: interests ?? [],
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        interests: true,
-        avatarUrl: true,
-        createdAt: true,
-        location: true,
-        phone: true,
-        bio: true,
-        preferences: true,
-      },
+      select: authUserSelect,
     })
 
     const userAgent = request.headers.get("user-agent")
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip")
+    const ip = getClientIp(request.headers)
     const token = await makeSession(user, { userAgent, ip })
     const response = NextResponse.json(
       {
-        user: {
-          ...user,
-          createdAt: user.createdAt.toISOString(),
-        },
+        user: mapAuthUser(user),
       },
       { status: 201 },
     )

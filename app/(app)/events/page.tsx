@@ -1,17 +1,19 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
+import { AppImage } from "@/components/ui/app-image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Calendar, MapPin, Users, Plus, Zap, BarChart3, Crown, Pencil, Ban, FileDown, Info, Trash2 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
-import EventModal from "@/components/event-modal"
-import EventForm from "@/components/event-form"
+import type { EventModalProps } from "@/components/event-modal"
+import type { EventFormProps } from "@/components/event-form"
 import type { Event } from "@/types/event"
-import PaymentModal from "@/components/payment-modal"
+import type { PaymentModalProps } from "@/components/payment-modal"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -25,33 +27,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Line, LineChart, ResponsiveContainer } from "recharts"
-import { formatBoostCountdown, getLocationString } from "@/lib/utils"
+import { formatBoostCountdown, getBoostCountdownToneClass, getLocationString } from "@/lib/utils"
+import { getEventCategoryColor } from "@/lib/event-categories"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Technology: "bg-blue-500",
-  "Arts & Culture": "bg-purple-500",
-  "Sports & Outdoors": "bg-emerald-500",
-  Music: "bg-pink-500",
-  "Food & Drink": "bg-amber-500",
-  "Health & Wellness": "bg-teal-500",
-  Business: "bg-indigo-500",
-  Education: "bg-sky-500",
-}
-
-function getBoostCountdownToneClass(boostUntil: string | null | undefined, now: number) {
-  if (!boostUntil) return "bg-white/90 text-gray-900"
-  const remainingMs = new Date(boostUntil).getTime() - now
-  const remainingHours = remainingMs / 3_600_000
-  if (remainingHours > 30) return "bg-emerald-600 text-white"
-  if (remainingHours > 15) return "bg-amber-400 text-amber-950"
-  return "bg-red-600 text-white"
-}
-
-function getSafeImageSrc(src?: string | null) {
-  if (!src) return "/placeholder.svg"
-  return src
-}
+const EventModal = dynamic<EventModalProps>(() => import("@/components/event-modal"), { ssr: false })
+const EventForm = dynamic<EventFormProps>(() => import("@/components/event-form"), { ssr: false })
+const PaymentModal = dynamic<PaymentModalProps>(() => import("@/components/payment-modal"), { ssr: false })
 
 export default function EventsPage() {
   const router = useRouter()
@@ -62,7 +44,7 @@ export default function EventsPage() {
   const [organizerEvents, setOrganizerEvents] = useState<Event[]>([])
   const [organizerLoading, setOrganizerLoading] = useState(false)
   const [organizerError, setOrganizerError] = useState<string | null>(null)
-  const [organizerTab, setOrganizerTab] = useState<"upcoming" | "past" | "drafts" | "cancelled">("upcoming")
+  const [organizerTab, setOrganizerTab] = useState<OrganizerTab>("upcoming")
   const [editEvent, setEditEvent] = useState<Event | null>(null)
   const [boostEvent, setBoostEvent] = useState<Event | null>(null)
   const [boostLevel, setBoostLevel] = useState<number>(0)
@@ -77,6 +59,25 @@ export default function EventsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   const [nowTick, setNowTick] = useState(() => Date.now())
+  const deferredAttendeesSearch = useDeferredValue(attendeesSearch)
+
+  type OrganizerTab = "upcoming" | "past" | "drafts" | "cancelled"
+  type AttendeeRsvp = {
+    id: string
+    status: "GOING" | "MAYBE" | "NOT_GOING"
+    createdAt: string
+    user: { id: string; name: string; email: string; avatarUrl?: string | null }
+  }
+  type OrganizedEventsResponse = { events?: Event[]; error?: string }
+  type AttendeesResponse = { rsvps?: AttendeeRsvp[]; error?: string }
+  type EventMutationResponse = { event?: Event; error?: string }
+
+  const isOrganizerTab = (value: string): value is OrganizerTab =>
+    value === "upcoming" || value === "past" || value === "drafts" || value === "cancelled"
+
+  const applyOrganizerEventUpdate = (updatedEvent: Event) => {
+    setOrganizerEvents((prev) => prev.map((event) => (event.id === updatedEvent.id ? updatedEvent : event)))
+  }
 
   useEffect(() => {
     const t = window.setInterval(() => setNowTick(Date.now()), 60_000)
@@ -99,9 +100,9 @@ export default function EventsPage() {
     setOrganizerError(null)
     try {
       const res = await fetch("/api/events/me/organized", { cache: "no-store", credentials: "include" })
-      const data = (await res.json().catch(() => null)) as { events?: Event[]; error?: string } | null
-      if (!res.ok) throw new Error(data?.error || "Failed to load events")
-      const events = Array.isArray(data?.events) ? data!.events : []
+      const data = await readJsonOrNull<OrganizedEventsResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(data, "Failed to load events"))
+      const events = Array.isArray(data?.events) ? data.events : []
       setOrganizerEvents(events)
     } catch (err) {
       setOrganizerError(err instanceof Error ? err.message : "Failed to load events")
@@ -114,7 +115,78 @@ export default function EventsPage() {
     if (authLoading || !user) return
     if (user.role !== "ORGANIZER") return
     void refreshOrganizerEvents()
-  }, [authLoading, refreshOrganizerEvents, user?.id, user?.role])
+  }, [authLoading, refreshOrganizerEvents, user])
+
+  const {
+    organizerUpcoming,
+    attendeesThisMonth,
+    boostsPurchased,
+    sparkline,
+    activeOrganizerEvents,
+  } = useMemo(() => {
+    const organizerNow = nowTick
+    const drafts = organizerEvents.filter((event) => (event.status ?? "PUBLISHED") === "DRAFT" && !event.isCancelled)
+    const upcoming = organizerEvents.filter(
+      (event) => (event.status ?? "PUBLISHED") !== "DRAFT" && !event.isCancelled && new Date(event.startsAt ?? event.date).getTime() > organizerNow,
+    )
+    const past = organizerEvents.filter(
+      (event) => (event.status ?? "PUBLISHED") !== "DRAFT" && !event.isCancelled && new Date(event.startsAt ?? event.date).getTime() <= organizerNow,
+    )
+    const cancelled = organizerEvents.filter((event) => Boolean(event.isCancelled))
+
+    const organizerEventsThisMonth = organizerEvents.filter((event) => {
+      const eventDate = new Date(event.startsAt ?? event.date)
+      const now = new Date()
+      return eventDate.getFullYear() === now.getFullYear() && eventDate.getMonth() === now.getMonth()
+    })
+
+    const monthSparkline = Array.from({ length: 12 }, (_, offset) => {
+      const monthDate = new Date()
+      monthDate.setMonth(monthDate.getMonth() - (11 - offset), 1)
+
+      const count = organizerEvents.filter((event) => {
+        const createdAt = new Date(event.createdAt)
+        return createdAt.getFullYear() === monthDate.getFullYear() && createdAt.getMonth() === monthDate.getMonth()
+      }).length
+
+      return { v: count }
+    })
+
+    const visibleEvents =
+      organizerTab === "upcoming"
+        ? upcoming
+        : organizerTab === "past"
+          ? past
+          : organizerTab === "cancelled"
+            ? cancelled
+            : drafts
+
+    return {
+      organizerUpcoming: upcoming,
+      attendeesThisMonth: organizerEventsThisMonth.reduce((sum, event) => sum + (event.attendeesCount ?? 0), 0),
+      boostsPurchased: organizerEvents.filter((event) => Boolean(event.isBoosted)).length,
+      sparkline: monthSparkline,
+      activeOrganizerEvents: visibleEvents,
+    }
+  }, [nowTick, organizerEvents, organizerTab])
+
+  const filteredAttendees = useMemo(() => {
+    const normalizedSearch = deferredAttendeesSearch.trim().toLowerCase()
+
+    return attendees
+      .filter((attendee) => {
+        if (!normalizedSearch) return true
+        return (
+          attendee.user.name.toLowerCase().includes(normalizedSearch) ||
+          attendee.user.email.toLowerCase().includes(normalizedSearch)
+        )
+      })
+      .filter((attendee) => {
+        if (!attendeesRecentOnly) return true
+        const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+        return new Date(attendee.createdAt).getTime() >= cutoff
+      })
+  }, [attendees, attendeesRecentOnly, deferredAttendeesSearch])
 
   if (authLoading || !user) {
     return (
@@ -127,48 +199,6 @@ export default function EventsPage() {
   if (!isOrganizer) {
     return null
   }
-
-  const organizerNow = Date.now()
-  const organizerDrafts = organizerEvents.filter((e) => (e.status ?? "PUBLISHED") === "DRAFT" && !e.isCancelled)
-  const organizerUpcoming = organizerEvents.filter(
-    (e) => (e.status ?? "PUBLISHED") !== "DRAFT" && !e.isCancelled && new Date(e.startsAt ?? e.date).getTime() > organizerNow,
-  )
-  const organizerPast = organizerEvents.filter(
-    (e) => (e.status ?? "PUBLISHED") !== "DRAFT" && !e.isCancelled && new Date(e.startsAt ?? e.date).getTime() <= organizerNow,
-  )
-  const organizerCancelled = organizerEvents.filter((e) => Boolean(e.isCancelled))
-
-  const organizerEventsThisMonth = organizerEvents.filter((e) => {
-    const d = new Date(e.startsAt ?? e.date)
-    const now = new Date()
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
-  })
-
-  const attendeesThisMonth = organizerEventsThisMonth.reduce((sum, e) => sum + (e.attendeesCount ?? 0), 0)
-  const boostsPurchased = organizerEvents.filter((e) => Boolean(e.isBoosted)).length
-
-  const sparkline = (() => {
-    const now = new Date()
-    const points: Array<{ v: number }> = []
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const count = organizerEvents.filter((e) => {
-        const created = new Date(e.createdAt)
-        return created.getFullYear() === d.getFullYear() && created.getMonth() === d.getMonth()
-      }).length
-      points.push({ v: count })
-    }
-    return points
-  })()
-
-  const activeOrganizerEvents =
-    organizerTab === "upcoming"
-      ? organizerUpcoming
-      : organizerTab === "past"
-        ? organizerPast
-        : organizerTab === "cancelled"
-          ? organizerCancelled
-          : organizerDrafts
 
   const emptyState = (() => {
     switch (organizerTab) {
@@ -204,9 +234,9 @@ export default function EventsPage() {
     setAttendeesLoading(true)
     try {
       const res = await fetch(`/api/events/${eventId}/attendees`, { cache: "no-store", credentials: "include" })
-      const data = (await res.json().catch(() => null)) as { rsvps?: any[]; error?: string } | null
-      if (!res.ok) throw new Error(data?.error || "Failed to load attendees")
-      setAttendees(Array.isArray(data?.rsvps) ? (data!.rsvps as any) : [])
+      const data = await readJsonOrNull<AttendeesResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(data, "Failed to load attendees"))
+      setAttendees(Array.isArray(data?.rsvps) ? data.rsvps : [])
     } catch {
       setAttendees([])
     } finally {
@@ -232,18 +262,6 @@ export default function EventsPage() {
     a.remove()
     URL.revokeObjectURL(url)
   }
-
-  const filteredAttendees = attendees
-    .filter((r) => {
-      const q = attendeesSearch.trim().toLowerCase()
-      if (!q) return true
-      return r.user.name.toLowerCase().includes(q) || r.user.email.toLowerCase().includes(q)
-    })
-    .filter((r) => {
-      if (!attendeesRecentOnly) return true
-      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
-      return new Date(r.createdAt).getTime() >= cutoff
-    })
 
   const handleDelete = async () => {
     if (!deleteEvent) return
@@ -312,11 +330,7 @@ export default function EventsPage() {
                       <div className="text-xs text-gray-600">All time</div>
                     </div>
                     <div className="h-10 w-24">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={sparkline}>
-                          <Line type="monotone" dataKey="v" stroke="#2563eb" strokeWidth={2} dot={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
+                      <Sparkline points={sparkline} />
                     </div>
                   </div>
                 </CardContent>
@@ -378,7 +392,12 @@ export default function EventsPage() {
                 ) : organizerLoading ? (
                   <div className="text-sm text-gray-600">Loading your events…</div>
                 ) : (
-                  <Tabs value={organizerTab} onValueChange={(v) => setOrganizerTab(v as any)}>
+                  <Tabs
+                    value={organizerTab}
+                    onValueChange={(value) => {
+                      if (isOrganizerTab(value)) setOrganizerTab(value)
+                    }}
+                  >
                     <TabsList className="w-full justify-start">
                       <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
                       <TabsTrigger value="past">Past</TabsTrigger>
@@ -437,9 +456,12 @@ export default function EventsPage() {
                                 }`}
                               >
                                 <div className="relative">
-                                  <img
-                                    src={getSafeImageSrc(event.imageUrls && event.imageUrls.length > 0 ? event.imageUrls[0] : event.imageUrl)}
+                                  <AppImage
+                                    src={event.imageUrls && event.imageUrls.length > 0 ? event.imageUrls[0] : event.imageUrl}
                                     alt={event.title}
+                                    width={800}
+                                    height={320}
+                                    sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                                     className="w-full h-40 object-cover"
                                   />
                                   <div className="absolute top-2 left-2 flex gap-2">
@@ -464,9 +486,7 @@ export default function EventsPage() {
                                   <div className="absolute top-2 right-2">
                                     <Badge variant="secondary" className="bg-white/90 text-gray-800">
                                       <span
-                                        className={`inline-block h-3 w-3 rounded-full mr-2 ${
-                                          CATEGORY_COLORS[event.category] || "bg-gray-400"
-                                        }`}
+                                        className={`inline-block h-3 w-3 rounded-full mr-2 ${getEventCategoryColor(event.category)}`}
                                       />
                                       {event.category}
                                     </Badge>
@@ -551,9 +571,9 @@ export default function EventsPage() {
                                           body: JSON.stringify({ status: "PUBLISHED" }),
                                         })
                                         if (!res.ok) return
-                                        const data = (await res.json().catch(() => null)) as { event?: Event } | null
+                                        const data = await readJsonOrNull<EventMutationResponse>(res)
                                         if (data?.event) {
-                                          setOrganizerEvents((prev) => prev.map((e) => (e.id === event.id ? (data.event as any) : e)))
+                                          applyOrganizerEventUpdate(data.event)
                                         }
                                       } catch {
                                       }
@@ -578,9 +598,9 @@ export default function EventsPage() {
                                           body: JSON.stringify({ isCancelled: true }),
                                         })
                                         if (!res.ok) return
-                                        const data = (await res.json().catch(() => null)) as { event?: Event } | null
+                                        const data = await readJsonOrNull<EventMutationResponse>(res)
                                         if (data?.event) {
-                                          setOrganizerEvents((prev) => prev.map((e) => (e.id === event.id ? (data.event as any) : e)))
+                                          applyOrganizerEventUpdate(data.event)
                                         }
                                       } catch {
                                       }
@@ -725,6 +745,33 @@ export default function EventsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+function Sparkline({ points }: { points: Array<{ v: number }> }) {
+  if (points.length === 0) return null
+
+  const max = Math.max(...points.map((point) => point.v), 1)
+  const coordinates = points
+    .map((point, index) => {
+      const x = points.length === 1 ? 0 : (index / (points.length - 1)) * 100
+      const y = 100 - (point.v / max) * 100
+      return `${x},${y}`
+    })
+    .join(" ")
+
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full overflow-visible">
+      <polyline
+        fill="none"
+        points={coordinates}
+        stroke="#2563eb"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="6"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
   )
 }
 

@@ -51,7 +51,6 @@ export class AIEventAnalyzer {
 
   categorizeEvent(event: Event): string {
     const title = event.title.toLowerCase()
-    const description = event.description.toLowerCase()
 
     if (title.includes("music") || title.includes("concert") || title.includes("band")) {
       return "Music"
@@ -87,7 +86,9 @@ export class AIEventAnalyzer {
     let score = 50 // Base score
 
     // Boost for recent events
-    const daysSinceCreation = Math.floor((Date.now() - event.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+    const createdAt = new Date(event.createdAt)
+    const createdAtTime = Number.isNaN(createdAt.getTime()) ? Date.now() : createdAt.getTime()
+    const daysSinceCreation = Math.floor((Date.now() - createdAtTime) / (1000 * 60 * 60 * 24))
     if (daysSinceCreation < 7) score += 20
 
     // Boost for events with good attendance
@@ -142,7 +143,7 @@ export class AIEventAnalyzer {
     return tags.slice(0, 5) // Limit to 5 tags
   }
 
-  private findSimilarEvents(event: Event): string[] {
+  private findSimilarEvents(_event: Event): string[] {
     // Mock implementation - in real app, this would use ML/similarity algorithms
     return ["Similar Event 1", "Similar Event 2", "Similar Event 3"]
   }
@@ -182,7 +183,7 @@ export function analyzeEvent(event: Event): EventAnalysis {
   return aiEventAnalyzer.analyzeEvent(event)
 }
 
-export function getEventRecommendations(events: Event[], userPreferences?: string[]): Event[] {
+export function getEventRecommendations(events: Event[], _userPreferences?: string[]): Event[] {
   return events
     .map((event) => ({
       ...event,

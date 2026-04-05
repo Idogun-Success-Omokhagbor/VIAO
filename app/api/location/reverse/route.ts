@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+
+import { fetchWithTimeout } from "@/lib/http"
 
 type NominatimResponse = {
   address?: {
@@ -13,24 +16,36 @@ type NominatimResponse = {
 const buildLocation = (city: string | undefined, region: string | undefined, country: string | undefined) =>
   [city, region || country].filter(Boolean).join(", ")
 
+const coordinatesSchema = z.object({
+  lat: z.coerce.number().finite().gte(-90).lte(90),
+  lon: z.coerce.number().finite().gte(-180).lte(180),
+})
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const lat = searchParams.get("lat")
-  const lon = searchParams.get("lon")
+  const parsedCoordinates = coordinatesSchema.safeParse({
+    lat: searchParams.get("lat"),
+    lon: searchParams.get("lon"),
+  })
 
-  if (!lat || !lon) {
+  if (!parsedCoordinates.success) {
     return NextResponse.json({ error: "Missing lat/lon" }, { status: 400 })
   }
 
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(
-      lon,
+    const { lat, lon } = parsedCoordinates.data
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
+      String(lat),
+    )}&lon=${encodeURIComponent(
+      String(lon),
     )}`
 
-    const res = await fetch(url, {
+    const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://example.com"
+    const res = await fetchWithTimeout(url, {
       cache: "no-store",
+      timeoutMs: 4_000,
       headers: {
-        "User-Agent": "VIAO (location reverse geocode)",
+        "User-Agent": `VIAO/1.0 (+${appUrl})`,
         Accept: "application/json",
       },
     })
@@ -53,6 +68,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ city, region, country, location, source: "nominatim" })
   } catch (error) {
     console.error("GET /api/location/reverse error:", error)
-    return NextResponse.json({ error: "Failed to reverse geocode" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to reverse geocode" }, { status: 503 })
   }
 }

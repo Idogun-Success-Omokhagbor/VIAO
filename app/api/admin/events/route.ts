@@ -1,4 +1,6 @@
+import { EventStatus, Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
+import { z } from "zod"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
@@ -32,6 +34,11 @@ type AdminEventRow = {
   }
 }
 
+const patchSchema = z.object({
+  eventId: z.string().min(1),
+  action: z.enum(["CANCEL", "UNCANCEL"]),
+})
+
 export async function GET(req: Request) {
   const session = await getSessionUser()
   if (!session || session.role !== "ADMIN") return forbidden()
@@ -50,14 +57,14 @@ export async function GET(req: Request) {
   const pageSizeRaw = Number(url.searchParams.get("pageSize") || 25) || 25
   const pageSize = Math.max(1, Math.min(200, Math.floor(pageSizeRaw)))
 
-  const where: any = {}
+  const where: Prisma.EventWhereInput = {}
 
   if (q) {
     where.OR = [{ title: { contains: q, mode: "insensitive" } }]
   }
 
   if (statusRaw === "DRAFT" || statusRaw === "PUBLISHED") {
-    where.status = statusRaw
+    where.status = statusRaw === "DRAFT" ? EventStatus.DRAFT : EventStatus.PUBLISHED
   }
 
   if (cancelledRaw === "YES") where.isCancelled = true
@@ -104,7 +111,7 @@ export async function GET(req: Request) {
     }),
   ])
 
-  const events = (Array.isArray(rows) ? rows : []) as AdminEventRow[]
+  const events = rows as AdminEventRow[]
   const eventIds = events.map((e) => e.id)
 
   const openReportCounts = eventIds.length
@@ -115,7 +122,7 @@ export async function GET(req: Request) {
       })
     : []
 
-  const openReportsByEventId = new Map(openReportCounts.map((r) => [r.eventId, Number((r as any)._count?._all ?? 0)]))
+  const openReportsByEventId = new Map(openReportCounts.map((report) => [report.eventId, Number(report._count._all ?? 0)]))
 
   return NextResponse.json({
     page,
@@ -145,18 +152,19 @@ export async function GET(req: Request) {
   })
 }
 
-type PatchAction = "CANCEL" | "UNCANCEL"
-
 export async function PATCH(req: Request) {
   const session = await getSessionUser()
   if (!session || session.role !== "ADMIN") return forbidden()
 
-  const body = (await req.json().catch(() => null)) as any
-  const eventId = typeof body?.eventId === "string" ? body.eventId : ""
-  const action = typeof body?.action === "string" ? (body.action.toUpperCase() as PatchAction) : ("" as PatchAction)
+  const body = await req.json().catch(() => null)
+  const parsed = patchSchema.safeParse(
+    body && typeof body === "object" && "action" in body && typeof body.action === "string"
+      ? { ...body, action: body.action.toUpperCase() }
+      : body,
+  )
+  if (!parsed.success) return badRequest("Invalid action")
 
-  if (!eventId) return badRequest("Missing eventId")
-  if (action !== "CANCEL" && action !== "UNCANCEL") return badRequest("Invalid action")
+  const { eventId, action } = parsed.data
 
   const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, isCancelled: true, cancelledAt: true, status: true, title: true } })
   if (!event) {

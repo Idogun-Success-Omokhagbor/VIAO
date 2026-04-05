@@ -1,21 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
-import { AuthModal } from "@/components/auth-modal"
-
-interface User {
-  id: string
-  name: string
-  email: string
-  role: "USER" | "ORGANIZER" | "ADMIN"
-  interests?: string[]
-  avatarUrl?: string
-  createdAt?: string
-  location?: string
-  phone?: string
-  bio?: string
-  preferences?: Record<string, unknown>
-}
+import { createContext, useContext, useEffect, type ReactNode, useCallback, useState } from "react"
+import { useRouter } from "next/navigation"
+import type { AuthUser as User } from "@/types/auth"
 
 interface AuthContextType {
   user: User | null
@@ -26,10 +13,14 @@ interface AuthContextType {
   logout: () => Promise<void>
   refresh: () => Promise<void>
   updateUser: (updates: Partial<User> & { preferences?: Record<string, unknown> }) => Promise<void>
-  showAuthModal: (mode?: "login" | "signup") => void
+  openAuthPage: (mode?: "login" | "signup") => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+type SignupError = Error & {
+  fieldErrors?: Record<string, string>
+}
 
 async function handleJson<T>(resPromise: Response | Promise<Response>, opts?: { suppressError?: boolean }): Promise<T | null> {
   const res = await resPromise
@@ -47,11 +38,10 @@ async function handleJson<T>(resPromise: Response | Promise<Response>, opts?: { 
   return res.json() as Promise<T>
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [authModalMode, setAuthModalMode] = useState<"login" | "signup">("login")
+export function AuthProvider({ children, initialUser }: { children: ReactNode; initialUser?: User | null }) {
+  const router = useRouter()
+  const [user, setUser] = useState<User | null>(initialUser ?? null)
+  const [isLoading, setIsLoading] = useState(initialUser === undefined)
 
   const refresh = useCallback(async () => {
     try {
@@ -69,8 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (initialUser !== undefined) {
+      setIsLoading(false)
+      return
+    }
     void refresh()
-  }, [refresh])
+  }, [initialUser, refresh])
 
   useEffect(() => {
     if (!user) return
@@ -114,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("visibilitychange", onVisibility)
       window.removeEventListener("beforeunload", onBeforeUnload)
     }
-  }, [user?.id])
+  }, [user])
 
   const login = async (email: string, password: string) => {
     const res = await fetch("/api/auth/login", {
@@ -144,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const data = await res.json().catch(() => null)
     if (!res.ok) {
-      const err: any = new Error(data?.error || "Signup failed")
+      const err = new Error(data?.error || "Signup failed") as SignupError
       if (data?.fieldErrors) err.fieldErrors = data.fieldErrors
       throw err
     }
@@ -170,9 +164,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user)
   }
 
-  const showAuthModal = (mode: "login" | "signup" = "login") => {
-    setAuthModalMode(mode)
-    setAuthModalOpen(true)
+  const openAuthPage = (mode: "login" | "signup" = "login") => {
+    const next =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+        : ""
+    const params = new URLSearchParams()
+    if (next && next.startsWith("/") && !next.startsWith("//")) {
+      params.set("next", next)
+    }
+
+    router.push(`/${mode === "signup" ? "signup" : "signin"}${params.toString() ? `?${params.toString()}` : ""}`)
   }
 
   return (
@@ -186,11 +188,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         refresh,
         updateUser,
-        showAuthModal,
+        openAuthPage,
       }}
     >
       {children}
-      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} initialTab={authModalMode === "signup" ? "signup" : "signin"} />
     </AuthContext.Provider>
   )
 }

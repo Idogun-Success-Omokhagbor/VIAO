@@ -10,6 +10,7 @@ export interface Comment {
     name: string
     email?: string
     avatar?: string
+    avatarUrl?: string | null
   }
   createdAt: string
   likes: number
@@ -26,6 +27,7 @@ export interface Post {
     name: string
     email?: string
     avatar?: string
+    avatarUrl?: string | null
     location?: string
   }
   createdAt: string
@@ -68,50 +70,6 @@ interface CommunityContextType {
 
 const CommunityContext = createContext<CommunityContextType | undefined>(undefined)
 
-function mapPost(data: any): Post {
-  return {
-    id: data.id,
-    title: data.title,
-    content: data.content,
-    author: {
-      id: data.author?.id ?? "",
-      name: data.author?.name ?? "Unknown",
-      email: data.author?.email,
-      avatar: data.author?.avatar ?? data.author?.avatarUrl ?? undefined,
-      location: data.author?.location ?? undefined,
-    },
-    createdAt: typeof data.createdAt === "string" ? data.createdAt : data.createdAt?.toString() ?? new Date().toISOString(),
-    updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : data.updatedAt?.toString() ?? new Date().toISOString(),
-    type: data.type,
-    tags: data.tags ?? [],
-    images: data.images ?? (data.imageUrl ? [data.imageUrl] : []),
-    mediaUrl: data.mediaUrl ?? data.imageUrl ?? undefined,
-    mediaType: data.mediaType ?? undefined,
-    hasMedia: data.hasMedia ?? Boolean(data.mediaType),
-    likes: data.likes ?? data.likedBy?.length ?? 0,
-    likedBy: data.likedBy ?? [],
-    isLiked: data.isLiked ?? false,
-    location: data.location ?? data.author?.location ?? undefined,
-    category: data.category,
-    comments:
-      data.comments?.map((comment: any) => ({
-        id: comment.id,
-        content: comment.content,
-        author: {
-          id: comment.author?.id ?? "",
-          name: comment.author?.name ?? "Unknown",
-          email: comment.author?.email,
-          avatar: comment.author?.avatar ?? comment.author?.avatarUrl ?? undefined,
-        },
-        createdAt:
-          typeof comment.createdAt === "string" ? comment.createdAt : comment.createdAt?.toString() ?? new Date().toISOString(),
-        likes: comment.likes ?? comment.likedBy?.length ?? 0,
-        likedBy: comment.likedBy ?? [],
-        isLiked: comment.isLiked ?? false,
-      })) ?? [],
-  }
-}
-
 async function handleJson<T>(resPromise: Promise<Response> | Response): Promise<T> {
   const res = await resPromise
   if (!res.ok) {
@@ -136,8 +94,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await handleJson<{ posts: any[] }>(fetch("/api/community/posts", { cache: "no-store", credentials: "include" }))
-      setPosts(data.posts.map(mapPost))
+      const data = await handleJson<{ posts: Post[] }>(fetch("/api/community/posts", { cache: "no-store", credentials: "include" }))
+      setPosts(data.posts)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load posts"
       setError(message)
@@ -163,7 +121,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     setError(null)
     try {
       const postData = post
-      const res = await handleJson<{ post: any }>(
+      const res = await handleJson<{ post: Post }>(
         fetch("/api/community/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -171,7 +129,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify(postData),
         }),
       )
-      setPosts((prev) => [mapPost(res.post), ...prev])
+      setPosts((prev) => [res.post, ...prev])
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create post"
       setError(message)
@@ -183,13 +141,13 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
   const likePost = async (postId: string, isLiked: boolean) => {
     try {
-      const res = await handleJson<{ post: any }>(
+      const res = await handleJson<{ post: Post }>(
         fetch(`/api/community/posts/${postId}/like`, {
           method: isLiked ? "DELETE" : "POST",
           credentials: "include",
         }),
       )
-      const mapped = mapPost(res.post)
+      const mapped = res.post
       setPosts((prev) => {
         const exists = prev.some((p) => p.id === postId)
         if (!exists) return [mapped, ...prev]
@@ -204,7 +162,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
   const addComment = async (postId: string, content: string) => {
     try {
-      const res = await handleJson<{ post: any }>(
+      const res = await handleJson<{ post: Post }>(
         fetch(`/api/community/posts/${postId}/comments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -212,7 +170,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ content }),
         }),
       )
-      const mapped = mapPost(res.post)
+      const mapped = res.post
       setPosts((prev) => {
         const exists = prev.some((p) => p.id === postId)
         if (!exists) return [mapped, ...prev]
@@ -227,13 +185,13 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
   const likeComment = async (postId: string, commentId: string, isLiked: boolean) => {
     try {
-      const res = await handleJson<{ post: any }>(
+      const res = await handleJson<{ post: Post }>(
         fetch(`/api/community/posts/${postId}/comments/${commentId}/like`, {
           method: isLiked ? "DELETE" : "POST",
           credentials: "include",
         }),
       )
-      const mapped = mapPost(res.post)
+      const mapped = res.post
       setPosts((prev) => {
         const exists = prev.some((p) => p.id === postId)
         if (!exists) return [mapped, ...prev]
@@ -259,7 +217,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
   const updatePost = async (postId: string, updates: Partial<Post>) => {
     try {
-      const res = await handleJson<{ post: any }>(
+      const res = await handleJson<{ post: Post }>(
         fetch(`/api/community/posts/${postId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -267,7 +225,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify(updates),
         }),
       )
-      const mapped = mapPost(res.post)
+      const mapped = res.post
       setPosts((prev) => {
         const exists = prev.some((p) => p.id === postId)
         if (!exists) return [mapped, ...prev]

@@ -1,86 +1,127 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import Link from "next/link"
+import { Bell, Eye, MapPinned, ShieldCheck, Trash2, UserRoundCog } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { PublicPageShell, PublicSectionCard, publicPillClass } from "@/components/public-page-shell"
+
+const privacySections = [
+  {
+    title: "What Viao collects",
+    description:
+      "Account basics like name, email, preferences, and the activity needed to keep saved events, RSVPs, messages, and notifications working.",
+    bullets: [
+      "Account details such as name, email address, and profile preferences",
+      "Event activity like saves, RSVPs, reports, and organizer actions",
+      "Approximate location or location-related inputs used to surface nearby events",
+    ],
+  },
+  {
+    title: "Why that data is used",
+    description: "The product uses data to keep local discovery useful, your account stable, and communications relevant to the things you chose to do.",
+    bullets: [
+      "To show local events and community activity that matches your area or selected city",
+      "To keep your shortlist, RSVPs, receipts, and account actions synced",
+      "To send important updates such as resets, notifications, or event changes",
+    ],
+  },
+  {
+    title: "When information is shared",
+    description: "Viao does not sell personal data. Some information may be processed by trusted infrastructure or communication providers needed to run the service.",
+    bullets: [
+      "Hosting, email delivery, payment, and similar service providers can process only what is needed for their role",
+      "Organizers may see attendance-related information tied to their own events",
+      "We may disclose information if required by law or to protect users and the platform",
+    ],
+  },
+  {
+    title: "Your controls",
+    description: "You should stay in control of what remains on the account and how the platform reaches you.",
+    bullets: [
+      "Update your profile and account preferences at any time",
+      "Request deletion or correction of personal information",
+      "Turn down non-essential communications when available",
+    ],
+  },
+] as const
 
 export default function PrivacyPage() {
   return (
-    <div className="bg-gradient-to-b from-white to-slate-50">
-      <div className="container mx-auto px-4 py-12">
-        <div className="mx-auto max-w-3xl space-y-8">
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-purple-700">Privacy</p>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Privacy Policy for VIAO</h1>
-            <p className="text-slate-600">Effective Date: 28.10.2025</p>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Overview</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-600">
-              <p>
-                VIAO ("we," "our," "us") respects your privacy and is committed to protecting your personal data.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Information We Collect</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-600">
-              <ul className="list-disc pl-5 space-y-2">
-                <li>Location data (to find local events)</li>
-                <li>Account details (email, name, preferences)</li>
-                <li>App usage data (to improve recommendations)</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>How We Use Your Data</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-600">
-              <ul className="list-disc pl-5 space-y-2">
-                <li>Provide personalized event suggestions</li>
-                <li>Improve app performance</li>
-                <li>Communicate updates and important notifications</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Sharing</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-600">
-              <p>We do not sell your data.</p>
-              <p>We may share limited data with trusted service providers (hosting, analytics).</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Rights</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-600">
-              <ul className="list-disc pl-5 space-y-2">
-                <li>Access, update, or delete your data anytime.</li>
-                <li>Opt out of marketing emails.</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Separator />
-
-          <div className="rounded-lg border bg-white p-6">
-            <p className="font-semibold">Contact</p>
-            <p className="mt-2 text-sm text-slate-600">
-              For privacy concerns, contact us at: <span className="font-medium text-slate-900">info@viao.ch</span>
-            </p>
-          </div>
+    <PublicPageShell
+      eyebrow="Privacy"
+      title="Privacy should protect the person without breaking the usefulness of a local event product."
+      description="Viao needs a small amount of personal and activity data to make nearby discovery, RSVPs, and account features work. The goal is to use that data carefully, keep it limited, and give people control."
+      highlights={[
+        { icon: MapPinned, label: "Location helps find nearby events" },
+        { icon: ShieldCheck, label: "Personal data is not sold" },
+        { icon: UserRoundCog, label: "You can request changes or deletion" },
+      ]}
+      sidebarEyebrow="In practice"
+      sidebarTitle="The essentials, quickly."
+      sidebarDescription="These are the privacy points most guests and members usually care about before they keep using the app."
+      sidebarItems={[
+        {
+          icon: Eye,
+          title: "What is visible",
+          description: "Public profile and organizer information only show what the product surface needs to function.",
+        },
+        {
+          icon: Bell,
+          title: "What may be sent",
+          description: "Emails and notifications are tied to account security, activity, and event-related updates.",
+        },
+        {
+          icon: Trash2,
+          title: "How to step away",
+          description: "If you need data removed or corrected, the team should be reachable without friction.",
+        },
+      ]}
+      sidebarFooter={
+        <div className="space-y-3">
+          <Button asChild className="h-11 w-full rounded-full bg-[#7c5cff] text-white hover:bg-[#6c4ef7]">
+            <Link href="/contact">Contact the Viao team</Link>
+          </Button>
+          <Button asChild variant="outline" className="h-11 w-full rounded-full border-[#ddd1ff] text-[#5e4ea6] hover:bg-[#f6f1ff]">
+            <Link href="/terms">Read the terms</Link>
+          </Button>
         </div>
+      }
+    >
+      <div className="grid gap-6 lg:grid-cols-2">
+        {privacySections.map((section) => (
+          <PublicSectionCard key={section.title} title={section.title} description={section.description} className="h-full">
+            <ul className="space-y-3">
+              {section.bullets.map((bullet) => (
+                <li key={bullet} className="flex items-start gap-3 rounded-[22px] border border-[#ece4ff] bg-white/96 px-4 py-3">
+                  <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#7c5cff]" />
+                  <span className="text-sm leading-7 text-[#5c4f84]">{bullet}</span>
+                </li>
+              ))}
+            </ul>
+          </PublicSectionCard>
+        ))}
       </div>
-    </div>
+
+      <PublicSectionCard
+        eyebrow="Contact"
+        title="Need a privacy action handled?"
+        description="For privacy questions, data correction requests, or account deletion requests, the cleanest route is to send the team a message with the email tied to your account."
+      >
+        <div className="flex flex-wrap gap-3">
+          {["Data access", "Correction request", "Deletion request", "Notification concerns"].map((label) => (
+            <div key={label} className={publicPillClass}>
+              {label}
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Button asChild className="h-11 rounded-full bg-[#7c5cff] px-5 text-white hover:bg-[#6c4ef7]">
+            <Link href="/contact">Open the contact page</Link>
+          </Button>
+          <Button asChild variant="outline" className="h-11 rounded-full border-[#ddd1ff] px-5 text-[#5e4ea6] hover:bg-[#f6f1ff]">
+            <a href="mailto:info@viao.ch">Email info@viao.ch</a>
+          </Button>
+        </div>
+      </PublicSectionCard>
+    </PublicPageShell>
   )
 }

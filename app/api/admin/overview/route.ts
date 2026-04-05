@@ -28,14 +28,6 @@ export async function GET(req: Request) {
   const session = await getSessionUser()
   if (!session || session.role !== "ADMIN") return forbidden()
 
-  const boostReceiptClient = (prisma as any).boostReceipt
-  if (!boostReceiptClient?.findMany || !boostReceiptClient?.aggregate) {
-    return NextResponse.json(
-      { error: "Admin billing metrics are not available on this server yet. Restart the dev server (and run prisma generate if needed)." },
-      { status: 500 },
-    )
-  }
-
   const url = new URL(req.url)
   const rangeDaysRaw = Number(url.searchParams.get("rangeDays") || 30) || 30
   const rangeDays = Math.max(1, Math.min(365, Math.floor(rangeDaysRaw)))
@@ -49,10 +41,8 @@ export async function GET(req: Request) {
   const publishedEvents = await prisma.event.count({ where: { status: "PUBLISHED", isCancelled: false } })
   const openReports = await prisma.eventReport.count({ where: { status: "OPEN" } })
 
-  const revenueAllTime = (await boostReceiptClient.aggregate({ _sum: { amount: true } })) as { _sum: { amount: number | null } }
-  const revenueRange = (await boostReceiptClient.aggregate({ where: { createdAt: { gte: from } }, _sum: { amount: true } })) as {
-    _sum: { amount: number | null }
-  }
+  const revenueAllTime = await prisma.boostReceipt.aggregate({ _sum: { amount: true } })
+  const revenueRange = await prisma.boostReceipt.aggregate({ where: { createdAt: { gte: from } }, _sum: { amount: true } })
 
   const recentUsers = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },
@@ -73,7 +63,7 @@ export async function GET(req: Request) {
     select: { id: true, reason: true, status: true, createdAt: true, eventId: true, reporterId: true },
   })
 
-  const recentReceipts = (await boostReceiptClient.findMany({
+  const recentReceipts = (await prisma.boostReceipt.findMany({
     where: { createdAt: { gte: from } },
     orderBy: { createdAt: "desc" },
     take: 10,

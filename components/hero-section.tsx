@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Search, MapPin, Calendar, Users, ArrowRight, Play, Star, Zap } from "lucide-react"
-import { AuthModal } from "./auth-modal"
+import { useAuth } from "@/context/auth-context"
 
 const quickStats = [
   { label: "Active Events", value: "2,500+", icon: Calendar },
@@ -24,8 +24,8 @@ const featuredCategories = [
 ]
 
 export function HeroSection() {
+  const { openAuthPage } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
   const handleSearch = () => {
     // In a real app, this would navigate to search results
@@ -106,7 +106,7 @@ export function HeroSection() {
             <Button
               size="lg"
               className="bg-white text-purple-700 hover:bg-gray-100 font-semibold px-8"
-              onClick={() => setIsAuthModalOpen(true)}
+              onClick={() => openAuthPage("signup")}
             >
               Get Started Free
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -146,7 +146,6 @@ export function HeroSection() {
         </div>
       </div>
 
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </section>
   )
 }

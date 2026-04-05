@@ -5,17 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Bot, Send } from "lucide-react"
-import { getViaoAIResponseWithHistory } from "@/lib/viao-ai-assistant"
+import { loadAiHistory, sendAiMessage, type AiUiMessage, type MarkdownAnchorProps } from "@/lib/ai-chat-client"
 import { Header } from "@/components/header"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-
-interface Message {
-  id: string
-  text: string
-  sender: "user" | "assistant"
-  timestamp: Date
-}
 
 export default function AIAssistantPage() {
   return (
@@ -31,13 +24,13 @@ export default function AIAssistantPage() {
   )
 }
 
-// AIAssistantChat component implementation renamed to ChatWithViao
 function ChatWithViao() {
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<AiUiMessage[]>([
     {
       id: "welcome",
-      text: "Welcome to Viao AI Assistant! I'm here to help you discover events, find activities, and answer questions about Swiss cities. What would you like to explore today?",
-      sender: "assistant",
+      content:
+        "Welcome to Viao AI Assistant! I'm here to help you discover events, find activities, and answer questions about Swiss cities. What would you like to explore today?",
+      isUser: false,
       timestamp: new Date(),
     },
   ])
@@ -47,22 +40,8 @@ function ChatWithViao() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/ai/chat", { credentials: "include", cache: "no-store" })
-        const data = (await res.json().catch(() => null)) as { messages?: any[]; error?: string } | null
-        if (!res.ok) return
-        const raw = Array.isArray(data?.messages) ? data!.messages : []
-        if (raw.length === 0) return
-
-        setMessages(
-          raw
-            .filter((m) => m && typeof m.content === "string")
-            .map((m) => ({
-              id: String(m.id ?? `${Date.now()}`),
-              text: String(m.content ?? ""),
-              sender: m.role === "user" ? "user" : "assistant",
-              timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
-            })),
-        )
+        const history = await loadAiHistory()
+        if (history && history.length > 0) setMessages(history)
       } catch {
       }
     }
@@ -73,15 +52,10 @@ function ChatWithViao() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return
 
-    const history = messages
-      .filter((m) => typeof m.text === "string" && m.text.trim().length > 0)
-      .slice(-12)
-      .map((m) => ({ role: m.sender === "user" ? ("user" as const) : ("assistant" as const), content: m.text }))
-
-    const userMessage: Message = {
+    const userMessage: AiUiMessage = {
       id: Date.now().toString(),
-      text: inputValue,
-      sender: "user",
+      content: inputValue,
+      isUser: true,
       timestamp: new Date(),
     }
 
@@ -90,20 +64,21 @@ function ChatWithViao() {
     setIsLoading(true)
 
     try {
-      const response = await getViaoAIResponseWithHistory(inputValue, history)
-      const assistantMessage: Message = {
+      const response = await sendAiMessage(inputValue, messages)
+      const assistantMessage: AiUiMessage = {
         id: (Date.now() + 1).toString(),
-        text: response.message,
-        sender: "assistant",
+        content: response.message,
+        isUser: false,
         timestamp: new Date(),
+        suggestions: response.suggestions,
       }
       setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
       const errText = error instanceof Error ? error.message : "AI request failed"
-      const errorMessage: Message = {
+      const errorMessage: AiUiMessage = {
         id: (Date.now() + 1).toString(),
-        text: `Sorry — I couldn't respond right now. ${errText}`,
-        sender: "assistant",
+        content: `Sorry — I couldn't respond right now. ${errText}`,
+        isUser: false,
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMessage])
@@ -111,15 +86,6 @@ function ChatWithViao() {
       setIsLoading(false)
     }
   }
-
-  const suggestions = [
-    "What's happening in Zurich this weekend?",
-    "Find yoga classes in Geneva",
-    "Best restaurants in Basel",
-    "Tech meetups in Bern",
-    "Outdoor activities in Interlaken",
-    "Art galleries in Lausanne",
-  ]
 
   return (
     <Card className="h-[600px] flex flex-col">
@@ -135,23 +101,23 @@ function ChatWithViao() {
       <CardContent className="flex-1 flex flex-col p-0">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
+            <div key={message.id} className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}>
               <div
                 className={`max-w-[80%] rounded-lg p-3 ${
-                  message.sender === "user" ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-900"
+                  message.isUser ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-900"
                 }`}
               >
                 <div className="text-sm leading-relaxed whitespace-pre-wrap">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
-                      a: (props: any) => <a {...props} className="underline" target="_blank" rel="noreferrer" />,
+                      a: (props: MarkdownAnchorProps) => <a {...props} className="underline" target="_blank" rel="noreferrer" />,
                     }}
                   >
-                    {message.text}
+                    {message.content}
                   </ReactMarkdown>
                 </div>
-                <p className={`text-xs mt-1 ${message.sender === "user" ? "text-purple-200" : "text-gray-500"}`}>
+                <p className={`text-xs mt-1 ${message.isUser ? "text-purple-200" : "text-gray-500"}`}>
                   {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>

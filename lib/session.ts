@@ -25,7 +25,7 @@ export function clearSessionCookie(response: NextResponse) {
 }
 
 export async function getSessionUser(): Promise<SessionPayload | null> {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE)?.value
   if (!token) return null
   try {
@@ -33,7 +33,7 @@ export async function getSessionUser(): Promise<SessionPayload | null> {
 
     if (!payload.sid) return payload
 
-    const session = await (prisma as any).session.findFirst({
+    const session = await prisma.session.findFirst({
       where: {
         id: payload.sid,
         userId: payload.sub,
@@ -60,7 +60,7 @@ export async function makeSession(
 ) {
   const expiresAt = new Date(Date.now() + THIRTY_DAYS * 1000)
 
-  const session = await (prisma as any).session.create({
+  const session = await prisma.session.create({
     data: {
       userId: user.id,
       userAgent: meta?.userAgent ?? null,
@@ -77,7 +77,7 @@ export async function makeSession(
 
 export async function revokeSession(sessionId: string) {
   try {
-    await (prisma as any).session.update({
+    await prisma.session.update({
       where: { id: sessionId },
       data: { revokedAt: new Date() },
       select: { id: true },
@@ -87,7 +87,7 @@ export async function revokeSession(sessionId: string) {
 }
 
 export async function revokeOtherSessions(userId: string, currentSessionId: string) {
-  await (prisma as any).session.updateMany({
+  await prisma.session.updateMany({
     where: { userId, revokedAt: null, id: { not: currentSessionId } },
     data: { revokedAt: new Date() },
   })

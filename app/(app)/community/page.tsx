@@ -1,25 +1,29 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useDeferredValue, useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Plus, Search, MessageSquare } from "lucide-react"
-import { useCommunity } from "@/context/community-context"
+import { useCommunity, type Post } from "@/context/community-context"
 import { useAuth } from "@/context/auth-context"
-import CommunityPost from "@/components/community-post"
-import CommunityPostForm from "@/components/community-post-form"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Info } from "lucide-react"
+import type { CommunityPostFormProps } from "@/components/community-post-form"
+
+const CommunityPost = dynamic<{ post: Post }>(() => import("@/components/community-post"), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-lg border bg-white" />,
+})
+const CommunityPostForm = dynamic<CommunityPostFormProps>(() => import("@/components/community-post-form"), { ssr: false })
 
 export default function CommunityPage() {
   const { posts, isLoading, error, refreshPosts } = useCommunity()
-  const { isAuthenticated, showAuthModal, user } = useAuth()
+  const { isAuthenticated, openAuthPage, user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [showPostForm, setShowPostForm] = useState(false)
   const [sortBy, setSortBy] = useState("newest")
+  const deferredSearchQuery = useDeferredValue(searchQuery)
 
   useEffect(() => {
     void refreshPosts()
@@ -41,49 +45,57 @@ export default function CommunityPage() {
 
   const userLocation = user?.location?.trim() || ""
 
-  const locationFilteredPosts = userLocation
-    ? posts.filter((post) => {
-        const normalizedUserLoc = userLocation.toLowerCase()
-        const postLoc = post.location?.toLowerCase().trim()
-        const authorLoc = post.author?.location?.toLowerCase().trim()
+  const locationFilteredPosts = useMemo(() => {
+    if (!userLocation) return posts
 
-        const matchesUser =
-          (postLoc && postLoc === normalizedUserLoc) || (authorLoc && authorLoc === normalizedUserLoc)
+    return posts.filter((post) => {
+      const normalizedUserLocation = userLocation.toLowerCase()
+      const postLocation = post.location?.toLowerCase().trim()
+      const authorLocation = post.author?.location?.toLowerCase().trim()
 
-        const hasNoLocation = !postLoc && !authorLoc
+      const matchesUser =
+        (postLocation && postLocation === normalizedUserLocation) || (authorLocation && authorLocation === normalizedUserLocation)
 
-        return matchesUser || hasNoLocation
-      })
-    : posts
+      const hasNoLocation = !postLocation && !authorLocation
 
-  const filteredPosts = locationFilteredPosts.filter((post) => {
-    if (!post) return false
+      return matchesUser || hasNoLocation
+    })
+  }, [posts, userLocation])
 
-    const searchLower = (searchQuery || "").toLowerCase()
-    const matchesSearch =
-      !searchQuery ||
-      (post.title && post.title.toLowerCase().includes(searchLower)) ||
-      (post.content && post.content.toLowerCase().includes(searchLower)) ||
-      (post.author?.name && post.author.name.toLowerCase().includes(searchLower)) ||
-      (post.tags && post.tags.some((tag) => tag && tag.toLowerCase().includes(searchLower)))
+  const filteredPosts = useMemo(() => {
+    const searchLower = deferredSearchQuery.trim().toLowerCase()
 
-    return matchesSearch
-  })
+    return locationFilteredPosts.filter((post) => {
+      if (!post) return false
+      if (!searchLower) return true
 
-  const sortedPosts = [...filteredPosts].sort((a, b) => {
-    if (sortBy === "newest") {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    } else if (sortBy === "popular") {
-      return (b.likes || 0) - (a.likes || 0)
-    } else if (sortBy === "comments") {
-      return (b.comments?.length || 0) - (a.comments?.length || 0)
-    }
-    return 0
-  })
+      return Boolean(
+        (post.title && post.title.toLowerCase().includes(searchLower)) ||
+          (post.content && post.content.toLowerCase().includes(searchLower)) ||
+          (post.author?.name && post.author.name.toLowerCase().includes(searchLower)) ||
+          (post.tags && post.tags.some((tag) => tag && tag.toLowerCase().includes(searchLower))),
+      )
+    })
+  }, [deferredSearchQuery, locationFilteredPosts])
+
+  const sortedPosts = useMemo(() => {
+    return [...filteredPosts].sort((a, b) => {
+      if (sortBy === "newest") {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      }
+      if (sortBy === "popular") {
+        return (b.likes || 0) - (a.likes || 0)
+      }
+      if (sortBy === "comments") {
+        return (b.comments?.length || 0) - (a.comments?.length || 0)
+      }
+      return 0
+    })
+  }, [filteredPosts, sortBy])
 
   const handleCreatePost = () => {
     if (!isAuthenticated) {
-      showAuthModal("login")
+      openAuthPage("login")
       return
     }
     setShowPostForm(true)

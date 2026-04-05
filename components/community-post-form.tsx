@@ -3,17 +3,17 @@
 import type React from "react"
 
 import { useRef, useState } from "react"
+import { AppImage } from "@/components/ui/app-image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { X, Bold, Italic, Underline, List, Smile, Upload, File as FileIcon, Video } from "lucide-react"
+import { X, Bold, Italic, Underline, List, Smile, Upload, File as FileIcon } from "lucide-react"
 import { useCommunity } from "@/context/community-context"
-import Picker from "@emoji-mart/react"
-import data from "@emoji-mart/data"
+import { LazyEmojiMartPicker, type EmojiSelection } from "@/components/lazy-emoji-mart-picker"
 
-interface CommunityPostFormProps {
+export interface CommunityPostFormProps {
   onClose: () => void
 }
 
@@ -67,14 +67,16 @@ export default function CommunityPostForm({ onClose }: CommunityPostFormProps) {
     })
   }
 
-  const handleEmojiSelect = (emoji: any) => {
-    setContent((prev) => `${prev}${emoji.native}`)
+  const handleEmojiSelect = (emoji: EmojiSelection) => {
+    const value = typeof emoji.native === "string" ? emoji.native : ""
+    setContent((prev) => `${prev}${value}`)
     setShowEmojiPicker(false)
     textareaRef.current?.focus()
   }
 
-  const handleTitleEmojiSelect = (emoji: any) => {
-    setTitle((prev) => `${prev}${emoji.native}`)
+  const handleTitleEmojiSelect = (emoji: EmojiSelection) => {
+    const value = typeof emoji.native === "string" ? emoji.native : ""
+    setTitle((prev) => `${prev}${value}`)
     setShowTitleEmojiPicker(false)
     titleRef.current?.focus()
   }
@@ -160,7 +162,7 @@ export default function CommunityPostForm({ onClose }: CommunityPostFormProps) {
                 </Button>
                 {showTitleEmojiPicker && (
                   <div className="absolute z-10 mt-2">
-                    <Picker data={data} onEmojiSelect={handleTitleEmojiSelect} theme="light" />
+                    <LazyEmojiMartPicker onEmojiSelect={handleTitleEmojiSelect} theme="light" />
                   </div>
                 )}
               </div>
@@ -189,7 +191,7 @@ export default function CommunityPostForm({ onClose }: CommunityPostFormProps) {
                 </Button>
                 {showEmojiPicker && (
                   <div className="absolute z-10 mt-2">
-                    <Picker data={data} onEmojiSelect={handleEmojiSelect} theme="light" />
+                    <LazyEmojiMartPicker onEmojiSelect={handleEmojiSelect} theme="light" />
                   </div>
                 )}
               </div>
@@ -243,10 +245,13 @@ export default function CommunityPostForm({ onClose }: CommunityPostFormProps) {
                     controls
                   />
                 ) : mediaType?.startsWith("image") ? (
-                  <img
+                  <AppImage
                     src={mediaPreview}
                     alt="Attachment preview"
-                  className="w-full h-48 object-cover rounded-lg"
+                    width={800}
+                    height={384}
+                    sizes="100vw"
+                    className="w-full h-48 object-cover rounded-lg"
                   />
                 ) : (
                   <div className="flex items-center justify-between bg-gray-100 border rounded-lg p-3">

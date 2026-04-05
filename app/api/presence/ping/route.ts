@@ -14,7 +14,7 @@ export async function POST() {
   try {
     if (session.sid) {
       try {
-        await (prisma as any).session.update({
+        await prisma.session.update({
           where: { id: session.sid },
           data: { lastSeenAt: new Date() },
           select: { id: true },
@@ -23,7 +23,7 @@ export async function POST() {
       }
     }
 
-    const updated = await (prisma.user as any).update({
+    const updated = await prisma.user.update({
       where: { id: session.sub },
       data: { lastSeenAt: new Date() },
       select: { lastSeenAt: true },

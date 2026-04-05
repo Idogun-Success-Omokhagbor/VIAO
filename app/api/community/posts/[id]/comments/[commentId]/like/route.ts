@@ -4,10 +4,11 @@ import { NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
-import { mapPost } from "@/lib/community-post"
+import { communityPostClientSelect, mapPost } from "@/lib/community-post"
 import { createNotification } from "@/lib/notifications"
 
-export async function POST(_: Request, { params }: { params: { id: string; commentId: string } }) {
+export async function POST(_: Request, props: { params: Promise<{ id: string; commentId: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -20,12 +21,12 @@ export async function POST(_: Request, { params }: { params: { id: string; comme
 
     await prisma.comment.update({
       where: { id: params.commentId },
-      data: { likedBy: { set: nextLikedBy } } as any,
+      data: { likedBy: { set: nextLikedBy } },
     })
 
     const post = await prisma.communityPost.findUnique({
       where: { id: params.id },
-      include: { author: true, comments: { include: { author: true }, orderBy: { createdAt: "desc" } } },
+      select: communityPostClientSelect,
     })
     if (!post) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -48,7 +49,8 @@ export async function POST(_: Request, { params }: { params: { id: string; comme
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string; commentId: string } }) {
+export async function DELETE(_: Request, props: { params: Promise<{ id: string; commentId: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -61,12 +63,12 @@ export async function DELETE(_: Request, { params }: { params: { id: string; com
 
     await prisma.comment.update({
       where: { id: params.commentId },
-      data: { likedBy: { set: nextLikedBy } } as any,
+      data: { likedBy: { set: nextLikedBy } },
     })
 
     const post = await prisma.communityPost.findUnique({
       where: { id: params.id },
-      include: { author: true, comments: { include: { author: true }, orderBy: { createdAt: "desc" } } },
+      select: communityPostClientSelect,
     })
     if (!post) return NextResponse.json({ error: "Not found" }, { status: 404 })
 

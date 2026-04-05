@@ -33,9 +33,13 @@
     display: none !important;
   }
 
-  .leaflet-div-icon.viao-marker-container {
+  .viao-marker-container {
     background: transparent;
     border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
   }
 
   .viao-marker {

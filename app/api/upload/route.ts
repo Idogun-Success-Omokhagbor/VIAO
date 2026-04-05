@@ -1,8 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+import { MAX_IMAGE_UPLOAD_BYTES, normalizeImageMimeType, sniffImageMime } from "@/lib/image-utils"
+import { getSessionUser } from "@/lib/session"
+
 export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
+  const session = await getSessionUser()
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   try {
     const formData = await request.formData()
     const file = formData.get("file") as File | null
@@ -11,18 +19,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    if (!file.type?.startsWith("image/")) {
+    const declaredMime = normalizeImageMimeType(file.type)
+    if (!declaredMime) {
       return NextResponse.json({ error: "Only image uploads are supported" }, { status: 400 })
     }
 
-    const MAX_BYTES = 2 * 1024 * 1024
-    if (file.size > MAX_BYTES) {
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
       return NextResponse.json({ error: "Image is too large (max 2MB)" }, { status: 400 })
     }
 
     const arrayBuffer = await file.arrayBuffer()
-    const base64 = Buffer.from(arrayBuffer).toString("base64")
-    const dataUrl = `data:${file.type};base64,${base64}`
+    const buffer = Buffer.from(arrayBuffer)
+    const detectedMime = sniffImageMime(buffer)
+    if (!detectedMime || detectedMime !== declaredMime) {
+      return NextResponse.json({ error: "Unsupported or invalid image file" }, { status: 400 })
+    }
+
+    const base64 = buffer.toString("base64")
+    const dataUrl = `data:${detectedMime};base64,${base64}`
 
     return NextResponse.json({ url: dataUrl })
   } catch (error) {

@@ -1,22 +1,20 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { LogOut, Calendar, MessageSquare, Users, Receipt, Shield } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useMessaging } from "@/context/messaging-context"
-import { AuthModal } from "@/components/auth-modal"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { NotificationDropdown } from "@/components/notification-dropdown"
+import { BrandLockup } from "@/components/brand-logo"
 import { getAvatarSrc } from "@/lib/utils"
 
 export function Header() {
-  const { user, logout } = useAuth()
+  const { user, logout, openAuthPage } = useAuth()
   const { unreadCount } = useMessaging()
-  const [showAuthModal, setShowAuthModal] = useState(false)
   const pathname = usePathname() ?? ""
 
   const isActive = (path: string) => pathname === path
@@ -27,11 +25,27 @@ export function Header() {
         <div className="flex h-16 items-center justify-between w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-6">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">V</span>
-              </div>
-              <span className="font-bold text-xl">Viao</span>
+              <BrandLockup
+                iconSize={32}
+                titleClassName="text-xl font-bold text-foreground"
+                subtitle=""
+                className="gap-2"
+              />
             </Link>
+
+            {!user && (
+              <nav className="hidden items-center gap-6 md:flex">
+                <Link href="/about" className="text-sm font-medium text-[#6a5f8f] transition-colors hover:text-[#4f3a96]">
+                  About
+                </Link>
+                <Link href="/support" className="text-sm font-medium text-[#6a5f8f] transition-colors hover:text-[#4f3a96]">
+                  Support
+                </Link>
+                <Link href="/contact" className="text-sm font-medium text-[#6a5f8f] transition-colors hover:text-[#4f3a96]">
+                  Contact
+                </Link>
+              </nav>
+            )}
 
             {user && (
               <nav className="hidden md:flex items-center space-x-6">
@@ -99,7 +113,7 @@ export function Header() {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <Link href="/my-events">
+                <Link href="/my-events" className="hidden md:block">
                   <Button variant="ghost" size="icon" aria-label="My Events">
                     <Calendar className="h-4 w-4" />
                   </Button>
@@ -120,18 +134,30 @@ export function Header() {
                   </div>
                 </Link>
 
-                <Button variant="ghost" size="icon" onClick={logout}>
+                <Button variant="ghost" size="icon" onClick={logout} className="hidden md:inline-flex">
                   <LogOut className="h-4 w-4" />
                 </Button>
               </>
             ) : (
-              <Button onClick={() => setShowAuthModal(true)}>Get Started</Button>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Button
+                  variant="ghost"
+                  className="h-10 rounded-full px-4 text-[#5e4ea6] hover:bg-[#f6f1ff] hover:text-[#4d32d6]"
+                  onClick={() => openAuthPage("login")}
+                >
+                  Sign in
+                </Button>
+                <Button
+                  onClick={() => openAuthPage("signup")}
+                  className="h-11 rounded-full bg-[#7c5cff] px-5 text-white shadow-[0_14px_28px_rgba(124,92,255,0.24)] hover:bg-[#6c4ef7]"
+                >
+                  Create account
+                </Button>
+              </div>
             )}
           </div>
         </div>
       </header>
-
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </>
   )
 }

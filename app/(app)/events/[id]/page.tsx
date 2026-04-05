@@ -1,11 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 
-import EventModal from "@/components/event-modal"
+import type { EventModalProps } from "@/components/event-modal"
 import type { Event } from "@/types/event"
+
+const EventModal = dynamic<EventModalProps>(() => import("@/components/event-modal"), { ssr: false })
 
 export default function EventDeepLinkPage() {
   const router = useRouter()

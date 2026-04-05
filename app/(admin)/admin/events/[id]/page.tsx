@@ -1,19 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
+import { AppImage } from "@/components/ui/app-image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-
-function getSafeImageSrc(src?: string | null) {
-  if (!src) return "/placeholder.svg"
-  return src
-}
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
 
 type AdminEventDetails = {
   id: string
@@ -68,26 +65,26 @@ export default function AdminEventDetailsPage() {
   const [confirm, setConfirm] = useState<PendingAction>(null)
   const [saving, setSaving] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!id) return
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/admin/events/${id}`, { credentials: "include", cache: "no-store" })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to load event")
-      setData(json as DetailsResponse)
+      const json = await readJsonOrNull<DetailsResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Failed to load event"))
+      setData(json)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load event")
       setData(null)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     void load()
-  }, [id])
+  }, [load])
 
   const mutateCancel = async (eventId: string, action: "CANCEL" | "UNCANCEL") => {
     setSaving(true)
@@ -99,8 +96,8 @@ export default function AdminEventDetailsPage() {
         credentials: "include",
         body: JSON.stringify({ eventId, action }),
       })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to update event")
+      const json = await readJsonOrNull<{ success?: boolean; error?: string }>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Failed to update event"))
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update event")
@@ -165,10 +162,12 @@ export default function AdminEventDetailsPage() {
             <Card>
               <div className="relative">
                 <div className="relative h-64 md:h-80 overflow-hidden rounded-t-lg">
-                  <img
-                    src={getSafeImageSrc(images[imageIndex] ?? event.imageUrl)}
+                  <AppImage
+                    src={images[imageIndex] ?? event.imageUrl}
                     alt={event.title}
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="(min-width: 1024px) 66vw, 100vw"
+                    className="object-cover"
                   />
 
                   {images.length > 1 && (

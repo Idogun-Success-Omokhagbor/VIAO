@@ -3,45 +3,41 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { makeSession, setSessionCookie } from "@/lib/session"
+import { authUserSelect, mapAuthUser } from "@/lib/current-user"
+import { getClientIp } from "@/lib/request-utils"
 
 const loginSchema = z.object({
   email: z.string().email().toLowerCase(),
   password: z.string().min(1),
 })
 
+const DUMMY_PASSWORD_HASH = "$2a$12$C6UzMDM.H6dfI/f/IKcEeOU0U8J8s7GWkY1b0n2rYhM6M1.jtjA1W"
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { email, password } = loginSchema.parse(body)
 
-    const user = await prisma.user.findUnique({ where: { email } })
-    if (!user || !user.passwordHash) {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        ...authUserSelect,
+        passwordHash: true,
+      },
+    })
+    const passwordHash = user?.passwordHash ?? DUMMY_PASSWORD_HASH
+    const valid = await bcrypt.compare(password, passwordHash)
+
+    if (!user || !user.passwordHash || !valid) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    const valid = await bcrypt.compare(password, user.passwordHash)
-    if (!valid) {
-      return NextResponse.json({ error: "Incorrect password" }, { status: 401 })
-    }
-
     const userAgent = request.headers.get("user-agent")
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip")
+    const ip = getClientIp(request.headers)
     const token = await makeSession(user, { userAgent, ip })
     const response = NextResponse.json(
       {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          interests: (user as any).interests ?? [],
-          avatarUrl: user.avatarUrl ?? undefined,
-          createdAt: user.createdAt.toISOString(),
-          location: (user as any).location ?? undefined,
-          phone: (user as any).phone ?? undefined,
-          bio: (user as any).bio ?? undefined,
-          preferences: (user as any).preferences ?? undefined,
-        },
+        user: mapAuthUser(user),
       },
       { status: 200 },
     )

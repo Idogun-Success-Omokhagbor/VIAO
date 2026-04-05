@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
-import type { NotificationType } from "@prisma/client"
+import { Prisma, type NotificationType } from "@prisma/client"
 import { isUserConnected } from "@/lib/ws-server"
 import { sendPushToUser } from "@/lib/push"
 
@@ -23,6 +23,10 @@ const DEFAULT_PREFS: Required<Pick<UserNotificationPreferences, "messageNotifica
 function normalizePrefs(raw: unknown): UserNotificationPreferences {
   if (!raw || typeof raw !== "object") return {}
   return raw as UserNotificationPreferences
+}
+
+function getNotificationUrl(data: Record<string, unknown> | undefined): string | undefined {
+  return typeof data?.url === "string" ? data.url : undefined
 }
 
 function isEnabledForChannel(prefs: UserNotificationPreferences, channel: NotificationChannel): boolean {
@@ -77,7 +81,7 @@ export async function createNotification({ userId, type, title, body, data, chan
         await sendPushToUser(userId, {
           title,
           body,
-          url: typeof (data as any)?.url === "string" ? ((data as any).url as string) : undefined,
+          url: getNotificationUrl(data),
         })
       }
     }
@@ -88,7 +92,7 @@ export async function createNotification({ userId, type, title, body, data, chan
         type,
         title,
         body,
-        data: data ? (data as any) : undefined,
+        data: (data ?? undefined) as Prisma.InputJsonValue | undefined,
       },
     })
   } catch (error) {

@@ -5,7 +5,12 @@ import { getSessionUser } from "@/lib/session"
 
 const ONLINE_WINDOW_MS = 2 * 60 * 1000
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+function toPreferences(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const userId = params.id
   if (!userId) return NextResponse.json({ error: "Missing user id" }, { status: 400 })
 
@@ -21,7 +26,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
         })
       : null
 
-    const viewerPrefs = ((viewer as any)?.preferences ?? {}) as Record<string, unknown>
+    const viewerPrefs = toPreferences(viewer?.preferences)
     const viewerAllowsPresence = (viewerPrefs.showOnlineStatus as boolean | undefined) ?? true
 
     const user = await prisma.user.findUnique({
@@ -42,7 +47,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 
     if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    const prefs = ((user as any).preferences ?? {}) as Record<string, unknown>
+    const prefs = toPreferences(user.preferences)
     const isProfilePublic = (prefs.profileVisibility as boolean | undefined) ?? true
     const showOnlineStatus = (prefs.showOnlineStatus as boolean | undefined) ?? true
 
@@ -91,7 +96,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
         avatarUrl: user.avatarUrl ?? null,
         location: user.location ?? null,
         bio: user.bio ?? null,
-        interests: (user as any).interests ?? [],
+        interests: Array.isArray(user.interests) ? user.interests : [],
         createdAt: user.createdAt.toISOString(),
         lastSeenAt: canViewPresence && user.lastSeenAt ? user.lastSeenAt.toISOString() : null,
         isOnline,

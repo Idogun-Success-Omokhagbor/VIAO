@@ -1,3 +1,26 @@
+export type EventStatus = "DRAFT" | "PUBLISHED"
+export type EventRsvpStatus = "GOING" | "MAYBE" | "NOT_GOING"
+
+export interface EventAttendee {
+  id?: string
+  userId?: string
+  name?: string
+  avatarUrl?: string | null
+  status?: EventRsvpStatus
+}
+
+export interface EventOrganizerSummary {
+  id?: string
+  name?: string
+  email?: string
+  avatarUrl?: string | null
+}
+
+export interface EventRsvpSummary {
+  userId: string
+  status: EventRsvpStatus
+}
+
 export interface Event {
   id: string
   title: string
@@ -5,13 +28,13 @@ export interface Event {
   date: string // ISO
   time?: string
   location: string
-  attendees?: any
-  image?: any
-  organizer?: any
-  userId?: any
-  boostedUntil?: any
-  boostCount?: any
-  rsvpList?: any
+  attendees?: EventAttendee[]
+  image?: string | null
+  organizer?: EventOrganizerSummary | null
+  userId?: string | null
+  boostedUntil?: string | null
+  boostCount?: number | null
+  rsvpList?: EventRsvpSummary[]
   startsAt?: string | null
   endsAt?: string | null
   city?: string | null
@@ -19,7 +42,7 @@ export interface Event {
   address?: string | null
   lat?: number | null
   lng?: number | null
-  status?: "DRAFT" | "PUBLISHED"
+  status?: EventStatus
   isCancelled?: boolean
   cancelledAt?: string | null
   category: string
@@ -35,10 +58,10 @@ export interface Event {
   organizerAvatarUrl?: string | null
   attendeesCount?: number
   isGoing?: boolean
-  rsvpStatus?: "GOING" | "MAYBE" | "NOT_GOING" | null
+  rsvpStatus?: EventRsvpStatus | null
   isSaved?: boolean
-  createdAt: any
-  updatedAt: any
+  createdAt: string
+  updatedAt: string
 }
 
 export interface CreateEventData {

@@ -1,64 +1,39 @@
-"use client"
-
 import type React from "react"
-import { useEffect, useState } from "react"
 
+import AppMobileNav from "@/components/app-mobile-nav"
 import Header from "@/components/header"
 import FloatingButton from "@/components/floating-button"
+import { CommunityProvider } from "@/context/community-context"
+import { EventsProvider } from "@/context/events-context"
+import { getSiteConfig } from "@/lib/site-config"
 
 type SiteConfig = {
   maintenanceMode?: boolean
   announcement?: string
 }
 
-type SiteConfigResponse = {
-  config?: SiteConfig
-  error?: string
-}
-
-function getErrorMessage(payload: unknown): string | undefined {
-  if (!payload || typeof payload !== "object") return undefined
-  const msg = (payload as { error?: unknown }).error
-  return typeof msg === "string" ? msg : undefined
-}
-
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      try {
-        const res = await fetch("/api/site-config", { cache: "no-store", credentials: "include" })
-        const json = (await res.json().catch(() => null)) as unknown
-        if (!res.ok) throw new Error(getErrorMessage(json) || "Failed to load site configuration")
-        const config = (json && typeof json === "object" ? (json as SiteConfigResponse) : null)?.config
-        if (!cancelled) setSiteConfig(config ?? null)
-      } catch {
-        if (!cancelled) setSiteConfig(null)
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const siteConfig: SiteConfig | null = await getSiteConfig().catch(() => null)
 
   return (
-    <div className="h-[100dvh] min-h-[100dvh] bg-gray-50 flex flex-col overflow-hidden">
-      <Header />
-      {siteConfig?.maintenanceMode ? (
-        <div className="border-b bg-amber-50 px-4 py-2 text-sm text-amber-900">
-          {siteConfig.announcement?.trim() ? siteConfig.announcement : "The site is currently in maintenance mode."}
+    <EventsProvider>
+      <CommunityProvider>
+        <div className="h-[100dvh] min-h-[100dvh] bg-gray-50 flex flex-col overflow-hidden">
+          <Header />
+          {siteConfig?.maintenanceMode ? (
+            <div className="border-b bg-amber-50 px-4 py-2 text-sm text-amber-900">
+              {siteConfig.announcement?.trim() ? siteConfig.announcement : "The site is currently in maintenance mode."}
+            </div>
+          ) : null}
+          <main className="flex-1 min-h-0 overflow-hidden pb-[calc(5.5rem+env(safe-area-inset-bottom))] xl:pb-0">{children}</main>
+          <AppMobileNav />
+          <FloatingButton />
         </div>
-      ) : null}
-      <main className="flex-1 min-h-0 overflow-hidden">{children}</main>
-      <FloatingButton />
-    </div>
+      </CommunityProvider>
+    </EventsProvider>
   )
 }

@@ -1,5 +1,7 @@
-import { headers } from "next/headers"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+
+import { fetchWithTimeout } from "@/lib/http"
+import { getClientIp } from "@/lib/request-utils"
 
 export const dynamic = "force-dynamic"
 
@@ -12,9 +14,9 @@ type GeoLookupResponse = {
 const buildLocation = ({ city, region, country }: GeoLookupResponse) =>
   [city, region || country].filter(Boolean).join(", ")
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const hdrs = headers()
+    const hdrs = request.headers
 
     const headerCity = hdrs.get("x-vercel-ip-city") ?? undefined
     const headerRegion = hdrs.get("x-vercel-ip-country-region") ?? undefined
@@ -31,7 +33,18 @@ export async function GET() {
       })
     }
 
-    const ipRes = await fetch("https://ipapi.co/json/", { cache: "no-store" })
+    const clientIp = getClientIp(hdrs)
+    if (!clientIp) {
+      return NextResponse.json({ error: "Could not determine location" }, { status: 400 })
+    }
+
+    const ipRes = await fetchWithTimeout(`https://ipapi.co/${encodeURIComponent(clientIp)}/json/`, {
+      cache: "no-store",
+      timeoutMs: 4_000,
+      headers: {
+        Accept: "application/json",
+      },
+    })
     if (!ipRes.ok) {
       throw new Error("ip lookup failed")
     }
@@ -55,6 +68,6 @@ export async function GET() {
     })
   } catch (error) {
     console.error("GET /api/location/detect error:", error)
-    return NextResponse.json({ error: "Failed to detect location" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to detect location" }, { status: 503 })
   }
 }

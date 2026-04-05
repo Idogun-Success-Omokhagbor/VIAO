@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import dynamic from "next/dynamic"
+import { AppImage } from "@/components/ui/app-image"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -15,18 +17,20 @@ import { useCommunity, type Post } from "@/context/community-context"
 import { formatTimeAgo, getAvatarSrc } from "@/lib/utils"
 import { useMessaging } from "@/context/messaging-context"
 import { useRouter } from "next/navigation"
-import MessagingModal from "@/components/messaging-modal"
+import { LazyEmojiMartPicker, type EmojiSelection } from "@/components/lazy-emoji-mart-picker"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { toast } from "sonner"
-import Picker from "@emoji-mart/react"
-import data from "@emoji-mart/data"
+import type { MessagingModalProps } from "@/components/messaging-modal"
+import type { Conversation } from "@/types/messaging"
+
+const MessagingModal = dynamic<MessagingModalProps>(() => import("@/components/messaging-modal"), { ssr: false })
 
 interface CommunityPostProps {
   post: Post
 }
 
 export default function CommunityPost({ post: initialPost }: CommunityPostProps) {
-  const { user, isAuthenticated, showAuthModal } = useAuth()
+  const { user, isAuthenticated, openAuthPage } = useAuth()
   const { posts, likePost, addComment, likeComment, deletePost, updatePost } = useCommunity()
   const { getOrCreateConversation, conversations, setActiveConversation } = useMessaging()
   const router = useRouter()
@@ -38,7 +42,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
   const [newComment, setNewComment] = useState("")
   const [isPosting, setIsPosting] = useState(false)
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false)
-  const [messageConversation, setMessageConversation] = useState<any>(null)
+  const [messageConversation, setMessageConversation] = useState<Conversation | null>(null)
   const [commentPage, setCommentPage] = useState(0)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [editTitle, setEditTitle] = useState(post.title || "")
@@ -111,7 +115,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
 
   const handleDeletePost = async () => {
     if (!isAuthenticated || !user) {
-      showAuthModal("login")
+      openAuthPage("login")
       return
     }
     if (!isPostAuthor) return
@@ -120,7 +124,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
 
   const handleLike = () => {
     if (!isAuthenticated || !user) {
-      showAuthModal("login")
+      openAuthPage("login")
       return
     }
     void likePost(post.id, post.likedBy.includes(user.id))
@@ -128,7 +132,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
 
   const handleComment = async () => {
     if (!isAuthenticated || !user) {
-      showAuthModal("login")
+      openAuthPage("login")
       return
     }
 
@@ -148,7 +152,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
 
   const handleLikeComment = (commentId: string) => {
     if (!isAuthenticated || !user) {
-      showAuthModal("login")
+      openAuthPage("login")
       return
     }
     const comment = post.comments.find((c) => c.id === commentId)
@@ -166,9 +170,9 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
   const findConversationWith = (targetUserId: string) =>
     conversations.find((conv) => conv.participants.some((p) => p.id === targetUserId))
 
-  const handleMessageUser = (userId: string, userName: string) => {
+  const handleMessageUser = (userId: string) => {
     if (!isAuthenticated) {
-      showAuthModal("login")
+      openAuthPage("login")
       return
     }
     if (userId === user?.id) return
@@ -234,14 +238,16 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
     })
   }
 
-  const handleEditEmojiSelect = (emoji: any) => {
-    setEditContent((prev) => `${prev}${emoji.native}`)
+  const handleEditEmojiSelect = (emoji: EmojiSelection) => {
+    const value = typeof emoji.native === "string" ? emoji.native : ""
+    setEditContent((prev) => `${prev}${value}`)
     setShowEmojiPicker(false)
     editTextareaRef.current?.focus()
   }
 
-  const handleEditTitleEmojiSelect = (emoji: any) => {
-    setEditTitle((prev) => `${prev}${emoji.native}`)
+  const handleEditTitleEmojiSelect = (emoji: EmojiSelection) => {
+    const value = typeof emoji.native === "string" ? emoji.native : ""
+    setEditTitle((prev) => `${prev}${value}`)
     setShowTitleEmojiPicker(false)
     editTitleRef.current?.focus()
   }
@@ -333,9 +339,9 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <button type="button" className="shrink-0" onClick={() => goToUser(post.author.id)}>
-                <Avatar className="h-10 w-10 cursor-pointer">
+                  <Avatar className="h-10 w-10 cursor-pointer">
                   <AvatarImage
-                    src={getAvatarSrc(post.author.name, (post.author as any).avatarUrl ?? post.author.avatar)}
+                    src={getAvatarSrc(post.author.name, post.author.avatarUrl ?? post.author.avatar)}
                   />
                   <AvatarFallback>
                     {(post.author.name || "U").slice(0, 1).toUpperCase()}
@@ -355,7 +361,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleMessageUser(post.author.id, post.author.name)}
+                    onClick={() => handleMessageUser(post.author.id)}
                       className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                       aria-label={hasConversationWith(post.author.id) ? "Open chat" : "Request to PM"}
                       title={hasConversationWith(post.author.id) ? "Open chat" : "Request to PM"}
@@ -409,12 +415,13 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                     preload="metadata"
                   />
                 ) : resolvedMediaType?.startsWith("image") ? (
-                  <img
+                  <AppImage
                     src={resolvedMediaUrl}
                     alt="Post media"
+                    width={800}
+                    height={512}
+                    sizes="100vw"
                     className="w-full h-64 object-cover rounded-lg"
-                    loading="lazy"
-                    decoding="async"
                   />
                 ) : (
                   <div className="flex items-center justify-between rounded-lg p-3 border bg-white">
@@ -436,12 +443,13 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                   </div>
                 )
               ) : post.images?.[0] ? (
-                <img
-                  src={post.images?.[0] || "/placeholder.svg"}
+                <AppImage
+                  src={post.images?.[0]}
                   alt="Post image"
+                  width={800}
+                  height={512}
+                  sizes="100vw"
                   className="w-full h-64 object-cover rounded-lg"
-                  loading="lazy"
-                  decoding="async"
                 />
               ) : (
                 <div className="w-full h-64 rounded-lg bg-gray-100 flex items-center justify-center">
@@ -520,7 +528,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                         <button type="button" className="shrink-0" onClick={() => goToUser(comment.author.id)}>
                           <Avatar className="h-8 w-8 cursor-pointer">
                             <AvatarImage
-                              src={getAvatarSrc(comment.author.name, (comment.author as any).avatarUrl ?? comment.author.avatar)}
+                              src={getAvatarSrc(comment.author.name, comment.author.avatarUrl ?? comment.author.avatar)}
                             />
                             <AvatarFallback className="text-[10px]">
                               {(comment.author.name || "U").slice(0, 1).toUpperCase()}
@@ -540,7 +548,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleMessageUser(comment.author.id, comment.author.name)}
+                          onClick={() => handleMessageUser(comment.author.id)}
                                 className="h-5 px-1 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                                 aria-label={hasConversationWith(comment.author.id) ? "Open chat" : "Request to PM"}
                                 title={hasConversationWith(comment.author.id) ? "Open chat" : "Request to PM"}
@@ -632,7 +640,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
               ) : (
                 <div className="text-center py-4">
                   <p className="text-gray-500 mb-2">Sign in to join the conversation</p>
-                  <Button onClick={() => showAuthModal("login")} variant="outline" size="sm">
+                  <Button onClick={() => openAuthPage("login")} variant="outline" size="sm">
                     Sign In
                   </Button>
                 </div>
@@ -642,7 +650,9 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
         </CardFooter>
       </Card>
 
-      <MessagingModal isOpen={isMessageModalOpen} onClose={handleCloseMessaging} conversation={messageConversation ?? undefined} />
+      {isMessageModalOpen && messageConversation ? (
+        <MessagingModal isOpen={isMessageModalOpen} onClose={handleCloseMessaging} conversation={messageConversation} />
+      ) : null}
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
           <DialogContent className="sm:max-w-lg">
@@ -703,7 +713,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                   </Button>
                   {showTitleEmojiPicker && (
                     <div className="absolute z-10 mt-2">
-                      <Picker data={data} onEmojiSelect={handleEditTitleEmojiSelect} theme="light" />
+                      <LazyEmojiMartPicker onEmojiSelect={handleEditTitleEmojiSelect} theme="light" />
                     </div>
                   )}
                 </div>
@@ -733,7 +743,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                   </Button>
                   {showEmojiPicker && (
                     <div className="absolute z-10 mt-2">
-                      <Picker data={data} onEmojiSelect={handleEditEmojiSelect} theme="light" />
+                      <LazyEmojiMartPicker onEmojiSelect={handleEditEmojiSelect} theme="light" />
                     </div>
                   )}
                 </div>
@@ -783,10 +793,13 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                       }}
                     />
                   ) : editMediaType?.startsWith("image") ? (
-                    <img
+                    <AppImage
                       src={editImagePreview}
                       alt="Attachment preview"
-                    className="w-full h-48 object-cover rounded-lg"
+                      width={800}
+                      height={384}
+                      sizes="100vw"
+                      className="w-full h-48 object-cover rounded-lg"
                     />
                   ) : (
                     <div className="flex items-center justify-between bg-gray-100 border rounded-lg p-3">

@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
+import { AppImage } from "@/components/ui/app-image"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -11,45 +13,39 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/context/auth-context"
-import { useEvents } from "@/context/events-context"
+import { useOptionalEvents } from "@/context/events-context"
 import MessageUserButton from "@/components/message-user-button"
-import PaymentModal from "@/components/payment-modal"
-import { formatBoostCountdown } from "@/lib/utils"
+import type { PaymentModalProps } from "@/components/payment-modal"
+import { formatBoostCountdown, getBoostCountdownToneClass } from "@/lib/utils"
+import { getEventCategoryColor } from "@/lib/event-categories"
 import type { Event } from "@/types/event"
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Technology: "bg-blue-500",
-  "Arts & Culture": "bg-purple-500",
-  "Sports & Outdoors": "bg-emerald-500",
-  Music: "bg-pink-500",
-  "Food & Drink": "bg-amber-500",
-  "Health & Wellness": "bg-teal-500",
-  Business: "bg-indigo-500",
-  Education: "bg-sky-500",
-}
+const PaymentModal = dynamic<PaymentModalProps>(() => import("@/components/payment-modal"), { ssr: false })
 
-function getBoostCountdownToneClass(boostUntil: string | null | undefined, now: number) {
-  if (!boostUntil) return "bg-white/90 text-gray-900"
-  const remainingMs = new Date(boostUntil).getTime() - now
-  const remainingHours = remainingMs / 3_600_000
-  if (remainingHours > 30) return "bg-emerald-600 text-white"
-  if (remainingHours > 15) return "bg-amber-400 text-amber-950"
-  return "bg-red-600 text-white"
-}
-
-function getSafeImageSrc(src?: string | null) {
-  if (!src) return "/placeholder.svg"
-  return src
-}
-
-interface EventModalProps {
+export interface EventModalProps {
   event: Event
   onClose: () => void
 }
 
+async function requestEventAction(resPromise: Promise<Response>) {
+  const res = await resPromise
+  if (!res.ok) {
+    let message = "Request failed"
+    try {
+      const data = await res.json()
+      if (typeof data?.error === "string" && data.error.trim()) {
+        message = data.error
+      }
+    } catch {
+      // ignore JSON parse errors for empty bodies
+    }
+    throw new Error(message)
+  }
+}
+
 export default function EventModal({ event, onClose }: EventModalProps) {
-  const { user } = useAuth()
-  const { rsvpEvent, setRsvpStatus, cancelRsvp, saveEvent, unsaveEvent, reportEvent } = useEvents()
+  const { user, openAuthPage } = useAuth()
+  const events = useOptionalEvents()
   const effectiveBoostLevel = typeof event.boostLevel === "number" ? event.boostLevel : event.isBoosted ? 1 : 0
   const images = Array.isArray(event.imageUrls) && event.imageUrls.length > 0 ? event.imageUrls : event.imageUrl ? [event.imageUrl] : []
   const [imageIndex, setImageIndex] = useState(0)
@@ -76,8 +72,39 @@ export default function EventModal({ event, onClose }: EventModalProps) {
 
   const isEventOrganizer = user?.role === "ORGANIZER" && user?.id === event.organizerId
   const isCancelled = event.isCancelled ?? false
+  const isPublicPreviewAvailable =
+    event.status === "PUBLISHED" &&
+    !isCancelled &&
+    new Date(event.endsAt ?? event.startsAt ?? event.date).getTime() >= Date.now()
   const boostCountdown = formatBoostCountdown(event.boostUntil, nowTick)
   const countdownToneClass = getBoostCountdownToneClass(event.boostUntil, nowTick)
+  const rsvpEvent =
+    events?.rsvpEvent ??
+    (async (id: string) =>
+      requestEventAction(fetch(`/api/events/${id}/rsvp`, { method: "POST", credentials: "include" })))
+  const cancelRsvp =
+    events?.cancelRsvp ??
+    (async (id: string) =>
+      requestEventAction(fetch(`/api/events/${id}/rsvp`, { method: "DELETE", credentials: "include" })))
+  const saveEvent =
+    events?.saveEvent ??
+    (async (id: string) =>
+      requestEventAction(fetch(`/api/events/${id}/save`, { method: "POST", credentials: "include" })))
+  const unsaveEvent =
+    events?.unsaveEvent ??
+    (async (id: string) =>
+      requestEventAction(fetch(`/api/events/${id}/save`, { method: "DELETE", credentials: "include" })))
+  const reportEvent =
+    events?.reportEvent ??
+    (async (id: string, reason: string, details?: string) =>
+      requestEventAction(
+        fetch(`/api/events/${id}/report`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ reason, details }),
+        }),
+      ))
 
   useEffect(() => {
     setIsRSVPed(event.isGoing ?? false)
@@ -87,7 +114,10 @@ export default function EventModal({ event, onClose }: EventModalProps) {
   }, [event.isGoing, event.rsvpStatus, event.isSaved])
 
   const handleRSVP = async () => {
-    if (!user) return
+    if (!user) {
+      openAuthPage("signup")
+      return
+    }
     setIsRsvpLoading(true)
     try {
       if (rsvpStatus === "GOING") {
@@ -128,22 +158,11 @@ export default function EventModal({ event, onClose }: EventModalProps) {
     }, 1200)
   }
 
-  const handleSetStatus = async (status: "GOING" | "MAYBE" | "NOT_GOING") => {
-    if (!user) return
-    setIsRsvpLoading(true)
-    try {
-      await setRsvpStatus(event.id, status)
-      setRsvpStatusState(status)
-      setIsRSVPed(status === "GOING")
-    } catch (error) {
-      console.error("RSVP status error:", error)
-    } finally {
-      setIsRsvpLoading(false)
-    }
-  }
-
   const handleSave = async () => {
-    if (!user) return
+    if (!user) {
+      openAuthPage("signup")
+      return
+    }
     try {
       if (isSaved) {
         await unsaveEvent(event.id)
@@ -158,7 +177,9 @@ export default function EventModal({ event, onClose }: EventModalProps) {
   }
 
   const handleShare = () => {
-    const eventUrl = `${window.location.origin}/events/${event.id}`
+    const eventUrl = isPublicPreviewAvailable
+      ? `${window.location.origin}/event/${encodeURIComponent(event.id)}`
+      : `${window.location.origin}/events/${event.id}`
     const fallbackCopy = async () => {
       try {
         if (navigator.clipboard?.writeText) {
@@ -189,12 +210,6 @@ export default function EventModal({ event, onClose }: EventModalProps) {
     void fallbackCopy()
   }
 
-  const handleBoost = (level: 1 | 2) => {
-    if (!isEventOrganizer) return
-    setBoostLevel(level)
-    setShowPaymentModal(true)
-  }
-
   const handleOpenBoost = () => {
     if (!isEventOrganizer) return
     setBoostLevel(0)
@@ -203,7 +218,10 @@ export default function EventModal({ event, onClose }: EventModalProps) {
 
 
   const handleOpenReport = () => {
-    if (!user) return
+    if (!user) {
+      openAuthPage("login")
+      return
+    }
     setReportSubmitted(false)
     setReportDetails("")
     setReportReason("SCAM_OR_FRAUD")
@@ -251,10 +269,12 @@ export default function EventModal({ event, onClose }: EventModalProps) {
         <div className="relative">
           {/* Hero Image */}
           <div className="relative h-64 md:h-80 overflow-hidden rounded-t-lg">
-            <img
-              src={getSafeImageSrc(images[imageIndex] ?? event.imageUrl)}
+            <AppImage
+              src={images[imageIndex] ?? event.imageUrl}
               alt={event.title}
-              className="w-full h-full object-cover"
+              fill
+              sizes="100vw"
+              className="object-cover"
             />
 
             {images.length > 1 && (
@@ -324,9 +344,7 @@ export default function EventModal({ event, onClose }: EventModalProps) {
               <CardTitle className="text-2xl md:text-3xl mb-2">{event.title}</CardTitle>
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <Badge variant="outline">
-                  <span
-                    className={`inline-block h-3 w-3 rounded-full mr-2 ${CATEGORY_COLORS[event.category] || "bg-gray-400"}`}
-                  />
+                  <span className={`inline-block h-3 w-3 rounded-full mr-2 ${getEventCategoryColor(event.category)}`} />
                   {event.category}
                 </Badge>
                 <div className="flex items-center text-sm text-gray-600">
@@ -338,18 +356,20 @@ export default function EventModal({ event, onClose }: EventModalProps) {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-2 sm:ml-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSave}
-                className={isSaved ? "text-red-600 border-red-600" : ""}
-              >
-                <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
-              </Button>
+              {user ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSave}
+                  className={isSaved ? "text-red-600 border-red-600" : ""}
+                >
+                  <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+                </Button>
+              ) : null}
               <Button variant="outline" size="sm" onClick={handleShare}>
                 <Share2 className="h-4 w-4" />
               </Button>
-              {!isEventOrganizer && (
+              {user && !isEventOrganizer && (
                 <Button variant="outline" size="sm" onClick={handleOpenReport}>
                   Report
                 </Button>
@@ -418,41 +438,60 @@ export default function EventModal({ event, onClose }: EventModalProps) {
           {/* RSVP Section */}
           {!isEventOrganizer && (
             <div className="border-t pt-6">
-              {isCancelled && (
-                <div className="bg-gray-100 border border-gray-200 text-gray-800 px-3 py-2 rounded mb-4">
-                  This event has been cancelled.
+              {!user ? (
+                <div className="rounded-2xl border border-[#e8dcff] bg-[#faf7ff] px-4 py-4">
+                  <p className="text-sm font-semibold text-[#24154b]">Browse first, then join when it feels worth keeping.</p>
+                  <p className="mt-2 text-sm leading-7 text-[#6a5f8f]">
+                    Create an account to save this event, RSVP, message the organizer, and get updates if the plan turns into a real yes.
+                  </p>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    <Button type="button" onClick={() => openAuthPage("signup")} className="flex-1 min-h-11 whitespace-normal text-center bg-purple-600 hover:bg-purple-700">
+                      Create account to RSVP
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => openAuthPage("login")} className="min-h-11 whitespace-normal text-center">
+                      I already have an account
+                    </Button>
+                  </div>
                 </div>
-              )}
-              <div className="flex flex-col gap-3 lg:flex-row">
-                <Button
-                  type="button"
-                  onClick={handleRSVP}
-                  className={`flex-1 min-h-11 whitespace-normal text-center ${
-                    isRSVPed ? "bg-green-600 hover:bg-green-700" : "bg-purple-600 hover:bg-purple-700"
-                  }`}
-                  disabled={isRsvpLoading || isCancelled}
-                >
-                  {isRsvpLoading ? "Processing..." : rsvpStatus === "GOING" ? "✓ You're Going!" : "RSVP to Event"}
-                </Button>
+              ) : (
+                <>
+                  {isCancelled && (
+                    <div className="bg-gray-100 border border-gray-200 text-gray-800 px-3 py-2 rounded mb-4">
+                      This event has been cancelled.
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-3 lg:flex-row">
+                    <Button
+                      type="button"
+                      onClick={handleRSVP}
+                      className={`flex-1 min-h-11 whitespace-normal text-center ${
+                        isRSVPed ? "bg-green-600 hover:bg-green-700" : "bg-purple-600 hover:bg-purple-700"
+                      }`}
+                      disabled={isRsvpLoading || isCancelled}
+                    >
+                      {isRsvpLoading ? "Processing..." : rsvpStatus === "GOING" ? "✓ You're Going!" : "RSVP to Event"}
+                    </Button>
 
-                {rsvpStatus === "GOING" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleAddToCalendar}
-                    className="min-h-11 whitespace-normal text-center"
-                    disabled={isCancelled || isCalendarLoading}
-                  >
-                    <FileDown className="h-4 w-4 mr-2" />
-                    {isCalendarLoading ? "Adding..." : "Add to Calendar"}
-                  </Button>
-                ) : null}
-              </div>
+                    {rsvpStatus === "GOING" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleAddToCalendar}
+                        className="min-h-11 whitespace-normal text-center"
+                        disabled={isCancelled || isCalendarLoading}
+                      >
+                        <FileDown className="h-4 w-4 mr-2" />
+                        {isCalendarLoading ? "Adding..." : "Add to Calendar"}
+                      </Button>
+                    ) : null}
+                  </div>
 
-              {isRSVPed && (
-                <p className="text-sm text-green-600 mt-2 text-center">
-                  Great! We'll send you event updates and reminders.
-                </p>
+                  {isRSVPed && (
+                    <p className="text-sm text-green-600 mt-2 text-center">
+                      Great! We'll send you event updates and reminders.
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { RefreshCcw } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
 
 type Role = "USER" | "ORGANIZER" | "ADMIN"
 type ReportStatus = "OPEN" | "REVIEWED" | "DISMISSED"
@@ -56,6 +57,13 @@ type OverviewResponse = {
   }
 }
 
+const OVERVIEW_RANGE_OPTIONS = ["7", "30", "90"] as const
+type OverviewRangeDays = (typeof OVERVIEW_RANGE_OPTIONS)[number]
+
+function isOverviewRangeDays(value: string): value is OverviewRangeDays {
+  return OVERVIEW_RANGE_OPTIONS.some((option) => option === value)
+}
+
 function formatMoney(amountMinor: number, currency: string) {
   const value = (amountMinor ?? 0) / 100
   const curr = (currency || "chf").toUpperCase()
@@ -75,7 +83,7 @@ function reportBadgeVariant(status: ReportStatus): "default" | "secondary" | "ou
 }
 
 export default function AdminDashboardPage() {
-  const [rangeDays, setRangeDays] = useState<"7" | "30" | "90">("30")
+  const [rangeDays, setRangeDays] = useState<OverviewRangeDays>("30")
   const [data, setData] = useState<OverviewResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -86,25 +94,25 @@ export default function AdminDashboardPage() {
     return params.toString()
   }, [rangeDays])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/admin/overview?${query}`, { credentials: "include", cache: "no-store" })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to load admin overview")
-      setData(json as OverviewResponse)
+      const json = await readJsonOrNull<OverviewResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Failed to load admin overview"))
+      setData(json)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load admin overview")
       setData(null)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [query])
 
   useEffect(() => {
     void load()
-  }, [query])
+  }, [load])
 
   const totals = data?.totals
 
@@ -117,7 +125,12 @@ export default function AdminDashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-44">
-            <Select value={rangeDays} onValueChange={(v) => setRangeDays(v as any)}>
+            <Select
+              value={rangeDays}
+              onValueChange={(value) => {
+                if (isOverviewRangeDays(value)) setRangeDays(value)
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Range" />
               </SelectTrigger>

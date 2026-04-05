@@ -1,11 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  reactStrictMode: true,
+  poweredByHeader: false,
   webpack: (config, { isServer }) => {
     if (isServer) {
       const externalsToAdd = {
@@ -35,19 +31,13 @@ const nextConfig = {
       'plus.unsplash.com',
       'blob.v0.app'
     ],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
-    unoptimized: true,
   },
+  serverExternalPackages: ["ws"],
   experimental: {
+    optimizePackageImports: ["lucide-react"],
     serverActions: {
       allowedOrigins: ['localhost:3000', '*.vercel.app']
     },
-    serverComponentsExternalPackages: ["ws"],
   },
   env: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',

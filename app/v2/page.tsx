@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Sparkles, Users, Zap, Brain, Globe, ArrowRight, Star } from "lucide-react"
+import { Users, Zap, Brain, Globe, ArrowRight, Star } from "lucide-react"
+import { BrandLockup } from "@/components/brand-logo"
 import Link from "next/link"
 
 export default function V2Page() {
@@ -47,10 +48,14 @@ export default function V2Page() {
       <header className="container mx-auto px-4 py-6">
         <nav className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold">Viao V2</span>
+            <BrandLockup
+              iconSize={32}
+              title="Viao V2"
+              subtitle="Beta"
+              titleClassName="text-xl font-bold"
+              subtitleClassName="text-xs uppercase tracking-[0.16em] text-muted-foreground"
+              className="gap-2"
+            />
             <Badge variant="secondary" className="ml-2">
               Beta
             </Badge>

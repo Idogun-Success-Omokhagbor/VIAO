@@ -5,8 +5,8 @@ declare module "html-to-image" {
 declare module "jspdf" {
   export class jsPDF {
     constructor(options?: Record<string, unknown>)
-    internal: any
-    addImage(...args: any[]): void
+    internal: unknown
+    addImage(...args: unknown[]): void
     save(filename: string): void
   }
 }

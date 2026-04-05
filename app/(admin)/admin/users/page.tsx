@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
 
 type Role = "USER" | "ORGANIZER" | "ADMIN"
 
@@ -32,6 +33,14 @@ type AdminUser = {
   role: Role
   createdAt: string
   lastSeenAt?: string | null
+}
+
+type UsersResponse = {
+  users: AdminUser[]
+}
+
+function isRoleFilter(value: string): value is Role | "ALL" {
+  return value === "ALL" || value === "USER" || value === "ORGANIZER" || value === "ADMIN"
 }
 
 export default function AdminUsersPage() {
@@ -52,20 +61,20 @@ export default function AdminUsersPage() {
     return params.toString()
   }, [q, role])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/admin/users?${query}`, { credentials: "include", cache: "no-store" })
-      const data = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(data?.error || "Failed to load users")
+      const data = await readJsonOrNull<UsersResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(data, "Failed to load users"))
       setUsers(Array.isArray(data?.users) ? data.users : [])
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load users")
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [query])
 
   const deleteUser = async (userId: string) => {
     setDeleting(true)
@@ -77,8 +86,8 @@ export default function AdminUsersPage() {
         credentials: "include",
         body: JSON.stringify({ userId }),
       })
-      const data = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(data?.error || "Failed to delete user")
+      const data = await readJsonOrNull<{ success?: boolean; error?: string }>(res)
+      if (!res.ok) throw new Error(getErrorMessage(data, "Failed to delete user"))
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete user")
@@ -90,7 +99,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     void load()
-  }, [query])
+  }, [load])
 
   const updateRole = async (userId: string, newRole: Role) => {
     setError(null)
@@ -101,8 +110,8 @@ export default function AdminUsersPage() {
         credentials: "include",
         body: JSON.stringify({ userId, role: newRole }),
       })
-      const data = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(data?.error || "Failed to update role")
+      const data = await readJsonOrNull<{ success?: boolean; error?: string }>(res)
+      if (!res.ok) throw new Error(getErrorMessage(data, "Failed to update role"))
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)))
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update role")
@@ -128,7 +137,9 @@ export default function AdminUsersPage() {
         <CardContent className="flex flex-col gap-3 md:flex-row md:items-center">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or email..." />
           <div className="w-full md:w-56">
-            <Select value={role} onValueChange={(v) => setRole(v as any)}>
+            <Select value={role} onValueChange={(value) => {
+              if (isRoleFilter(value)) setRole(value)
+            }}>
               <SelectTrigger>
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
@@ -239,7 +250,9 @@ function UserRow({
         <div className="flex items-center gap-2">
           <Badge variant={roleBadgeVariant(user.role)}>{user.role}</Badge>
           <div className="w-44">
-            <Select value={nextRole} onValueChange={(v) => setNextRole(v as Role)}>
+            <Select value={nextRole} onValueChange={(value) => {
+              if (isRoleFilter(value) && value !== "ALL") setNextRole(value)
+            }}>
               <SelectTrigger className="h-8">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>

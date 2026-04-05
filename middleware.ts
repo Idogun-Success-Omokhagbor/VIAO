@@ -58,7 +58,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  const organizerOnly = pathname === "/events" || pathname.startsWith("/events/") || pathname === "/receipts" || pathname.startsWith("/receipts/")
+  const organizerOnly =
+    pathname === "/events/manage" ||
+    pathname.startsWith("/events/manage/") ||
+    pathname === "/receipts" ||
+    pathname.startsWith("/receipts/")
   if (organizerOnly && role !== "ORGANIZER" && role !== "ADMIN") {
     const url = request.nextUrl.clone()
     url.pathname = "/dashboard"

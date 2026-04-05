@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
@@ -29,8 +30,8 @@ export async function DELETE() {
 
       await tx.notification.deleteMany({ where: { userId: session.sub } })
       await tx.passwordResetToken.deleteMany({ where: { userId: session.sub } })
-      await (tx as any).pushSubscription.deleteMany({ where: { userId: session.sub } })
-      await (tx as any).session.deleteMany({ where: { userId: session.sub } })
+      await tx.pushSubscription.deleteMany({ where: { userId: session.sub } })
+      await tx.session.deleteMany({ where: { userId: session.sub } })
 
       await tx.event.deleteMany({ where: { organizerId: session.sub } })
 
@@ -44,12 +45,12 @@ export async function DELETE() {
     console.error("DELETE /api/account error:", error)
     const isDev = process.env.NODE_ENV === "development"
     const details =
-      isDev && error instanceof Error
+      isDev && error instanceof Prisma.PrismaClientKnownRequestError
         ? {
             name: error.name,
             message: error.message,
-            code: (error as any)?.code,
-            meta: (error as any)?.meta,
+            code: error.code,
+            meta: error.meta,
           }
         : undefined
     return NextResponse.json({ error: "Failed to delete account", details }, { status: 500 })

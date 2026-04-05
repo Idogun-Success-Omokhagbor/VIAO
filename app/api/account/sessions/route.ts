@@ -7,7 +7,7 @@ export async function GET() {
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const sessions = await (prisma as any).session.findMany({
+  const sessions = await prisma.session.findMany({
     where: {
       userId: session.sub,
       revokedAt: null,
@@ -27,14 +27,14 @@ export async function GET() {
 
   return NextResponse.json({
     currentSessionId: session.sid ?? null,
-    sessions: sessions.map((s: any) => ({
+    sessions: sessions.map((s) => ({
       id: s.id,
       userAgent: s.userAgent,
       ip: s.ip,
-      lastSeenAt: s.lastSeenAt ? new Date(s.lastSeenAt).toISOString() : null,
-      createdAt: new Date(s.createdAt).toISOString(),
-      updatedAt: new Date(s.updatedAt).toISOString(),
-      expiresAt: new Date(s.expiresAt).toISOString(),
+      lastSeenAt: s.lastSeenAt ? s.lastSeenAt.toISOString() : null,
+      createdAt: s.createdAt.toISOString(),
+      updatedAt: s.updatedAt.toISOString(),
+      expiresAt: s.expiresAt.toISOString(),
     })),
   })
 }

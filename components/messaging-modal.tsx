@@ -8,16 +8,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Send, Check, CheckCheck } from "lucide-react"
 import { EmojiPicker } from "@/components/emoji-picker"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
 import { getAvatarSrc, formatTimeAgo } from "@/lib/utils"
-import type { Message, Conversation } from "@/types/messaging"
+import type { Conversation } from "@/types/messaging"
 import { useRouter } from "next/navigation"
 
-interface MessagingModalProps {
+export interface MessagingModalProps {
   isOpen: boolean
   onClose: () => void
   conversation?: Conversation
@@ -31,7 +30,6 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
     router.push(user?.id === targetUserId ? "/account" : `/profile/${targetUserId}`)
   }
   const [newMessage, setNewMessage] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -203,23 +201,6 @@ export function MessagingModal({ isOpen, onClose, conversation }: MessagingModal
                     </div>
                   </div>
                 ))}
-                {isTyping && (
-                  <div className="flex justify-start">
-                    <div className="bg-muted p-3 rounded-lg">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.1s" }}
-                        ></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.2s" }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </ScrollArea>
 

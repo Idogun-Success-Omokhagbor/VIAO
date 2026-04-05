@@ -20,6 +20,7 @@ import {
   SidebarRail,
   SidebarHeader,
 } from "@/components/ui/sidebar"
+import { BrandLockup } from "@/components/brand-logo"
 import { cn } from "@/lib/utils"
 
 const nav = [
@@ -54,13 +55,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <Sidebar collapsible="icon" variant="sidebar">
         <SidebarHeader>
           <div className="flex items-center gap-2 px-2 py-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">V</span>
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold truncate">Viao Admin</div>
-              <div className="text-xs text-muted-foreground truncate">Super Admin</div>
-            </div>
+            <BrandLockup
+              iconSize={32}
+              title="Viao Admin"
+              subtitle="Super Admin"
+              titleClassName="text-sm font-semibold truncate"
+              subtitleClassName="text-xs text-muted-foreground truncate normal-case tracking-normal"
+            />
           </div>
         </SidebarHeader>
         <SidebarContent>

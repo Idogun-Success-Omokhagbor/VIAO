@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { stripe } from "@/lib/stripe"
 import { getSiteConfig } from "@/lib/site-config"
+import { applySuccessfulBoostPayment, getStripeSessionHashSecret, parseBoostLevel } from "@/lib/stripe-boost"
 
 export const runtime = "nodejs"
 
@@ -27,6 +28,9 @@ export async function POST(req: Request) {
   if (!stripe) {
     return NextResponse.json({ error: "Stripe is not configured" }, { status: 500 })
   }
+  if (!getStripeSessionHashSecret()) {
+    return NextResponse.json({ error: "Missing Stripe hash configuration" }, { status: 500 })
+  }
 
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
@@ -35,16 +39,14 @@ export async function POST(req: Request) {
   try {
     const checkoutSession = await stripe.checkout.sessions.retrieve(parsed.data.sessionId)
 
-    const paymentStatus = (checkoutSession as any).payment_status as string | undefined
-    if (paymentStatus !== "paid") {
+    if (checkoutSession.payment_status !== "paid") {
       return NextResponse.json({ error: "Payment not completed" }, { status: 400 })
     }
 
-    const metadata = (checkoutSession as any).metadata as Record<string, string> | undefined
+    const metadata = checkoutSession.metadata ?? undefined
     const eventId = metadata?.eventId
     const organizerId = metadata?.organizerId
-    const levelRaw = metadata?.level
-    const level = levelRaw === "2" ? 2 : 1
+    const level = parseBoostLevel(metadata?.level)
 
     if (!eventId || !organizerId) {
       return NextResponse.json({ error: "Missing session metadata" }, { status: 400 })
@@ -54,26 +56,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const existing = (await prisma.event.findUnique({
-      where: { id: eventId },
-      select: { id: true, boostUntil: true, boostLevel: true, isCancelled: true, organizerId: true } as any,
-    })) as any
+    const updated = await prisma.$transaction(async (tx) => {
+      await applySuccessfulBoostPayment(tx, {
+        sessionId: checkoutSession.id,
+        level,
+        amount: checkoutSession.amount_total ?? 0,
+        currency: checkoutSession.currency ?? "chf",
+        eventId,
+        organizerId,
+        authorizedOrganizerId: sessionUser.sub,
+      })
 
-    if (!existing) return NextResponse.json({ error: "Event not found" }, { status: 404 })
-    if (existing.isCancelled) return NextResponse.json({ error: "Cannot boost a cancelled event" }, { status: 400 })
-    if (existing.organizerId !== sessionUser.sub) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return tx.event.findUnique({
+        where: { id: eventId },
+        select: { id: true, isBoosted: true, boostLevel: true, boostUntil: true },
+      })
+    })
 
-    const base = existing.boostUntil && existing.boostUntil.getTime() > Date.now() ? new Date(existing.boostUntil) : new Date()
-    const boostUntil = new Date(base)
-    boostUntil.setHours(boostUntil.getHours() + (level === 2 ? 72 : 24))
-
-    const nextLevel = Math.max((existing?.boostLevel as number | null | undefined) ?? 0, level)
-
-    const updated = (await prisma.event.update({
-      where: { id: eventId },
-      data: { isBoosted: true, boostUntil, boostLevel: nextLevel } as any,
-      select: { id: true, isBoosted: true, boostLevel: true, boostUntil: true } as any,
-    })) as any
+    if (!updated) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
 
     return NextResponse.json({ updated })
   } catch (error) {

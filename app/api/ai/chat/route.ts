@@ -1,8 +1,31 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
+
+import { fetchWithTimeout } from "@/lib/http"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 
-type ChatMessage = { role: "system" | "user" | "assistant" | "tool"; content: string; tool_call_id?: string; name?: string }
+type ChatMessage = {
+  role: "system" | "user" | "assistant" | "tool"
+  content?: string | null
+  tool_call_id?: string
+  name?: string
+  tool_calls?: ToolCall[]
+}
+
+const chatRequestSchema = z.object({
+  message: z.string().trim().min(1).max(2_000),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().trim().min(1).max(4_000),
+      }),
+    )
+    .max(12)
+    .optional()
+    .default([]),
+})
 
 async function listEvents(args: { limit?: number }) {
   const rawLimit = typeof args.limit === "number" ? args.limit : 50
@@ -97,37 +120,98 @@ type ToolCall = {
   function: { name: string; arguments: string }
 }
 
-async function callOpenAI(payload: any) {
+type ToolDefinition = {
+  type: "function"
+  function: {
+    name: string
+    description: string
+    parameters: {
+      type: "object"
+      properties: Record<string, { type: string; description?: string }>
+      required: string[]
+      additionalProperties: boolean
+    }
+  }
+}
+
+type OpenAIResponse = {
+  choices?: Array<{
+    message?: {
+      role?: "assistant"
+      content?: string | null
+      tool_calls?: ToolCall[]
+    }
+  }>
+}
+
+type OpenAIErrorResponse = {
+  error?: {
+    message?: string
+  }
+}
+
+type ToolResult =
+  | Awaited<ReturnType<typeof listEvents>>
+  | Awaited<ReturnType<typeof getMyProfile>>
+  | { ok: false; error: string }
+
+type OpenAIRequestPayload = {
+  model: string
+  messages: ChatMessage[]
+  tools: ToolDefinition[]
+  tool_choice: "auto"
+  temperature: number
+}
+
+type OpenAIRequestResult =
+  | { ok: true; status: number; data: OpenAIResponse }
+  | { ok: false; status: number; error: string }
+
+function getOpenAIErrorMessage(json: unknown): string | null {
+  if (!json || typeof json !== "object") return null
+  const error = (json as OpenAIErrorResponse).error
+  return typeof error?.message === "string" ? error.message : null
+}
+
+async function callOpenAI(payload: OpenAIRequestPayload): Promise<OpenAIRequestResult> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     return { ok: false, status: 500, error: "OPENAI_API_KEY is not set" as const }
   }
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  })
+  let res: Response
+  try {
+    res = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+      timeoutMs: 30_000,
+      cache: "no-store",
+    })
+  } catch (error) {
+    const message = error instanceof Error && error.name === "AbortError" ? "OpenAI request timed out" : "OpenAI request failed"
+    return { ok: false, status: 504, error: message }
+  }
 
   const json = await res.json().catch(() => null)
   if (!res.ok) {
-    const message = (json as any)?.error?.message || "OpenAI request failed"
+    const message = getOpenAIErrorMessage(json) || "OpenAI request failed"
     return { ok: false, status: res.status, error: message }
   }
 
-  return { ok: true, status: res.status, data: json }
+  return { ok: true, status: res.status, data: (json ?? {}) as OpenAIResponse }
 }
 
 function extractJson(content: string): { message: string; suggestions?: string[] } {
   try {
-    const parsed = JSON.parse(content) as any
-    if (parsed && typeof parsed.message === "string") {
+    const parsed = JSON.parse(content) as { message?: unknown; suggestions?: unknown }
+    if (typeof parsed.message === "string") {
       return {
         message: parsed.message,
-        suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.filter((s: any) => typeof s === "string") : undefined,
+        suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.filter((s): s is string => typeof s === "string") : undefined,
       }
     }
   } catch {
@@ -136,24 +220,42 @@ function extractJson(content: string): { message: string; suggestions?: string[]
 }
 
 export async function GET() {
-  // Chats are not persisted; return an empty history for compatibility.
-  return NextResponse.json({ messages: [] })
+  const session = await getSessionUser()
+  if (!session) {
+    return NextResponse.json({ messages: [] })
+  }
+
+  const messages = await prisma.aiChatMessage.findMany({
+    where: { userId: session.sub },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  })
+
+  return NextResponse.json({
+    messages: messages.reverse().map((message) => ({
+      id: message.id,
+      role: message.role === "USER" ? "user" : "assistant",
+      content: message.content,
+      suggestions: message.suggestions.length > 0 ? message.suggestions : undefined,
+      timestamp: message.createdAt.toISOString(),
+    })),
+  })
 }
 
 export async function POST(req: Request) {
   try {
     const session = await getSessionUser()
 
-    const body = (await req.json().catch(() => null)) as any
-    const message = typeof body?.message === "string" ? body.message.trim() : ""
-
-    if (!message) {
+    const rawBody = (await req.json().catch(() => null)) as unknown
+    const parsedBody = chatRequestSchema.safeParse(rawBody)
+    if (!parsedBody.success) {
       return NextResponse.json({ error: "Missing message" }, { status: 400 })
     }
 
-    const history = Array.isArray(body?.history) ? body.history : []
+    const { message, history } = parsedBody.data
+    const model = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini"
 
-    const tools: any[] = [
+    const tools: ToolDefinition[] = [
       {
         type: "function",
         function: {
@@ -193,7 +295,7 @@ export async function POST(req: Request) {
         "You are Viao AI Assistant. You help users discover events and answer questions using the Viao database. You can call list_events to list events, and get_my_profile to get the current user's profile. Keep answers concise. Always respond with a single JSON object (no code fences) with keys: message (string) and suggestions (string[] optional). The message must be plain English with simple grammar and must not include code snippets, language tags, or JSON.",
     }
 
-    const messages: any[] = [system]
+    const messages: ChatMessage[] = [system]
 
     for (const h of history.slice(-12)) {
       const role = h?.role
@@ -206,7 +308,7 @@ export async function POST(req: Request) {
     messages.push({ role: "user", content: message })
 
     const first = await callOpenAI({
-      model: "gpt-4o-mini",
+      model,
       messages,
       tools,
       tool_choice: "auto",
@@ -217,28 +319,38 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: first.error }, { status: first.status })
     }
 
-    const choice = (first.data as any)?.choices?.[0]
+    const firstData = first.data
+    const choice = firstData.choices?.[0]
     const assistant = choice?.message
 
     const toolCalls = (assistant?.tool_calls ?? []) as ToolCall[]
     if (Array.isArray(toolCalls) && toolCalls.length > 0) {
-      const followupMessages: any[] = [...messages]
-      followupMessages.push(assistant)
+      const followupMessages: ChatMessage[] = [...messages]
+      if (assistant) {
+        followupMessages.push({
+          role: "assistant",
+          content: assistant.content,
+          tool_calls: assistant.tool_calls,
+        })
+      }
 
       for (const call of toolCalls) {
         if (call?.type !== "function") continue
 
-        let args: any = {}
+        let limitArg: number | undefined
         try {
-          args = JSON.parse(call.function.arguments || "{}")
+          const args = JSON.parse(call.function.arguments || "{}") as { limit?: unknown }
+          if (typeof args.limit === "number") {
+            limitArg = args.limit
+          }
         } catch {
-          args = {}
+          limitArg = undefined
         }
 
-        let toolResult: any = { ok: false, error: "Unknown tool" }
+        let toolResult: ToolResult = { ok: false, error: "Unknown tool" }
 
         if (call.function.name === "list_events") {
-          toolResult = await listEvents({ limit: typeof args?.limit === "number" ? args.limit : undefined })
+          toolResult = await listEvents({ limit: limitArg })
         } else if (call.function.name === "get_my_profile") {
           if (!session) {
             toolResult = { ok: false, error: "Not signed in" }
@@ -257,7 +369,7 @@ export async function POST(req: Request) {
       }
 
       const second = await callOpenAI({
-        model: "gpt-4o-mini",
+        model,
         messages: followupMessages,
         tools,
         tool_choice: "auto",
@@ -268,18 +380,63 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: second.error }, { status: second.status })
       }
 
-      const content = (second.data as any)?.choices?.[0]?.message?.content
+      const secondData = second.data
+      const content = secondData.choices?.[0]?.message?.content
       const finalText = typeof content === "string" ? content : ""
       const parsed = extractJson(finalText || "")
+      const suggestions = parsed.suggestions?.filter((suggestion) => suggestion.length <= 200).slice(0, 6)
+      const assistantMessage = parsed.message.trim() || "I couldn't find an answer right now."
 
-      return NextResponse.json({ message: parsed.message, suggestions: parsed.suggestions ?? undefined })
+      if (session) {
+        await prisma.$transaction([
+          prisma.aiChatMessage.create({
+            data: {
+              userId: session.sub,
+              role: "USER",
+              content: message,
+            },
+          }),
+          prisma.aiChatMessage.create({
+            data: {
+              userId: session.sub,
+              role: "ASSISTANT",
+              content: assistantMessage,
+              suggestions: suggestions ?? [],
+            },
+          }),
+        ])
+      }
+
+      return NextResponse.json({ message: assistantMessage, suggestions: suggestions ?? undefined })
     }
 
     const content = assistant?.content
     const finalText = typeof content === "string" ? content : ""
     const parsed = extractJson(finalText || "")
+    const suggestions = parsed.suggestions?.filter((suggestion) => suggestion.length <= 200).slice(0, 6)
+    const assistantMessage = parsed.message.trim() || "I couldn't find an answer right now."
 
-    return NextResponse.json({ message: parsed.message, suggestions: parsed.suggestions ?? undefined })
+    if (session) {
+      await prisma.$transaction([
+        prisma.aiChatMessage.create({
+          data: {
+            userId: session.sub,
+            role: "USER",
+            content: message,
+          },
+        }),
+        prisma.aiChatMessage.create({
+          data: {
+            userId: session.sub,
+            role: "ASSISTANT",
+            content: assistantMessage,
+            suggestions: suggestions ?? [],
+          },
+        }),
+      ])
+    }
+
+    return NextResponse.json({ message: assistantMessage, suggestions: suggestions ?? undefined })
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI request failed"
     return NextResponse.json({ error: message }, { status: 500 })

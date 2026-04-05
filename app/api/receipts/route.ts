@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client"
+import type Stripe from "stripe"
 import { NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
@@ -5,6 +7,18 @@ import { getSessionUser } from "@/lib/session"
 import { stripe } from "@/lib/stripe"
 
 export const runtime = "nodejs"
+
+function isExpandedPaymentIntent(value: string | Stripe.PaymentIntent | null): value is Stripe.PaymentIntent {
+  return !!value && typeof value !== "string"
+}
+
+function isExpandedCharge(value: string | Stripe.Charge | null | undefined): value is Stripe.Charge {
+  return !!value && typeof value !== "string"
+}
+
+function isExpandedInvoice(value: string | Stripe.Invoice | null): value is Stripe.Invoice {
+  return !!value && typeof value !== "string"
+}
 
 export async function GET(req: Request) {
   const session = await getSessionUser()
@@ -34,7 +48,7 @@ export async function GET(req: Request) {
     }
   }
 
-  const where: any = {
+  const where: Prisma.BoostReceiptWhereInput = {
     organizerId: session.sub,
   }
 
@@ -43,15 +57,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const boostReceiptClient = (prisma as any).boostReceipt
-    if (!boostReceiptClient?.findMany) {
-      return NextResponse.json(
-        { error: "Receipts are not available on this server yet. Restart the dev server (and run prisma generate if needed)." },
-        { status: 500 },
-      )
-    }
-
-    const receipts = await boostReceiptClient.findMany({
+    const receipts = await prisma.boostReceipt.findMany({
       where,
       orderBy: { createdAt: "desc" },
       select: {
@@ -73,37 +79,41 @@ export async function GET(req: Request) {
     })
 
     const withStripeReceipts = await Promise.all(
-      (Array.isArray(receipts) ? receipts : []).map(async (r: any) => {
+      receipts.map(async (receipt) => {
         const stripeSessionIdRaw =
-          typeof r?.boostCheckout?.stripeSessionIdHash === "string" && r.boostCheckout.stripeSessionIdHash.startsWith("cs_")
-            ? r.boostCheckout.stripeSessionIdHash
+          typeof receipt.boostCheckout.stripeSessionIdHash === "string" && receipt.boostCheckout.stripeSessionIdHash.startsWith("cs_")
+            ? receipt.boostCheckout.stripeSessionIdHash
             : null
 
         if (!stripe || !stripeSessionIdRaw) {
-          const { boostCheckout, ...rest } = r
+          const { boostCheckout, ...rest } = receipt
           return { ...rest, receiptUrl: null, receiptPdfUrl: null }
         }
 
         try {
-          const session = await stripe.checkout.sessions.retrieve(stripeSessionIdRaw, {
+          const checkoutSession = await stripe.checkout.sessions.retrieve(stripeSessionIdRaw, {
             expand: ["payment_intent.latest_charge"],
           })
-          const pi = (session as any).payment_intent
-          const charge = pi && typeof pi === "object" ? (pi as any).latest_charge : null
-          const receiptUrl = charge && typeof charge === "object" ? ((charge as any).receipt_url as string | null) : null
+          const paymentIntent = isExpandedPaymentIntent(checkoutSession.payment_intent) ? checkoutSession.payment_intent : null
+          const charge = isExpandedCharge(paymentIntent?.latest_charge) ? paymentIntent.latest_charge : null
+          const receiptUrl = charge?.receipt_url ?? null
 
-          const invoiceId = typeof (session as any).invoice === "string" ? ((session as any).invoice as string) : null
-          const invoice = invoiceId ? await stripe.invoices.retrieve(invoiceId) : null
-          const receiptPdfUrl = invoice && typeof (invoice as any).invoice_pdf === "string" ? ((invoice as any).invoice_pdf as string) : null
+          const invoice =
+            typeof checkoutSession.invoice === "string"
+              ? await stripe.invoices.retrieve(checkoutSession.invoice)
+              : isExpandedInvoice(checkoutSession.invoice)
+                ? checkoutSession.invoice
+                : null
+          const receiptPdfUrl = invoice?.invoice_pdf ?? null
 
-          const { boostCheckout, ...rest } = r
+          const { boostCheckout, ...rest } = receipt
           return {
             ...rest,
-            receiptUrl: typeof receiptUrl === "string" ? receiptUrl : null,
-            receiptPdfUrl: typeof receiptPdfUrl === "string" ? receiptPdfUrl : null,
+            receiptUrl,
+            receiptPdfUrl,
           }
         } catch {
-          const { boostCheckout, ...rest } = r
+          const { boostCheckout, ...rest } = receipt
           return { ...rest, receiptUrl: null, receiptPdfUrl: null }
         }
       }),

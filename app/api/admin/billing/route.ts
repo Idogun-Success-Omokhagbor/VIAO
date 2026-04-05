@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
@@ -29,14 +30,6 @@ export async function GET(req: Request) {
   const session = await getSessionUser()
   if (!session || session.role !== "ADMIN") return forbidden()
 
-  const boostReceiptClient = (prisma as any).boostReceipt
-  if (!boostReceiptClient?.findMany || !boostReceiptClient?.count || !boostReceiptClient?.aggregate) {
-    return NextResponse.json(
-      { error: "Receipts are not available on this server yet. Restart the dev server (and run prisma generate if needed)." },
-      { status: 500 },
-    )
-  }
-
   const url = new URL(req.url)
   const q = (url.searchParams.get("q") || "").trim().toLowerCase()
 
@@ -64,7 +57,7 @@ export async function GET(req: Request) {
   const pageSizeRaw = Number(url.searchParams.get("pageSize") || 25) || 25
   const pageSize = Math.max(1, Math.min(100, Math.floor(pageSizeRaw)))
 
-  const where: any = {}
+  const where: Prisma.BoostReceiptWhereInput = {}
 
   if (createdAt.gte || createdAt.lte) {
     where.createdAt = createdAt
@@ -75,8 +68,8 @@ export async function GET(req: Request) {
   }
 
   const [total, rows, totalsAllTime, totalsRange] = await Promise.all([
-    boostReceiptClient.count({ where }),
-    boostReceiptClient.findMany({
+    prisma.boostReceipt.count({ where }),
+    prisma.boostReceipt.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -93,11 +86,11 @@ export async function GET(req: Request) {
         organizerId: true,
       },
     }),
-    boostReceiptClient.aggregate({ _sum: { amount: true }, _count: { id: true } }),
-    boostReceiptClient.aggregate({ where: createdAt.gte || createdAt.lte ? { createdAt } : undefined, _sum: { amount: true }, _count: { id: true } }),
+    prisma.boostReceipt.aggregate({ _sum: { amount: true }, _count: { id: true } }),
+    prisma.boostReceipt.aggregate({ where: createdAt.gte || createdAt.lte ? { createdAt } : undefined, _sum: { amount: true }, _count: { id: true } }),
   ])
 
-  const receipts = (Array.isArray(rows) ? rows : []) as ReceiptRow[]
+  const receipts = rows as ReceiptRow[]
 
   const organizerIds = Array.from(new Set(receipts.map((r) => r.organizerId))).filter((id) => typeof id === "string" && id.length > 0)
   const organizers = organizerIds.length

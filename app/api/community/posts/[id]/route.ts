@@ -5,7 +5,7 @@ import { z } from "zod"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
-import { mapPost } from "@/lib/community-post"
+import { communityPostClientSelect, mapPost } from "@/lib/community-post"
 
 const updatePostSchema = z.object({
   title: z.string().min(1).optional(),
@@ -16,12 +16,13 @@ const updatePostSchema = z.object({
   category: z.string().optional(),
 })
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   try {
     const post = await prisma.communityPost.findUnique({
       where: { id: params.id },
-      include: { author: true, comments: { include: { author: true }, orderBy: { createdAt: "desc" } } },
+      select: communityPostClientSelect,
     })
     if (!post) return NextResponse.json({ error: "Not found" }, { status: 404 })
     return NextResponse.json({ post: await mapPost(post, session?.sub) })
@@ -31,7 +32,8 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -54,7 +56,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         mediaType: parsed.data.mediaType ?? undefined,
         category: parsed.data.category ?? undefined,
       },
-      include: { author: true, comments: { include: { author: true }, orderBy: { createdAt: "desc" } } },
+      select: communityPostClientSelect,
     })
     return NextResponse.json({ post: await mapPost(updated, session.sub) })
   } catch (error) {
@@ -63,7 +65,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   try {

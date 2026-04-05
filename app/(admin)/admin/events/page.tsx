@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { RefreshCcw } from "lucide-react"
 
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
 
 type AdminEvent = {
   id: string
@@ -61,6 +62,14 @@ type StatusFilter = "ALL" | "DRAFT" | "PUBLISHED"
 
 type PendingAction = { eventId: string; action: "CANCEL" | "UNCANCEL"; title: string } | null
 
+function isTri(value: string): value is Tri {
+  return value === "ALL" || value === "YES" || value === "NO"
+}
+
+function isStatusFilter(value: string): value is StatusFilter {
+  return value === "ALL" || value === "DRAFT" || value === "PUBLISHED"
+}
+
 export default function AdminEventsPage() {
   const [q, setQ] = useState("")
   const [status, setStatus] = useState<StatusFilter>("ALL")
@@ -92,25 +101,25 @@ export default function AdminEventsPage() {
     return params.toString()
   }, [boosted, cancelled, category, city, openReportsOnly, page, q, status])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/admin/events?${query}`, { credentials: "include", cache: "no-store" })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to load events")
-      setData(json as EventsResponse)
+      const json = await readJsonOrNull<EventsResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Failed to load events"))
+      setData(json)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load events")
       setData(null)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [query])
 
   useEffect(() => {
     void load()
-  }, [query])
+  }, [load])
 
   const canPrev = page > 1
   const canNext = data ? page * data.pageSize < data.total : false
@@ -125,8 +134,8 @@ export default function AdminEventsPage() {
         credentials: "include",
         body: JSON.stringify({ eventId, action }),
       })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to update event")
+      const json = await readJsonOrNull<{ success?: boolean; error?: string }>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Failed to update event"))
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update event")
@@ -168,7 +177,7 @@ export default function AdminEventsPage() {
             <div>
               <Select value={status} onValueChange={(v) => {
                 setPage(1)
-                setStatus(v as StatusFilter)
+                if (isStatusFilter(v)) setStatus(v)
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Status" />
@@ -183,7 +192,7 @@ export default function AdminEventsPage() {
             <div>
               <Select value={cancelled} onValueChange={(v) => {
                 setPage(1)
-                setCancelled(v as Tri)
+                if (isTri(v)) setCancelled(v)
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Cancelled" />
@@ -198,7 +207,7 @@ export default function AdminEventsPage() {
             <div>
               <Select value={boosted} onValueChange={(v) => {
                 setPage(1)
-                setBoosted(v as Tri)
+                if (isTri(v)) setBoosted(v)
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Boosted" />

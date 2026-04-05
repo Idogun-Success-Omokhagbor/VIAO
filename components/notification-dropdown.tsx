@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useNotifications } from "@/context/notification-context"
+import { useNotifications, type NotificationItem } from "@/context/notification-context"
 import { formatTimeAgo } from "@/lib/utils"
 
 const typeMeta: Record<
@@ -27,6 +27,22 @@ const typeMeta: Record<
   LIKE: { icon: <Heart className="h-4 w-4 text-rose-600" />, color: "bg-rose-50" },
   COMMENT: { icon: <MessageSquareText className="h-4 w-4 text-blue-600" />, color: "bg-blue-50" },
   REPLY: { icon: <Reply className="h-4 w-4 text-amber-600" />, color: "bg-amber-50" },
+}
+
+function getNotificationTarget(data: NotificationItem["data"]) {
+  if (!data) return null
+
+  const conversationId = data.conversationId
+  if (typeof conversationId === "string" && conversationId.length > 0) {
+    return `/messages?conversationId=${conversationId}`
+  }
+
+  const postId = data.postId
+  if (typeof postId === "string" && postId.length > 0) {
+    return `/community?post=${postId}`
+  }
+
+  return null
 }
 
 export function NotificationDropdown() {
@@ -40,10 +56,9 @@ export function NotificationDropdown() {
 
   const handleNavigate = useCallback(
     (n: (typeof notifications)[number]) => {
-      if (n.type === "MESSAGE" && n.data && (n.data as any).conversationId) {
-        router.push(`/messages?conversationId=${(n.data as any).conversationId}`)
-      } else if (n.data && (n.data as any).postId) {
-        router.push(`/community?post=${(n.data as any).postId}`)
+      const target = getNotificationTarget(n.data)
+      if (target) {
+        router.push(target)
       }
       void markAsRead([n.id])
     },

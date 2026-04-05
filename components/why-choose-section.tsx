@@ -1,5 +1,6 @@
 "use client"
 
+import { AppImage } from "@/components/ui/app-image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -114,11 +115,7 @@ export function WhyChooseSection() {
                   </div>
                   <p className="text-gray-600 mb-6 italic">"{testimonial.content}"</p>
                   <div className="flex items-center">
-                    <img
-                      src={testimonial.avatar || "/placeholder.svg"}
-                      alt={testimonial.name}
-                      className="w-10 h-10 rounded-full mr-3"
-                    />
+                    <AppImage src={testimonial.avatar} alt={testimonial.name} width={40} height={40} className="w-10 h-10 rounded-full mr-3" />
                     <div>
                       <div className="font-semibold text-sm">{testimonial.name}</div>
                       <div className="text-xs text-gray-500">{testimonial.role}</div>

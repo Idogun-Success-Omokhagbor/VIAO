@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
 
 type AdminSettings = {
   siteName?: string
@@ -36,10 +37,9 @@ export default function AdminSettingsPage() {
     setSaved(false)
     try {
       const res = await fetch("/api/admin/settings", { credentials: "include", cache: "no-store" })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to load settings")
-      const payload = json as SettingsResponse
-      setSettings(payload.settings || {})
+      const payload = await readJsonOrNull<SettingsResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(payload, "Failed to load settings"))
+      setSettings(payload?.settings || {})
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load settings")
     } finally {
@@ -62,9 +62,9 @@ export default function AdminSettingsPage() {
         credentials: "include",
         body: JSON.stringify(settings),
       })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to save settings")
-      setSettings((json as any)?.settings || settings)
+      const json = await readJsonOrNull<SettingsResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Failed to save settings"))
+      setSettings(json?.settings || settings)
       setSaved(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save settings")

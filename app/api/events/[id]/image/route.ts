@@ -1,36 +1,35 @@
 import { NextResponse } from "next/server"
 
+import { parseStoredImageDataUrl } from "@/lib/image-utils"
 import { prisma } from "@/lib/prisma"
+import { getSessionUser } from "@/lib/session"
 
 export const runtime = "nodejs"
 
-function parseDataUrl(dataUrl: string) {
-  const match = /^data:([^;]+);base64,(.*)$/.exec(dataUrl)
-  if (!match) return null
-
-  const mime = match[1]
-  const base64 = match[2]
-  const buffer = Buffer.from(base64, "base64")
-  return { mime, buffer }
-}
-
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const url = new URL(req.url)
   const indexParam = url.searchParams.get("index")
   const index = indexParam ? Number(indexParam) : null
 
   try {
+    const session = await getSessionUser()
     const event = await prisma.event.findUnique({
       where: { id: params.id },
-      select: { imageUrl: true, imageUrls: true },
+      select: { imageUrl: true, imageUrls: true, organizerId: true, status: true },
     })
 
     if (!event) {
       return NextResponse.redirect(new URL("/placeholder.svg", req.url))
     }
 
+    const canAccessDraft = session?.sub === event.organizerId || session?.role === "ADMIN"
+    if (event.status === "DRAFT" && !canAccessDraft) {
+      return NextResponse.redirect(new URL("/placeholder.svg", req.url))
+    }
+
     const src =
-      typeof index === "number" && !Number.isNaN(index)
+      typeof index === "number" && Number.isInteger(index) && index >= 0
         ? Array.isArray(event.imageUrls)
           ? (event.imageUrls[index] ?? null)
           : null
@@ -41,18 +40,18 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
 
     if (!src.startsWith("data:")) {
-      return NextResponse.redirect(new URL(src, req.url))
+      return NextResponse.redirect(new URL("/placeholder.svg", req.url))
     }
 
-    const parsed = parseDataUrl(src)
+    const parsed = parseStoredImageDataUrl(src)
     if (!parsed) {
       return NextResponse.redirect(new URL("/placeholder.svg", req.url))
     }
 
-    return new NextResponse(parsed.buffer, {
+    return new NextResponse(new Uint8Array(parsed.buffer), {
       headers: {
         "Content-Type": parsed.mime,
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": event.status === "PUBLISHED" ? "public, max-age=31536000, immutable" : "private, no-store",
       },
     })
   } catch (error) {

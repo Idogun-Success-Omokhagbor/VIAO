@@ -17,6 +17,7 @@ import { useAuth } from "@/context/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { getAvatarSrc } from "@/lib/utils"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import type { UserPreferences } from "@/types/auth"
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
@@ -31,7 +32,7 @@ function urlBase64ToUint8Array(base64String: string) {
 
 export default function AccountPage() {
   const router = useRouter()
-  const { user, updateUser, isAuthenticated, showAuthModal, refresh } = useAuth()
+  const { user, updateUser, isAuthenticated, openAuthPage, refresh } = useAuth()
   const { toast } = useToast()
   const [clientCapabilities, setClientCapabilities] = useState({
     isNativeIOSWrapper: false,
@@ -74,6 +75,11 @@ export default function AccountPage() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [isLoadingSessions, setIsLoadingSessions] = useState(false)
   const [isRevokingOtherSessions, setIsRevokingOtherSessions] = useState(false)
+
+  const getBooleanPreference = (key: keyof UserPreferences, fallback = false) => {
+    const value = user?.preferences?.[key]
+    return typeof value === "boolean" ? value : fallback
+  }
 
   const fetchSessions = async () => {
     setIsLoadingSessions(true)
@@ -130,10 +136,10 @@ export default function AccountPage() {
             <CardDescription>Access your profile and settings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button onClick={() => showAuthModal("login")} className="w-full">
+            <Button onClick={() => openAuthPage("login")} className="w-full">
               Log In
             </Button>
-            <Button onClick={() => showAuthModal("signup")} variant="outline" className="w-full">
+            <Button onClick={() => openAuthPage("signup")} variant="outline" className="w-full">
               Sign Up
             </Button>
           </CardContent>
@@ -541,7 +547,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Receive notifications via email</p>
                       </div>
                       <Switch
-                        checked={!!(user?.preferences as any)?.emailNotifications}
+                        checked={getBooleanPreference("emailNotifications")}
                         onCheckedChange={(checked) => handlePreferenceChange("emailNotifications", checked)}
                       />
                     </div>
@@ -560,7 +566,7 @@ export default function AccountPage() {
                         </p>
                       </div>
                       <Switch
-                        checked={!!(user?.preferences as any)?.pushNotifications}
+                        checked={getBooleanPreference("pushNotifications")}
                         disabled={isConfiguringPush || !canConfigurePushInClient}
                         onCheckedChange={(checked) => {
                           if (!canConfigurePushInClient) return
@@ -577,7 +583,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Get reminded about upcoming events</p>
                       </div>
                       <Switch
-                        checked={!!(user?.preferences as any)?.eventReminders}
+                        checked={getBooleanPreference("eventReminders")}
                         onCheckedChange={(checked) => handlePreferenceChange("eventReminders", checked)}
                       />
                     </div>
@@ -590,7 +596,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Stay updated with community posts and discussions</p>
                       </div>
                       <Switch
-                        checked={(user?.preferences as any)?.communityUpdates ?? true}
+                        checked={getBooleanPreference("communityUpdates", true)}
                         onCheckedChange={(checked) => handlePreferenceChange("communityUpdates", checked)}
                       />
                     </div>
@@ -603,7 +609,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Get notified when you receive new messages</p>
                       </div>
                       <Switch
-                        checked={(user?.preferences as any)?.messageNotifications ?? true}
+                        checked={getBooleanPreference("messageNotifications", true)}
                         onCheckedChange={(checked) => handlePreferenceChange("messageNotifications", checked)}
                       />
                     </div>
@@ -627,7 +633,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Make your profile visible to other users</p>
                       </div>
                       <Switch
-                        checked={(user?.preferences as any)?.profileVisibility ?? true}
+                        checked={getBooleanPreference("profileVisibility", true)}
                         onCheckedChange={(checked) => handlePreferenceChange("profileVisibility", checked)}
                       />
                     </div>
@@ -640,7 +646,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Let others see when you're online</p>
                       </div>
                       <Switch
-                        checked={(user?.preferences as any)?.showOnlineStatus ?? true}
+                        checked={getBooleanPreference("showOnlineStatus", true)}
                         onCheckedChange={(checked) => handlePreferenceChange("showOnlineStatus", checked)}
                       />
                     </div>
@@ -653,7 +659,7 @@ export default function AccountPage() {
                         <p className="text-sm text-gray-600">Show events you've attended on your profile</p>
                       </div>
                       <Switch
-                        checked={(user?.preferences as any)?.eventHistory ?? true}
+                        checked={getBooleanPreference("eventHistory", true)}
                         onCheckedChange={(checked) => handlePreferenceChange("eventHistory", checked)}
                       />
                     </div>

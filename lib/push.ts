@@ -16,6 +16,9 @@ type StoredPushSubscription = {
   expirationTime: Date | null
 }
 
+type PushSendSubscription = Parameters<typeof webpush.sendNotification>[0]
+type WebPushErrorWithStatus = Error & { statusCode?: number }
+
 function getVapidConfig() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY
   const privateKey = process.env.VAPID_PRIVATE_KEY
@@ -39,7 +42,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   const cfg = getVapidConfig()
   if (!cfg) return
 
-  const subs: StoredPushSubscription[] = await (prisma as any).pushSubscription.findMany({
+  const subs: StoredPushSubscription[] = await prisma.pushSubscription.findMany({
     where: { userId },
     select: { id: true, endpoint: true, p256dh: true, auth: true, expirationTime: true },
   })
@@ -55,19 +58,22 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   await Promise.all(
     subs.map(async (s: StoredPushSubscription) => {
       try {
+        const subscription: PushSendSubscription = {
+          endpoint: s.endpoint,
+          keys: { p256dh: s.p256dh, auth: s.auth },
+          expirationTime: s.expirationTime ? s.expirationTime.getTime() : undefined,
+        }
+
         await webpush.sendNotification(
-          {
-            endpoint: s.endpoint,
-            keys: { p256dh: s.p256dh, auth: s.auth },
-            expirationTime: s.expirationTime ? new Date(s.expirationTime).getTime() : undefined,
-          } as any,
+          subscription,
           message,
         )
-      } catch (err: any) {
-        const statusCode = err?.statusCode
+      } catch (err) {
+        const error = err as WebPushErrorWithStatus
+        const statusCode = error.statusCode
         if (statusCode === 404 || statusCode === 410) {
           try {
-            await (prisma as any).pushSubscription.delete({ where: { id: s.id } })
+            await prisma.pushSubscription.delete({ where: { id: s.id } })
           } catch {
             // ignore
           }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { RefreshCcw, Search } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
 
 type AuditLog = {
   id: string
@@ -23,9 +24,9 @@ type AuditLog = {
   action: string
   entityType: string
   entityId: string
-  before: any
-  after: any
-  metadata: any
+  before: unknown
+  after: unknown
+  metadata: unknown
 }
 
 type AuditLogsResponse = {
@@ -59,25 +60,25 @@ export default function AdminAuditLogsPage() {
     return params.toString()
   }, [action, entityType, from, page, q, to])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/admin/audit-logs?${query}`, { credentials: "include", cache: "no-store" })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to load audit logs")
-      setData(json as AuditLogsResponse)
+      const json = await readJsonOrNull<AuditLogsResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Failed to load audit logs"))
+      setData(json)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load audit logs")
       setData(null)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [query])
 
   useEffect(() => {
     void load()
-  }, [query])
+  }, [load])
 
   const canPrev = page > 1
   const canNext = data ? page * data.pageSize < data.total : false

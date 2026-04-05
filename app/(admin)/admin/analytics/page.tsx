@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { RefreshCcw } from "lucide-react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 
@@ -15,12 +15,20 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
 
 type AnalyticsResponse = {
   rangeDays: number
   currency: string
   totals: { users: number; events: number; reports: number; revenue: number }
   series: Array<{ day: string; users: number; events: number; reports: number; revenue: number }>
+}
+
+const RANGE_OPTIONS = ["7", "30", "90", "180"] as const
+type RangeDays = (typeof RANGE_OPTIONS)[number]
+
+function isRangeDays(value: string): value is RangeDays {
+  return RANGE_OPTIONS.some((option) => option === value)
 }
 
 function formatMoney(amountMinor: number, currency: string) {
@@ -36,7 +44,7 @@ function formatDay(value: string) {
 }
 
 export default function AdminAnalyticsPage() {
-  const [rangeDays, setRangeDays] = useState<"7" | "30" | "90" | "180">("30")
+  const [rangeDays, setRangeDays] = useState<RangeDays>("30")
   const [data, setData] = useState<AnalyticsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,25 +55,25 @@ export default function AdminAnalyticsPage() {
     return params.toString()
   }, [rangeDays])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/admin/analytics?${query}`, { credentials: "include", cache: "no-store" })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to load analytics")
-      setData(json as AnalyticsResponse)
+      const json = await readJsonOrNull<AnalyticsResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Failed to load analytics"))
+      setData(json)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load analytics")
       setData(null)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [query])
 
   useEffect(() => {
     void load()
-  }, [query])
+  }, [load])
 
   const totals = data?.totals
   const series = data?.series ?? []
@@ -80,7 +88,12 @@ export default function AdminAnalyticsPage() {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-44">
-            <Select value={rangeDays} onValueChange={(v) => setRangeDays(v as any)}>
+            <Select
+              value={rangeDays}
+              onValueChange={(value) => {
+                if (isRangeDays(value)) setRangeDays(value)
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Range" />
               </SelectTrigger>

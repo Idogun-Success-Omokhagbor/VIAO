@@ -22,7 +22,7 @@ function sanitizeIcsText(value: string) {
     .replace(/\\/g, "\\\\")
     .replace(/\r?\n/g, "\\n")
     .replace(/,/g, "\\,")
-    .replace(/;/g, "\\;")
+    .replace(/;/g, "\\;");
 }
 
 function toSafeFilename(value: string) {
@@ -30,7 +30,8 @@ function toSafeFilename(value: string) {
   return `${base || "event"}.ics`
 }
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
 
   try {

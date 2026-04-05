@@ -1,6 +1,6 @@
 "use client"
 
-type Listener = (data: any) => void
+type Listener = (data: unknown) => void
 
 interface WsOptions {
   userId: string

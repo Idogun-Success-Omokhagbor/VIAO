@@ -1,5 +1,6 @@
 "use client"
 
+import { AppImage } from "@/components/ui/app-image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -80,7 +81,14 @@ export function ExploreSection() {
             {featuredEvents.map((event) => (
               <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="relative">
-                  <img src={event.image || "/placeholder.svg"} alt={event.title} className="w-full h-48 object-cover" />
+                  <AppImage
+                    src={event.image}
+                    alt={event.title}
+                    width={800}
+                    height={384}
+                    sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                    className="w-full h-48 object-cover"
+                  />
                   <Badge className="absolute top-3 left-3 bg-white text-gray-900">{event.category}</Badge>
                   <div className="absolute top-3 right-3 bg-black/50 text-white px-2 py-1 rounded text-sm">
                     {event.price}

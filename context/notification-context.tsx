@@ -1,6 +1,7 @@
 "use client"
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react"
+import { useAuth } from "@/context/auth-context"
 
 export type NotificationItem = {
   id: string
@@ -31,37 +32,49 @@ export function useNotifications() {
 const POLL_MS = 10000
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const seenIdsRef = useRef<Set<string>>(new Set())
-  const lastFetchRef = useRef<number>(0)
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
+    if (!user?.id) return
     try {
       const res = await fetch("/api/notifications?limit=50", { credentials: "include", cache: "no-store" })
       if (!res.ok) return
       const data = (await res.json()) as { notifications: NotificationItem[]; unreadCount: number }
-      const incomingIds = new Set(data.notifications.map((n) => n.id))
-      const newOnes = data.notifications.filter((n) => !seenIdsRef.current.has(n.id))
-
       data.notifications.forEach((n) => seenIdsRef.current.add(n.id))
       setNotifications(data.notifications)
       setUnreadCount(data.unreadCount)
-      lastFetchRef.current = Date.now()
     } catch {
       // silent fail
     }
-  }
+  }, [user?.id])
 
   useEffect(() => {
-    void refresh()
-    const interval = setInterval(() => {
-      void refresh()
-    }, POLL_MS)
-    return () => clearInterval(interval)
-  }, [])
+    if (!user) {
+      seenIdsRef.current = new Set()
+      setNotifications([])
+      setUnreadCount(0)
+      return
+    }
 
-  const markAsRead = async (ids: string[]) => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "hidden") return
+      void refresh()
+    }
+
+    refreshIfVisible()
+    const interval = setInterval(refreshIfVisible, POLL_MS)
+    document.addEventListener("visibilitychange", refreshIfVisible)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", refreshIfVisible)
+    }
+  }, [refresh, user])
+
+  const markAsRead = useCallback(async (ids: string[]) => {
     if (!ids.length) return
     try {
       await fetch("/api/notifications", {
@@ -70,17 +83,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         credentials: "include",
         body: JSON.stringify({ ids }),
       })
-      setNotifications((prev) => prev.map((n) => (ids.includes(n.id) ? { ...n, readAt: new Date().toISOString() } : n)))
-      setUnreadCount((prev) => {
-        const newlyRead = notifications.filter((n) => ids.includes(n.id) && !n.readAt).length
-        return Math.max(0, prev - newlyRead)
-      })
+      setNotifications((prev) =>
+        {
+          let newlyRead = 0
+          const next = prev.map((n) => {
+            if (!ids.includes(n.id) || n.readAt) return n
+            newlyRead += 1
+            return { ...n, readAt: new Date().toISOString() }
+          })
+
+          if (newlyRead > 0) {
+            setUnreadCount((count) => Math.max(0, count - newlyRead))
+          }
+
+          return next
+        },
+      )
     } catch {
       // silent
     }
-  }
+  }, [])
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     try {
       await fetch("/api/notifications", {
         method: "POST",
@@ -93,7 +117,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     } catch {
       // silent
     }
-  }
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -103,7 +127,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       markAllAsRead,
       refresh,
     }),
-    [notifications, unreadCount],
+    [markAllAsRead, markAsRead, notifications, refresh, unreadCount],
   )
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>

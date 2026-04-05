@@ -12,7 +12,8 @@ const sendSchema = z.object({
   content: z.string().min(1),
 })
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   ensureWSServer()
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -30,13 +31,13 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     })
     if (!conversation) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    const participant = await (prisma.conversationParticipant as any).findFirst({
+    const participant = await prisma.conversationParticipant.findFirst({
       where: { conversationId: params.id, userId: session.sub },
       select: { clearedAt: true, hiddenAt: true },
     })
 
-    const clearedAt = (participant as any)?.clearedAt ? new Date((participant as any).clearedAt) : null
-    const hiddenAt = (participant as any)?.hiddenAt ? new Date((participant as any).hiddenAt) : null
+    const clearedAt = participant?.clearedAt ? new Date(participant.clearedAt) : null
+    const hiddenAt = participant?.hiddenAt ? new Date(participant.hiddenAt) : null
     const threshold = clearedAt && hiddenAt ? (clearedAt > hiddenAt ? clearedAt : hiddenAt) : clearedAt ?? hiddenAt
 
     const messages = await prisma.message.findMany({
@@ -89,7 +90,8 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   }
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   ensureWSServer()
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -108,7 +110,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "Conversation is pending. Wait for acceptance." }, { status: 403 })
     }
 
-    await (prisma.conversationParticipant as any).updateMany({
+    await prisma.conversationParticipant.updateMany({
       where: { conversationId: params.id, userId: session.sub },
       data: { hiddenAt: null, clearedAt: null },
     })

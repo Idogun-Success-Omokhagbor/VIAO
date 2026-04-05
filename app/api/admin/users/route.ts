@@ -1,4 +1,7 @@
+import { Prisma, Role } from "@prisma/client"
 import { NextResponse } from "next/server"
+import { z } from "zod"
+
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 
@@ -12,7 +15,14 @@ function badRequest(message: string) {
 
 const VALID_ROLES = new Set(["USER", "ORGANIZER", "ADMIN"])
 
-type Role = "USER" | "ORGANIZER" | "ADMIN"
+const updateUserRoleSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(["USER", "ORGANIZER", "ADMIN"]),
+})
+
+const deleteUserSchema = z.object({
+  userId: z.string().min(1),
+})
 
 export async function GET(req: Request) {
   const session = await getSessionUser()
@@ -26,10 +36,10 @@ export async function GET(req: Request) {
   const pageSizeRaw = Number(url.searchParams.get("pageSize") || 50) || 50
   const pageSize = Math.max(1, Math.min(200, pageSizeRaw))
 
-  const where: any = {}
+  const where: Prisma.UserWhereInput = {}
 
   if (role && VALID_ROLES.has(role)) {
-    where.role = role
+    where.role = role as Role
   }
 
   if (q) {
@@ -76,12 +86,15 @@ export async function PATCH(req: Request) {
   const session = await getSessionUser()
   if (!session || session.role !== "ADMIN") return forbidden()
 
-  const body = (await req.json().catch(() => null)) as any
-  const userId = typeof body?.userId === "string" ? body.userId : ""
-  const nextRole = typeof body?.role === "string" ? body.role.toUpperCase() : ""
+  const body = await req.json().catch(() => null)
+  const parsed = updateUserRoleSchema.safeParse(
+    body && typeof body === "object" && "role" in body && typeof body.role === "string"
+      ? { ...body, role: body.role.toUpperCase() }
+      : body,
+  )
+  if (!parsed.success) return badRequest("Invalid role")
 
-  if (!userId) return badRequest("Missing userId")
-  if (!VALID_ROLES.has(nextRole)) return badRequest("Invalid role")
+  const { userId, role: nextRole } = parsed.data
 
   const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, email: true } })
   if (!target) {
@@ -127,9 +140,10 @@ export async function DELETE(req: Request) {
   const session = await getSessionUser()
   if (!session || session.role !== "ADMIN") return forbidden()
 
-  const body = (await req.json().catch(() => null)) as any
-  const userId = typeof body?.userId === "string" ? body.userId : ""
-  if (!userId) return badRequest("Missing userId")
+  const body = await req.json().catch(() => null)
+  const parsed = deleteUserSchema.safeParse(body)
+  if (!parsed.success) return badRequest("Missing userId")
+  const { userId } = parsed.data
 
   if (userId === session.sub) {
     return badRequest("Cannot delete your own account")

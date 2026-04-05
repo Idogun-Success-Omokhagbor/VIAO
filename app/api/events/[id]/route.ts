@@ -2,112 +2,65 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { Prisma } from "@prisma/client"
 
+import { toPrismaEventStatus } from "@/lib/event-enums"
+import { eventClientInclude, mapEventForClient } from "@/lib/event-response"
+import { storedImageInputSchema } from "@/lib/image-schemas"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 
+const dateTimeStringSchema = z.string().refine((value) => !Number.isNaN(Date.parse(value)), "Invalid date")
+
 const eventUpdateSchema = z.object({
-  title: z.string().min(1).optional(),
-  description: z.string().min(1).optional(),
-  date: z.string().optional(), // ISO
-  time: z.string().optional(),
-  location: z.string().min(1).optional(),
-  startsAt: z.string().optional().nullable(),
-  endsAt: z.string().optional().nullable(),
-  city: z.string().optional().nullable(),
-  venue: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  lat: z.number().optional().nullable(),
-  lng: z.number().optional().nullable(),
-  category: z.string().min(1).optional(),
-  imageUrl: z.string().optional().or(z.literal("")),
-  imageUrls: z.array(z.string().min(1)).max(5).optional(),
-  price: z.number().int().optional().nullable(),
+  title: z.string().min(1).max(100).optional(),
+  description: z.string().min(1).max(500).optional(),
+  date: dateTimeStringSchema.optional(),
+  time: z.string().max(50).optional(),
+  location: z.string().min(1).max(200).optional(),
+  startsAt: dateTimeStringSchema.optional().nullable(),
+  endsAt: dateTimeStringSchema.optional().nullable(),
+  city: z.string().max(120).optional().nullable(),
+  venue: z.string().max(120).optional().nullable(),
+  address: z.string().max(200).optional().nullable(),
+  lat: z.number().finite().gte(-90).lte(90).optional().nullable(),
+  lng: z.number().finite().gte(-180).lte(180).optional().nullable(),
+  category: z.string().min(1).max(80).optional(),
+  imageUrl: storedImageInputSchema.optional().or(z.literal("")),
+  imageUrls: z.array(storedImageInputSchema).max(5).optional(),
+  price: z.number().int().nonnegative().optional().nullable(),
   maxAttendees: z.number().int().positive().optional().nullable(),
   isBoosted: z.boolean().optional(),
-  boostUntil: z.string().optional().nullable(),
+  boostUntil: dateTimeStringSchema.optional().nullable(),
   status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
   isCancelled: z.boolean().optional(),
 })
 
-function mapEvent(event: any, sessionUserId?: string) {
-  const safeImageUrl =
-    typeof event.imageUrl === "string" && event.imageUrl.startsWith("data:")
-      ? `/api/events/${event.id}/image`
-      : (event.imageUrl ?? null)
-  const safeImageUrls = Array.isArray(event.imageUrls)
-    ? event.imageUrls
-        .map((u: unknown, idx: number) =>
-          typeof u === "string" && u.startsWith("data:") ? `/api/events/${event.id}/image?index=${idx}` : u,
-        )
-        .filter((u: unknown) => typeof u === "string" && u.length > 0)
-    : []
-  const isBoostExpired = event.boostUntil ? event.boostUntil.getTime() <= Date.now() : false
-  const storedBoostLevel = typeof event.boostLevel === "number" ? event.boostLevel : null
-  const effectiveBoostLevel = isBoostExpired ? 0 : storedBoostLevel && storedBoostLevel > 0 ? storedBoostLevel : event.isBoosted ? 1 : 0
-  const rsvp = sessionUserId ? (event.rsvps?.find((r: any) => r.userId === sessionUserId) ?? null) : null
-  const isSaved = sessionUserId ? (event.saves?.some((s: any) => s.userId === sessionUserId) ?? false) : false
-  const attendeesCount = Array.isArray(event.rsvps) ? event.rsvps.filter((r: any) => r.status === "GOING").length : 0
-  return {
-    id: event.id,
-    title: event.title,
-    description: event.description,
-    date: event.date.toISOString(),
-    time: event.timeLabel ?? undefined,
-    location: event.location,
-    startsAt: event.startsAt ? event.startsAt.toISOString() : null,
-    endsAt: event.endsAt ? event.endsAt.toISOString() : null,
-    city: event.city ?? null,
-    venue: event.venue ?? null,
-    address: event.address ?? null,
-    lat: event.lat ?? null,
-    lng: event.lng ?? null,
-    status: event.status,
-    isCancelled: event.isCancelled ?? false,
-    cancelledAt: event.cancelledAt ? event.cancelledAt.toISOString() : null,
-    category: event.category,
-    imageUrl: safeImageUrl,
-    imageUrls: safeImageUrls,
-    price: event.price ?? null,
-    isBoosted: isBoostExpired ? false : event.isBoosted,
-    boostLevel: effectiveBoostLevel,
-    boostUntil: isBoostExpired ? null : event.boostUntil ? event.boostUntil.toISOString() : null,
-    maxAttendees: event.maxAttendees ?? null,
-    organizerId: event.organizerId,
-    organizerName: event.organizer?.name,
-    organizerAvatarUrl: event.organizer?.avatarUrl ?? null,
-    attendeesCount,
-    isGoing: rsvp ? rsvp.status === "GOING" : false,
-    rsvpStatus: rsvp ? (rsvp.status as any) : null,
-    isSaved,
-    createdAt: event.createdAt.toISOString(),
-    updatedAt: event.updatedAt.toISOString(),
-  }
-}
-
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const session = await getSessionUser()
     const event = await prisma.event.findUnique({
       where: { id: params.id },
-      include: { organizer: true, rsvps: true, saves: true },
+      include: eventClientInclude,
     })
     if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 })
     if (event.status === "DRAFT" && event.organizerId !== session?.sub) {
       return NextResponse.json({ error: "Not found" }, { status: 404 })
     }
-    return NextResponse.json({ event: mapEvent(event, session?.sub) })
+    return NextResponse.json({ event: mapEventForClient(event, session?.sub) })
   } catch (error) {
     console.error("GET /api/events/[id] error:", error)
     return NextResponse.json({ error: "Failed to fetch event" }, { status: 500 })
   }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.role !== "ORGANIZER") return NextResponse.json({ error: "Only organizers can edit events" }, { status: 403 })
 
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid event data" }, { status: 400 })
   const parsed = eventUpdateSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Invalid event data" }, { status: 400 })
 
@@ -148,6 +101,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     const startsAt = data.startsAt ? new Date(data.startsAt) : data.startsAt === null ? null : undefined
     const endsAt = data.endsAt ? new Date(data.endsAt) : data.endsAt === null ? null : undefined
+    if (startsAt && endsAt && endsAt.getTime() < startsAt.getTime()) {
+      return NextResponse.json({ error: "Event end time must be after the start time" }, { status: 400 })
+    }
 
     const updateData: Prisma.EventUpdateInput = {
       title: data.title,
@@ -162,7 +118,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       address: data.address ?? undefined,
       lat: data.lat ?? undefined,
       lng: data.lng ?? undefined,
-      status: data.status as any,
+      status: toPrismaEventStatus(data.status),
       isCancelled: data.isCancelled,
       cancelledAt: data.isCancelled === true ? new Date() : data.isCancelled === false ? null : undefined,
       category: data.category,
@@ -177,17 +133,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const updated = await prisma.event.update({
       where: { id: params.id },
       data: updateData,
-      include: { organizer: true, rsvps: true, saves: true },
+      include: eventClientInclude,
     })
 
-    return NextResponse.json({ event: mapEvent(updated, session.sub) })
+    return NextResponse.json({ event: mapEventForClient(updated, session.sub) })
   } catch (error) {
     console.error("PUT /api/events/[id] error:", error)
     return NextResponse.json({ error: "Failed to update event" }, { status: 500 })
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.role !== "ORGANIZER") return NextResponse.json({ error: "Only organizers can delete events" }, { status: 403 })

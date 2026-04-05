@@ -1,4 +1,6 @@
+import { EventReportStatus, Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
+import { z } from "zod"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
@@ -67,10 +69,11 @@ export async function GET(req: Request) {
   const pageSizeRaw = Number(url.searchParams.get("pageSize") || 25) || 25
   const pageSize = Math.max(1, Math.min(200, Math.floor(pageSizeRaw)))
 
-  const where: any = {}
+  const where: Prisma.EventReportWhereInput = {}
 
   if (statusRaw === "OPEN" || statusRaw === "REVIEWED" || statusRaw === "DISMISSED") {
-    where.status = statusRaw
+    where.status =
+      statusRaw === "OPEN" ? EventReportStatus.OPEN : statusRaw === "REVIEWED" ? EventReportStatus.REVIEWED : EventReportStatus.DISMISSED
   }
 
   if (eventId) {
@@ -119,7 +122,7 @@ export async function GET(req: Request) {
     }),
   ])
 
-  const reports = (Array.isArray(rows) ? rows : []) as AdminReportRow[]
+  const reports = rows as AdminReportRow[]
 
   return NextResponse.json({
     page,
@@ -142,20 +145,34 @@ export async function GET(req: Request) {
   })
 }
 
-type PatchAction = "SET_STATUS" | "CANCEL_EVENT"
-
 type ReportStatus = "OPEN" | "REVIEWED" | "DISMISSED"
+
+const reportStatusSchema = z.enum(["OPEN", "REVIEWED", "DISMISSED"])
+const patchSchema = z.discriminatedUnion("action", [
+  z.object({
+    reportId: z.string().min(1),
+    action: z.literal("SET_STATUS"),
+    status: reportStatusSchema,
+  }),
+  z.object({
+    reportId: z.string().min(1),
+    action: z.literal("CANCEL_EVENT"),
+  }),
+])
 
 export async function PATCH(req: Request) {
   const session = await getSessionUser()
   if (!session || session.role !== "ADMIN") return forbidden()
 
-  const body = (await req.json().catch(() => null)) as any
-  const reportId = typeof body?.reportId === "string" ? body.reportId : ""
-  const action = typeof body?.action === "string" ? (body.action.toUpperCase() as PatchAction) : ("" as PatchAction)
+  const body = await req.json().catch(() => null)
+  const parsed = patchSchema.safeParse(
+    body && typeof body === "object" && "action" in body && typeof body.action === "string"
+      ? { ...body, action: body.action.toUpperCase(), status: typeof body.status === "string" ? body.status.toUpperCase() : body.status }
+      : body,
+  )
+  if (!parsed.success) return badRequest("Invalid action")
 
-  if (!reportId) return badRequest("Missing reportId")
-  if (action !== "SET_STATUS" && action !== "CANCEL_EVENT") return badRequest("Invalid action")
+  const { reportId, action } = parsed.data
 
   const report = await prisma.eventReport.findUnique({
     where: { id: reportId },
@@ -176,8 +193,7 @@ export async function PATCH(req: Request) {
   }
 
   if (action === "SET_STATUS") {
-    const nextStatus = typeof body?.status === "string" ? (body.status.toUpperCase() as ReportStatus) : ("" as ReportStatus)
-    if (nextStatus !== "OPEN" && nextStatus !== "REVIEWED" && nextStatus !== "DISMISSED") return badRequest("Invalid status")
+    const nextStatus = parsed.data.status as ReportStatus
 
     await prisma.$transaction(async (tx) => {
       await tx.eventReport.update({ where: { id: reportId }, data: { status: nextStatus }, select: { id: true } })
@@ -193,7 +209,7 @@ export async function PATCH(req: Request) {
         select: { id: true },
       })
 
-      await (tx as any).adminAuditLog.create({
+      await tx.adminAuditLog.create({
         data: {
           adminId: session.sub,
           adminEmail: session.email,
@@ -238,7 +254,7 @@ export async function PATCH(req: Request) {
       select: { id: true },
     })
 
-    await (tx as any).adminAuditLog.create({
+    await tx.adminAuditLog.create({
       data: {
         adminId: session.sub,
         adminEmail: session.email,
@@ -252,7 +268,7 @@ export async function PATCH(req: Request) {
       select: { id: true },
     })
 
-    await (tx as any).adminAuditLog.create({
+    await tx.adminAuditLog.create({
       data: {
         adminId: session.sub,
         adminEmail: session.email,

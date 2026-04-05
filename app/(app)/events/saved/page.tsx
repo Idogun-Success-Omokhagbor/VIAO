@@ -1,17 +1,16 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
+import { AppImage } from "@/components/ui/app-image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar, MapPin, Users } from "lucide-react"
-import EventModal from "@/components/event-modal"
+import type { EventModalProps } from "@/components/event-modal"
 import type { Event } from "@/types/event"
 
-function getSafeImageSrc(src?: string | null) {
-  if (!src) return "/placeholder.svg"
-  return src
-}
+const EventModal = dynamic<EventModalProps>(() => import("@/components/event-modal"), { ssr: false })
 
 export default function SavedEventsPage() {
   const [events, setEvents] = useState<Event[]>([])
@@ -66,9 +65,12 @@ export default function SavedEventsPage() {
                     <div className="bg-gray-800 text-white text-xs font-bold py-1 px-3 text-center">CANCELLED</div>
                   )}
                   <div className="relative">
-                    <img
-                      src={getSafeImageSrc(event.imageUrls && event.imageUrls.length > 0 ? event.imageUrls[0] : event.imageUrl)}
+                    <AppImage
+                      src={event.imageUrls && event.imageUrls.length > 0 ? event.imageUrls[0] : event.imageUrl}
                       alt={event.title}
+                      width={800}
+                      height={384}
+                      sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                       className="w-full h-48 object-cover"
                     />
                     <Badge className="absolute top-2 right-2 bg-white/90 text-gray-800">{event.category}</Badge>

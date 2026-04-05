@@ -1,9 +1,11 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { AppImage } from "@/components/ui/app-image"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,16 +22,26 @@ import {
   Zap,
   Crown,
 } from "lucide-react"
+import { BOOST_PLANS_LIST } from "@/lib/boost-pricing"
+import { EVENT_FORM_CATEGORY_OPTIONS } from "@/lib/event-categories"
 import { useEvents } from "@/context/events-context"
 import { useAuth } from "@/context/auth-context"
-import PaymentModal from "./payment-modal"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
+import type { PaymentModalProps } from "./payment-modal"
 import type { Event } from "@/types/event"
 
 type SiteConfig = {
   stripeEnabled?: boolean
 }
 
-interface EventFormProps {
+type SiteConfigResponse = {
+  config?: SiteConfig
+  error?: string
+}
+
+const PaymentModal = dynamic<PaymentModalProps>(() => import("./payment-modal"), { ssr: false })
+
+export interface EventFormProps {
   onClose: () => void
   mode?: "create" | "edit"
   event?: Event
@@ -82,35 +94,14 @@ async function compressImage(file: File): Promise<File> {
   return new File([blob], outName, { type: outType })
 }
 
-const categories = [
-  { id: "Technology", label: "Technology", color: "bg-gray-100 text-gray-800 hover:bg-gray-200" },
-  { id: "Arts & Culture", label: "Arts & Culture", color: "bg-purple-100 text-purple-800 hover:bg-purple-200" },
-  { id: "Sports & Outdoors", label: "Sports & Outdoors", color: "bg-green-100 text-green-800 hover:bg-green-200" },
-  { id: "Music", label: "Music", color: "bg-pink-100 text-pink-800 hover:bg-pink-200" },
-  { id: "Food & Drink", label: "Food & Drink", color: "bg-orange-100 text-orange-800 hover:bg-orange-200" },
-  { id: "Health & Wellness", label: "Health & Wellness", color: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" },
-  { id: "Business", label: "Business", color: "bg-blue-100 text-blue-800 hover:bg-blue-200" },
-  { id: "Education", label: "Education", color: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200" },
-]
-
-const boostOptions = [
-  {
-    level: 1,
-    name: "Basic Boost",
-    price: 5,
-    duration: "24 hours",
-    features: ["Top placement", "Boost badge", "Increased visibility"],
-    color: "bg-yellow-400 text-yellow-800",
-  },
-  {
-    level: 2,
-    name: "Premium Boost",
-    price: 15,
-    duration: "72 hours",
-    features: ["All Basic features", "Crown badge", "Trending section", "Priority searches", "Social media promotion"],
-    color: "bg-gradient-to-r from-yellow-400 to-orange-500 text-white",
-  },
-]
+const boostOptions = BOOST_PLANS_LIST.map((plan) => ({
+  level: plan.level,
+  name: plan.name,
+  price: plan.amountChf,
+  duration: plan.durationLabel,
+  features: plan.features,
+  color: plan.level === 2 ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-white" : "bg-yellow-400 text-yellow-800",
+}))
 
 export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
   const { createEvent, updateEvent } = useEvents()
@@ -152,9 +143,9 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
     const load = async () => {
       try {
         const res = await fetch("/api/site-config", { cache: "no-store", credentials: "include" })
-        const json = (await res.json().catch(() => null)) as any
-        if (!res.ok) throw new Error(json?.error || "Failed to load site configuration")
-        if (!cancelled) setSiteConfig((json?.config ?? null) as SiteConfig | null)
+        const json = await readJsonOrNull<SiteConfigResponse>(res)
+        if (!res.ok) throw new Error(getErrorMessage(json, "Failed to load site configuration"))
+        if (!cancelled) setSiteConfig(json?.config ?? null)
       } catch {
         if (!cancelled) setSiteConfig(null)
       }
@@ -323,9 +314,7 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
           status: "PUBLISHED",
         })
         setCreatedEventId(created.id)
-        if (siteConfig?.stripeEnabled !== false) {
-          setShowPaymentModal(true)
-        }
+        setShowPaymentModal(true)
       } catch {
         setErrors((prev) => ({
           ...prev,
@@ -482,7 +471,7 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
                   <div>
                     <Label>Category *</Label>
                     <div className="grid grid-cols-2 gap-2 mt-2">
-                      {categories.map((category) => (
+                      {EVENT_FORM_CATEGORY_OPTIONS.map((category) => (
                         <Badge
                           key={category.id}
                           variant={formData.category === category.id ? "default" : "outline"}
@@ -592,7 +581,14 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
                       <div className="grid grid-cols-2 gap-3 mb-3">
                         {formData.imageUrls.map((url, idx) => (
                           <div key={url} className="relative">
-                            <img src={url} alt={`Event image ${idx + 1}`} className="w-full h-28 object-cover rounded-lg" />
+                            <AppImage
+                              src={url}
+                              alt={`Event image ${idx + 1}`}
+                              width={320}
+                              height={224}
+                              sizes="(min-width: 768px) 25vw, 50vw"
+                              className="w-full h-28 object-cover rounded-lg"
+                            />
                             <Button
                               variant="ghost"
                               size="icon"
@@ -682,7 +678,7 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
                                   )}
                                   {option.name}
                                 </Badge>
-                                <span className="font-semibold text-lg">${option.price}</span>
+                                <span className="font-semibold text-lg">CHF {option.price}</span>
                               </div>
                               <span className="text-sm text-gray-600">{option.duration}</span>
                             </div>
@@ -708,10 +704,12 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
                     <CardHeader className="p-0">
                       <div className="h-32 bg-gradient-to-br from-purple-400 to-blue-500 rounded-t-lg relative">
                         {formData.imageUrls.length > 0 ? (
-                          <img
-                            src={formData.imageUrls[0] || "/placeholder.svg"}
+                          <AppImage
+                            src={formData.imageUrls[0]}
                             alt="Event preview"
-                            className="w-full h-full object-cover rounded-t-lg"
+                            fill
+                            sizes="100vw"
+                            className="object-cover rounded-t-lg"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
@@ -735,7 +733,7 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
 
                         <div className="absolute top-2 right-2">
                           <Badge variant="secondary" className="bg-white/90 text-gray-800">
-                            {categories.find((c) => c.id === formData.category)?.label || "Category"}
+                            {EVENT_FORM_CATEGORY_OPTIONS.find((c) => c.id === formData.category)?.label || "Category"}
                           </Badge>
                         </div>
                         <div className="absolute bottom-2 right-2">
@@ -743,7 +741,7 @@ export function EventForm({ onClose, mode = "create", event }: EventFormProps) {
                             variant={formData.price === 0 ? "default" : "secondary"}
                             className={formData.price === 0 ? "bg-green-600" : "bg-blue-600"}
                           >
-                            {formData.price === 0 ? "Free" : `$${formData.price.toFixed(2)}`}
+                            {formData.price === 0 ? "Free" : `CHF ${formData.price.toFixed(2)}`}
                           </Badge>
                         </div>
                       </div>

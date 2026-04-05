@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma"
 
 export const runtime = "nodejs"
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const postId = params.id
   if (!postId) return NextResponse.json({ error: "Missing post id" }, { status: 400 })
 

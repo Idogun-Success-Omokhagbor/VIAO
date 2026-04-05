@@ -21,7 +21,7 @@ type AdminSettings = z.infer<typeof settingsSchema>
 
 function getSettingsFromPreferences(preferences: unknown): AdminSettings {
   if (!preferences || typeof preferences !== "object") return {}
-  const raw = (preferences as any).adminSettings
+  const raw = "adminSettings" in preferences ? preferences.adminSettings : undefined
   const parsed = settingsSchema.safeParse(raw)
   return parsed.success ? parsed.data : {}
 }
@@ -55,8 +55,13 @@ export async function PATCH(req: Request) {
     ...parsed.data,
   }
 
+  const currentPrefsObject =
+    currentPrefs && typeof currentPrefs === "object" && !Array.isArray(currentPrefs)
+      ? (currentPrefs as Record<string, unknown>)
+      : {}
+
   const nextPrefs = {
-    ...(typeof currentPrefs === "object" && currentPrefs ? (currentPrefs as any) : {}),
+    ...currentPrefsObject,
     adminSettings: nextSettings,
   }
 

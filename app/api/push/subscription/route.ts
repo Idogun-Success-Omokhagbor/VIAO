@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
     const expirationTime = parsed.data.expirationTime ? new Date(parsed.data.expirationTime) : null
 
-    const saved = await (prisma as any).pushSubscription.upsert({
+    const saved = await prisma.pushSubscription.upsert({
       where: { endpoint: parsed.data.endpoint },
       create: {
         userId: session.sub,
@@ -56,7 +56,7 @@ export async function DELETE() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
-    await (prisma as any).pushSubscription.deleteMany({ where: { userId: session.sub } })
+    await prisma.pushSubscription.deleteMany({ where: { userId: session.sub } })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("DELETE /api/push/subscription error:", error)

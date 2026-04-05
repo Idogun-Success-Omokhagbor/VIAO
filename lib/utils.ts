@@ -51,7 +51,18 @@ export function formatTimeAgo(timestamp: string | Date): string {
   return `${Math.floor(diffInMinutes / 1440)}d ago`
 }
 
-export function getLocationString(location: any): string {
+type LocationLike = {
+  address?: unknown
+  name?: unknown
+  city?: unknown
+  country?: unknown
+  coordinates?: {
+    lat?: unknown
+    lng?: unknown
+  }
+}
+
+export function getLocationString(location: unknown): string {
   if (!location) {
     return "Location TBD"
   }
@@ -61,21 +72,22 @@ export function getLocationString(location: any): string {
   }
 
   if (typeof location === "object") {
+    const value = location as LocationLike
     // Handle different location object structures
-    if (location.address) {
-      return location.address
+    if (typeof value.address === "string" && value.address.length > 0) {
+      return value.address
     }
 
-    if (location.name) {
-      return location.name
+    if (typeof value.name === "string" && value.name.length > 0) {
+      return value.name
     }
 
-    if (location.city && location.country) {
-      return `${location.city}, ${location.country}`
+    if (typeof value.city === "string" && typeof value.country === "string") {
+      return `${value.city}, ${value.country}`
     }
 
-    if (location.coordinates && location.coordinates.lat && location.coordinates.lng) {
-      return `${location.coordinates.lat.toFixed(4)}, ${location.coordinates.lng.toFixed(4)}`
+    if (typeof value.coordinates?.lat === "number" && typeof value.coordinates.lng === "number") {
+      return `${value.coordinates.lat.toFixed(4)}, ${value.coordinates.lng.toFixed(4)}`
     }
 
     // Fallback - don't use JSON.stringify as it can cause rendering issues
@@ -161,7 +173,7 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
-export function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+export function debounce<T extends (...args: never[]) => unknown>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null
 
   return (...args: Parameters<T>) => {
@@ -199,6 +211,15 @@ export function formatBoostCountdown(boostUntil?: string | null, nowMs: number =
   if (hours <= 0) return `${minutes}m`
   if (minutes <= 0) return `${hours}h`
   return `${hours}h ${minutes}m`
+}
+
+export function getBoostCountdownToneClass(boostUntil: string | null | undefined, nowMs: number = Date.now()): string {
+  if (!boostUntil) return "bg-white/90 text-gray-900"
+  const remainingMs = new Date(boostUntil).getTime() - nowMs
+  const remainingHours = remainingMs / 3_600_000
+  if (remainingHours > 30) return "bg-emerald-600 text-white"
+  if (remainingHours > 15) return "bg-amber-400 text-amber-950"
+  return "bg-red-600 text-white"
 }
 
 export function getRandomColor(): string {

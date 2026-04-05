@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { X, Zap, Crown, Check } from "lucide-react"
+import { getBoostPlan } from "@/lib/boost-pricing"
 
 type SiteConfig = {
   stripeEnabled?: boolean
@@ -21,7 +22,7 @@ function getErrorMessage(payload: unknown): string | undefined {
   return typeof msg === "string" ? msg : undefined
 }
 
-interface PaymentModalProps {
+export interface PaymentModalProps {
   isOpen: boolean
   onClose: () => void
   eventId: string
@@ -58,8 +59,9 @@ export default function PaymentModal({ isOpen, onClose, eventId, eventTitle, boo
   if (!isOpen) return null
 
   const effectiveLevel: 1 | 2 = boostLevel === 0 ? selectedLevel : boostLevel === 2 ? 2 : 1
-  const boostPrice = effectiveLevel === 1 ? 5 : 15
-  const boostName = effectiveLevel === 1 ? "Basic Boost" : "Premium Boost"
+  const boostPlan = getBoostPlan(effectiveLevel)
+  const boostPrice = boostPlan.amountChf
+  const boostName = boostPlan.name
 
   const boostingEnabled = siteConfig?.stripeEnabled !== false
 

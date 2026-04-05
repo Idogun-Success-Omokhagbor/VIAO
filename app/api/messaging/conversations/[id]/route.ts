@@ -5,7 +5,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -18,7 +19,7 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     if (!conversation) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
     const hiddenAt = new Date()
-    await (prisma.conversationParticipant as any).updateMany({
+    await prisma.conversationParticipant.updateMany({
       where: { conversationId: params.id, userId: session.sub },
       data: { hiddenAt },
     })

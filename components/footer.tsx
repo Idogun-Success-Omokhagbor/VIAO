@@ -1,133 +1,122 @@
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from "lucide-react"
+import { ArrowRight, Mail, MapPin } from "lucide-react"
+
+import { BrandLockup } from "@/components/brand-logo"
+
+const exploreLinks = [
+  { href: "/#featured", label: "Browse public events" },
+  { href: "/about", label: "About Viao" },
+  { href: "/contact", label: "Contact" },
+]
+
+const supportLinks = [
+  { href: "/support", label: "Support" },
+  { href: "/privacy", label: "Privacy" },
+  { href: "/terms", label: "Terms" },
+]
 
 export function Footer() {
+  const currentYear = new Date().getFullYear()
+
   return (
-    <footer className="bg-gray-900 text-white">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Company Info */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">V</span>
+    <footer className="border-t border-[#ece4ff] bg-[radial-gradient(circle_at_top,#f7f2ff,transparent_28%),linear-gradient(180deg,#fcfaff_0%,#f7f3ff_100%)]">
+      <div className="mx-auto max-w-7xl px-6 py-12 lg:py-16">
+        <div className="overflow-hidden rounded-[36px] border border-[#ebe2ff] bg-white/92 shadow-[0_24px_70px_rgba(101,73,214,0.08)] backdrop-blur-xl">
+          <div className="grid gap-10 px-8 py-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:px-10 lg:py-12">
+            <div className="space-y-6">
+              <BrandLockup
+                className="items-start"
+                iconSize={42}
+                titleClassName="text-xl font-semibold text-[#24154b]"
+                subtitleClassName="text-[11px] tracking-[0.24em] text-[#887ab8]"
+              />
+              <div className="max-w-xl space-y-3">
+                <p className="text-lg font-semibold tracking-[-0.02em] text-[#24154b]">
+                  Browse local events without clutter, then join when the plan is worth keeping.
+                </p>
+                <p className="text-sm leading-7 text-[#6a5f8f] sm:text-[15px]">
+                  The public experience should feel honest: enough detail to judge the plan, clear next steps, and an
+                  account ask only when it unlocks something useful.
+                </p>
               </div>
-              <span className="font-bold text-xl">Viao</span>
-            </div>
-            <p className="text-gray-300 text-sm">
-              Switzerland's premier platform for discovering and creating amazing events. Connect with your community
-              and make every moment count.
-            </p>
-            <div className="flex space-x-4">
-              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                <Facebook className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                <Twitter className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                <Instagram className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                <Linkedin className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Quick Links */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg">Quick Links</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/events" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Browse Events
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/#featured"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#5d3df5] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#4e31d7]"
+                >
+                  Browse events
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
-              </li>
-              <li>
-                <Link href="/community" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Community
+                <Link
+                  href="/signup"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddd0ff] bg-white px-5 py-3 text-sm font-semibold text-[#4f3a96] transition-colors hover:border-[#c9b8ff] hover:text-[#3f2e82]"
+                >
+                  Create account
                 </Link>
-              </li>
-              <li>
-                <Link href="/about" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Contact
-                </Link>
-              </li>
-              <li>
-                <Link href="/support" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Support
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* For Organizers */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg">Legal</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/privacy" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="text-gray-300 hover:text-white text-sm transition-colors">
-                  Terms of Service
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact & Newsletter */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg">Stay Connected</h3>
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2 text-sm text-gray-300">
-                <Mail className="h-4 w-4" />
-                <span>hello@viao.ch</span>
-              </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-300">
-                <Phone className="h-4 w-4" />
-                <span>+41 44 123 45 67</span>
-              </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-300">
-                <MapPin className="h-4 w-4" />
-                <span>Zurich, Switzerland</span>
               </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm text-gray-300">Subscribe to our newsletter</p>
-              <div className="flex space-x-2">
-                <Input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-400"
-                />
-                <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
-                  Subscribe
-                </Button>
+
+            <div className="grid gap-8 sm:grid-cols-3">
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-[#887ab8]">Explore</h3>
+                <div className="space-y-3">
+                  {exploreLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="block text-sm font-medium text-[#4f4379] transition-colors hover:text-[#4f33d8]"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-[#887ab8]">Help</h3>
+                <div className="space-y-3">
+                  {supportLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="block text-sm font-medium text-[#4f4379] transition-colors hover:text-[#4f33d8]"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-[#887ab8]">Contact</h3>
+                <div className="space-y-3 text-sm leading-7 text-[#6a5f8f]">
+                  <a
+                    href="mailto:hello@viao.ch"
+                    className="flex items-center gap-2 font-medium text-[#4f4379] transition-colors hover:text-[#4f33d8]"
+                  >
+                    <Mail className="h-4 w-4 text-[#7d68ff]" />
+                    hello@viao.ch
+                  </a>
+                  <div className="flex items-start gap-2">
+                    <MapPin className="mt-1 h-4 w-4 text-[#7d68ff]" />
+                    <span>Zurich, Switzerland</span>
+                  </div>
+                  <p>
+                    Prefer support over guesswork? Use the{" "}
+                    <Link href="/contact" className="font-medium text-[#4f33d8] hover:text-[#3f2ac5]">
+                      contact page
+                    </Link>{" "}
+                    and we&apos;ll route it properly.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <p className="text-gray-400 text-sm">© 2024 Viao. All rights reserved.</p>
-            <div className="flex space-x-6">
-              <Link href="/privacy" className="text-gray-400 hover:text-white text-sm transition-colors">
-                Privacy Policy
-              </Link>
-              <Link href="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">
-                Terms of Service
-              </Link>
+          <div className="border-t border-[#efe7ff] px-8 py-5 lg:px-10">
+            <div className="flex flex-col gap-3 text-sm text-[#7a6ea5] lg:flex-row lg:items-center lg:justify-between">
+              <p>&copy; {currentYear} Viao. Built for finding nearby plans that feel worth leaving home for.</p>
+              <p>Public browsing stays open. Accounts unlock saving, RSVPs, and direct organizer messages.</p>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 declare global {
   interface Window {
-    google?: any
+    google?: typeof google
     SpeechRecognition: typeof SpeechRecognition
     webkitSpeechRecognition: typeof SpeechRecognition
     speechSynthesis: SpeechSynthesis
@@ -68,7 +68,7 @@ declare namespace google {
 
     class Marker {
       constructor(opts?: MarkerOptions)
-      addListener(eventName: string, handler: Function): void
+      addListener(eventName: string, handler: (...args: unknown[]) => void): void
     }
 
     class InfoWindow {

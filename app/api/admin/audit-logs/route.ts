@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
@@ -21,9 +22,9 @@ type AuditLogRow = {
   action: string
   entityType: string
   entityId: string
-  before: any
-  after: any
-  metadata: any
+  before: Prisma.JsonValue | null
+  after: Prisma.JsonValue | null
+  metadata: Prisma.JsonValue | null
 }
 
 export async function GET(req: Request) {
@@ -57,7 +58,7 @@ export async function GET(req: Request) {
   const pageSizeRaw = Number(url.searchParams.get("pageSize") || 50) || 50
   const pageSize = Math.max(1, Math.min(200, Math.floor(pageSizeRaw)))
 
-  const where: any = {}
+  const where: Prisma.AdminAuditLogWhereInput = {}
 
   if (createdAt.gte || createdAt.lte) where.createdAt = createdAt
 

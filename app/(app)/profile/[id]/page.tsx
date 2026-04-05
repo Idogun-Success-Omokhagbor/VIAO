@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -11,10 +12,15 @@ import { Separator } from "@/components/ui/separator"
 import { getAvatarSrc } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { BadgeCheck, EyeOff } from "lucide-react"
-import CommunityPost from "@/components/community-post"
 import type { Post } from "@/context/community-context"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
+
+const CommunityPost = dynamic<{ post: Post }>(() => import("@/components/community-post"), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-lg border bg-white" />,
+})
 
 type PublicProfileUser = {
   id: string
@@ -54,7 +60,7 @@ export default function PublicProfilePage() {
   const params = useParams<{ id: string }>()
   const id = params?.id
 
-  const { user, isAuthenticated, showAuthModal } = useAuth()
+  const { user, isAuthenticated, openAuthPage } = useAuth()
   const { getOrCreateConversation, setActiveConversation } = useMessaging()
 
   const [data, setData] = useState<PublicProfileResponse | null>(null)
@@ -77,10 +83,10 @@ export default function PublicProfilePage() {
         const res = await fetch(`/api/users/${encodeURIComponent(String(id))}/public-profile`, {
           credentials: "include",
         })
-        const json = (await res.json().catch(() => null)) as PublicProfileResponse | { error?: string } | null
+        const json = await readJsonOrNull<PublicProfileResponse | { error?: string }>(res)
         if (!res.ok) {
           if (!silent) {
-            setError((json as any)?.error || "Failed to load profile")
+            setError(getErrorMessage(json, "Failed to load profile"))
             setData(null)
           }
           return
@@ -135,9 +141,9 @@ export default function PublicProfilePage() {
         const res = await fetch(`/api/users/${encodeURIComponent(String(id))}/posts?page=${postsPage}&take=5`, {
           credentials: "include",
         })
-        const json = (await res.json().catch(() => null)) as UserPostsResponse | { error?: string } | null
+        const json = await readJsonOrNull<UserPostsResponse | { error?: string }>(res)
         if (!res.ok) {
-          setPostsError((json as any)?.error || "Failed to load posts")
+          setPostsError(getErrorMessage(json, "Failed to load posts"))
           setPostsData(null)
           return
         }
@@ -223,7 +229,7 @@ export default function PublicProfilePage() {
                       onClick={() => {
                         if (!profile?.id) return
                         if (!isAuthenticated) {
-                          showAuthModal("login")
+                          openAuthPage("login")
                           return
                         }
                         if (user?.id === profile.id) {

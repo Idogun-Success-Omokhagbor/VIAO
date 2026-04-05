@@ -67,7 +67,7 @@ export function isUserConnected(userId: string): boolean {
   return (sockets?.size ?? 0) > 0
 }
 
-export function broadcastToUsers(userIds: string[], payload: any) {
+export function broadcastToUsers(userIds: string[], payload: unknown) {
   const registry = ensureWSServer()
   const message = JSON.stringify(payload)
   userIds.forEach((id) => {

@@ -1,13 +1,16 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { MessageCircle } from "lucide-react"
-import { MessagingModal } from "./messaging-modal"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
 import { toast } from "sonner"
+import type { MessagingModalProps } from "./messaging-modal"
 import type { Conversation } from "@/types/messaging"
+
+const MessagingModal = dynamic<MessagingModalProps>(() => import("./messaging-modal").then((mod) => mod.MessagingModal), { ssr: false })
 
 interface MessageUserButtonProps {
   userId: string
@@ -20,8 +23,8 @@ interface MessageUserButtonProps {
 
 export function MessageUserButton({
   userId,
-  userName,
-  userAvatar,
+  userName: _userName,
+  userAvatar: _userAvatar,
   variant = "outline",
   size = "sm",
   className,
@@ -89,7 +92,9 @@ export function MessageUserButton({
         <MessageCircle className="w-4 h-4 mr-2" />
         {statusLabel}
       </Button>
-      <MessagingModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} conversation={conversation ?? undefined} />
+      {isModalOpen && conversation ? (
+        <MessagingModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} conversation={conversation} />
+      ) : null}
     </>
   )
 }

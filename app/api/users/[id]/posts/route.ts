@@ -2,12 +2,13 @@ import { NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
-import { mapPost } from "@/lib/community-post"
+import { communityPostClientSelect, mapPost } from "@/lib/community-post"
 
 const DEFAULT_TAKE = 5
 const MAX_TAKE = 20
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const userId = params.id
   if (!userId) return NextResponse.json({ error: "Missing user id" }, { status: 400 })
 
@@ -32,7 +33,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const viewerId = session?.sub ?? null
     const isOwner = viewerId === userId
 
-    const prefs = (user.preferences ?? {}) as Record<string, unknown>
+    const prefs =
+      user.preferences && typeof user.preferences === "object" && !Array.isArray(user.preferences)
+        ? (user.preferences as Record<string, unknown>)
+        : {}
     const isProfilePublic = (prefs.profileVisibility as boolean | undefined) ?? true
 
     if (!isOwner && !isProfilePublic) {
@@ -46,13 +50,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         orderBy: { createdAt: "desc" },
         skip,
         take,
-        include: {
-          author: true,
-          comments: {
-            include: { author: true },
-            orderBy: { createdAt: "desc" },
-          },
-        },
+        select: communityPostClientSelect,
       }),
     ])
 

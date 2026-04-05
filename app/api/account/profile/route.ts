@@ -2,23 +2,25 @@
 
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { Prisma } from "@prisma/client"
 
+import { storedImageInputSchema } from "@/lib/image-schemas"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 
-const dataImageUrlSchema = z
-  .string()
-  .max(8_000_000)
-  .regex(/^data:image\/[^;]+;base64,[A-Za-z0-9+/=]+$/)
+const preferencesSchema = z.record(z.unknown()).refine(
+  (value) => JSON.stringify(value).length <= 5_000,
+  "Preferences payload is too large",
+)
 
 const updateSchema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().min(1).max(100).optional(),
   email: z.string().email().optional(),
-  avatarUrl: z.union([z.string().url(), dataImageUrlSchema]).optional().or(z.literal("")),
-  location: z.string().optional(),
-  phone: z.string().optional(),
-  bio: z.string().optional(),
-  preferences: z.record(z.any()).optional(),
+  avatarUrl: storedImageInputSchema.optional().or(z.literal("")),
+  location: z.string().max(120).optional(),
+  phone: z.string().max(30).optional(),
+  bio: z.string().max(1_000).optional(),
+  preferences: preferencesSchema.optional(),
 })
 
 export async function PATCH(req: Request) {
@@ -39,7 +41,7 @@ export async function PATCH(req: Request) {
         location: data.location ?? undefined,
         phone: data.phone ?? undefined,
         bio: data.bio ?? undefined,
-        preferences: data.preferences ?? undefined,
+        preferences: data.preferences === undefined ? undefined : (data.preferences as Prisma.InputJsonValue),
       },
       select: {
         id: true,
@@ -57,6 +59,9 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ user: { ...updated, createdAt: updated.createdAt.toISOString() } })
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "Email already in use" }, { status: 400 })
+    }
     console.error("PATCH /api/account/profile error:", error)
     return NextResponse.json({ error: "Failed to update profile" }, { status: 500 })
   }

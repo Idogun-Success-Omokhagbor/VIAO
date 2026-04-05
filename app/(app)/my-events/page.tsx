@@ -1,45 +1,43 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
+import { AppImage } from "@/components/ui/app-image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, MapPin, Bookmark, CheckCircle2 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
-import EventModal from "@/components/event-modal"
 import { getLocationString } from "@/lib/utils"
+import { getEventCategoryColor } from "@/lib/event-categories"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
+import type { EventModalProps } from "@/components/event-modal"
 import type { Event } from "@/types/event"
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Technology: "bg-blue-500",
-  "Arts & Culture": "bg-purple-500",
-  "Sports & Outdoors": "bg-emerald-500",
-  Music: "bg-pink-500",
-  "Food & Drink": "bg-amber-500",
-  "Health & Wellness": "bg-teal-500",
-  Business: "bg-indigo-500",
-  Education: "bg-sky-500",
-}
+const EventModal = dynamic<EventModalProps>(() => import("@/components/event-modal"), { ssr: false })
 
 async function fetchMyEvents(path: "/api/events/me/rsvps" | "/api/events/me/saved") {
   const res = await fetch(path, { cache: "no-store", credentials: "include" })
-  const data = (await res.json().catch(() => null)) as { events?: Event[]; error?: string } | null
-  if (!res.ok) throw new Error(data?.error || "Failed to load events")
-  return Array.isArray(data?.events) ? data!.events : []
+  const data = await readJsonOrNull<{ events?: Event[]; error?: string }>(res)
+  if (!res.ok) throw new Error(getErrorMessage(data, "Failed to load events"))
+  return Array.isArray(data?.events) ? data.events : []
 }
 
 export default function MyEventsPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
 
-  const [activeTab, setActiveTab] = useState<"rsvp" | "saved">("rsvp")
+  const [activeTab, setActiveTab] = useState<MyEventsTab>("rsvp")
   const [rsvpEvents, setRsvpEvents] = useState<Event[]>([])
   const [savedEvents, setSavedEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+
+  type MyEventsTab = "rsvp" | "saved"
+  const isMyEventsTab = (value: string): value is MyEventsTab => value === "rsvp" || value === "saved"
 
   useEffect(() => {
     if (authLoading) return
@@ -103,7 +101,12 @@ export default function MyEventsPage() {
           <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         ) : null}
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            if (isMyEventsTab(value)) setActiveTab(value)
+          }}
+        >
           <TabsList className="grid w-full grid-cols-2 max-w-md">
             <TabsTrigger value="rsvp" className="gap-2">
               <CheckCircle2 className="h-4 w-4" />
@@ -181,7 +184,7 @@ function EventGrid({ events, onOpen }: { events: Event[]; onOpen: (e: Event) => 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       {events.map((event) => {
-        const categoryColor = CATEGORY_COLORS[event.category] || "bg-gray-400"
+        const categoryColor = getEventCategoryColor(event.category)
         const image = (event.imageUrls && event.imageUrls.length > 0 ? event.imageUrls[0] : event.imageUrl) || "/placeholder.svg"
 
         return (
@@ -193,7 +196,14 @@ function EventGrid({ events, onOpen }: { events: Event[]; onOpen: (e: Event) => 
             onClick={() => onOpen(event)}
           >
             <div className="relative">
-              <img src={image} alt={event.title} className="w-full h-44 object-cover" />
+              <AppImage
+                src={image}
+                alt={event.title}
+                width={800}
+                height={352}
+                sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                className="w-full h-44 object-cover"
+              />
               <div className="absolute top-2 right-2">
                 <Badge variant="secondary" className="bg-white/90 text-gray-800">
                   <span className={`inline-block h-3 w-3 rounded-full mr-2 ${categoryColor}`} />

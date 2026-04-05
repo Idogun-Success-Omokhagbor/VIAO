@@ -46,6 +46,7 @@ Carthage/Build/
 
 *.mobileprovision
 *.p12
+.codex-temp/
 
 # macOS metadata
 .DS_Store

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import crypto from "crypto"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { stripe } from "@/lib/stripe"
+import { getBoostPlan } from "@/lib/boost-pricing"
 import { getSiteConfig } from "@/lib/site-config"
+import { getPublicAppUrl, getStripeSessionHashSecret, hashStripeSessionId, upsertBoostCheckout } from "@/lib/stripe-boost"
 
 export const runtime = "nodejs"
 
@@ -46,42 +47,17 @@ export async function POST(req: Request) {
   if (existing.organizerId !== session.sub) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   if (existing.isCancelled) return NextResponse.json({ error: "Cannot boost a cancelled event" }, { status: 400 })
 
-  const amount = boostLevel === 2 ? 1500 : 500
-  const name = boostLevel === 2 ? "Premium Boost" : "Basic Boost"
-  const duration = boostLevel === 2 ? "72 hours" : "24 hours"
+  const boostPlan = getBoostPlan(boostLevel)
+  const amount = boostPlan.amountMinor
+  const name = boostPlan.name
+  const duration = boostPlan.durationLabel
 
-  const normalizeUrl = (value: string | null | undefined) => {
-    if (!value) return null
-    const trimmed = value.trim()
-    if (!trimmed) return null
-    const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
-    return withProto.replace(/\/+$/, "")
-  }
-
-  const isLocalhostUrl = (value: string | null | undefined) => {
-    if (!value) return false
-    try {
-      const host = new URL(value).hostname
-      return host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0"
-    } catch {
-      return false
-    }
-  }
-
-  const envAppUrl = normalizeUrl(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL)
-  const origin = normalizeUrl(req.headers.get("origin"))
-  const forwardedProto = (req.headers.get("x-forwarded-proto") || "").split(",")[0]?.trim() || ""
-  const forwardedHost = (req.headers.get("x-forwarded-host") || "").split(",")[0]?.trim() || ""
-  const host = (req.headers.get("host") || "").split(",")[0]?.trim() || ""
-
-  const derived = normalizeUrl(forwardedHost ? `${forwardedProto || "https"}://${forwardedHost}` : host ? `${forwardedProto || "https"}://${host}` : null)
-
-  const appUrl = (envAppUrl && !isLocalhostUrl(envAppUrl) ? envAppUrl : derived || origin || envAppUrl)
+  const appUrl = getPublicAppUrl(req)
   if (!appUrl) return NextResponse.json({ error: "Missing app URL" }, { status: 500 })
 
-  const hmacSecret =
-    process.env.STRIPE_SESSION_HASH_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_SECRET_KEY
-  if (!hmacSecret) return NextResponse.json({ error: "Missing Stripe hash configuration" }, { status: 500 })
+  if (!getStripeSessionHashSecret()) {
+    return NextResponse.json({ error: "Missing Stripe hash configuration" }, { status: 500 })
+  }
 
   try {
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -115,26 +91,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 })
     }
 
-    const sessionHash = crypto.createHmac("sha256", hmacSecret).update(checkoutSession.id).digest("hex")
-    await (prisma as any).boostCheckout.upsert({
-      where: { stripeSessionIdHash: sessionHash },
-      update: {
-        status: "CREATED",
-        level: boostLevel,
-        amount,
-        currency: "chf",
-        eventId: existing.id,
-        organizerId: existing.organizerId,
-      },
-      create: {
-        stripeSessionIdHash: sessionHash,
-        status: "CREATED",
-        level: boostLevel,
-        amount,
-        currency: "chf",
-        eventId: existing.id,
-        organizerId: existing.organizerId,
-      },
+    const sessionHash = hashStripeSessionId(checkoutSession.id)
+    if (!sessionHash) {
+      return NextResponse.json({ error: "Missing Stripe hash configuration" }, { status: 500 })
+    }
+    await upsertBoostCheckout(prisma, {
+      sessionId: checkoutSession.id,
+      sessionHash,
+      status: "CREATED",
+      level: boostLevel,
+      amount,
+      currency: "chf",
+      eventId: existing.id,
+      organizerId: existing.organizerId,
     })
 
     return NextResponse.json({ url: checkoutSession.url })

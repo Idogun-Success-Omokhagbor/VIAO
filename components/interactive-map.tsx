@@ -1,195 +1,118 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { AppImage } from "@/components/ui/app-image"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Maximize2, Minimize2, Navigation } from "lucide-react"
 import { useEvents } from "@/context/events-context"
+import { GOOGLE_MAPS_MAP_ID, getGoogleMapsApiKey, loadGoogleMaps } from "@/lib/google-maps"
 import { getLocationString } from "@/lib/utils"
 import type { Event } from "@/types/event"
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet"
-import * as L from "leaflet"
-
-function getSafeImageSrc(src?: string | null) {
-  if (!src) return "/placeholder.svg"
-  return src
-}
 
 interface InteractiveMapProps {
   events: Event[]
   onEventClick?: (event: Event) => void
 }
 
-function MapClickHandler({ onClear }: { onClear: () => void }) {
-  useMapEvents({
-    click: () => {
-      onClear()
-    },
-  })
-  return null
+type Point = { x: number; y: number }
+type LatLng = { lat: number; lng: number }
+type GoogleMapListener = { remove?: () => void }
+type GoogleMapInstance = {
+  setCenter: (center: LatLng) => void
+  setZoom: (zoom: number) => void
+  fitBounds: (bounds: GoogleLatLngBoundsInstance, padding?: number) => void
+  addListener?: (eventName: string, handler: () => void) => GoogleMapListener
+}
+type GoogleLatLngBoundsInstance = {
+  extend: (point: LatLng) => void
+}
+type GoogleMarkerInstance = {
+  map: GoogleMapInstance | null
+}
+type GoogleMapsApi = {
+  Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance
+  LatLngBounds: new () => GoogleLatLngBoundsInstance
+  importLibrary: (library: string) => Promise<unknown>
+  event?: {
+    clearInstanceListeners?: (instance: object) => void
+    trigger?: (instance: object, eventName: string) => void
+  }
 }
 
-function MapResizeHandler({ fullscreen }: { fullscreen: boolean }) {
-  const map = useMap()
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      try {
-        map.invalidateSize()
-      } catch {
-        // ignore
-      }
-    }, 50)
-    return () => window.clearTimeout(id)
-  }, [fullscreen, map])
-  return null
+type MapsRuntime = {
+  maps: GoogleMapsApi
+  AdvancedMarkerElement: new (options: Record<string, unknown>) => GoogleMarkerInstance
 }
 
-function MarkersLayer({
-  items,
-  userLocation,
-  userIcon,
-  getEventLatLng,
-  getCategoryColorHex,
-  getEventIcon,
-  onEventClick,
-  onEventHover,
-}: {
-  items: Event[]
-  userLocation: { lat: number; lng: number } | null
-  userIcon: L.DivIcon
-  getEventLatLng: (event: Event) => { lat: number; lng: number }
-  getCategoryColorHex: (category: string) => string
-  getEventIcon: (color: string, boosted: boolean) => L.DivIcon
-  onEventClick?: (event: Event) => void
-  onEventHover: (event: Event, point: { x: number; y: number } | null) => void
-}) {
-  const map = useMap()
+function toMapErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "Failed to load Google Maps"
 
-  return (
-    <>
-      {userLocation ? <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon} /> : null}
+  if (/ApiNotActivatedMapError/i.test(message)) {
+    return "Google Maps JavaScript API is not activated for this key yet. Enable the Maps JavaScript API in Google Cloud."
+  }
 
-      {items.map((event) => {
-        const pos = getEventLatLng(event)
-        const color = getCategoryColorHex(event.category)
-        const icon = getEventIcon(color, event.isBoosted)
+  if (/billing/i.test(message) || /authorization failed/i.test(message)) {
+    return "Google Maps is not authorized yet. Check that billing is enabled and the Maps JavaScript API is active for this project."
+  }
 
-        return (
-          <Marker
-            key={event.id}
-            position={[pos.lat, pos.lng]}
-            icon={icon}
-            eventHandlers={{
-              click: () => onEventClick?.(event),
-              mouseover: () => {
-                try {
-                  const pt = map.latLngToContainerPoint(L.latLng(pos.lat, pos.lng))
-                  onEventHover(event, { x: pt.x, y: pt.y })
-                } catch {
-                  onEventHover(event, null)
-                }
-              },
-            }}
-          />
-        )
-      })}
-    </>
-  )
+  return message
 }
 
-function ViewUpdater({
-  mode,
-  userLatLng,
-  eventLatLngs,
-  initialCenter,
-}: {
-  mode: "events" | "user"
-  userLatLng: [number, number] | null
-  eventLatLngs: Array<[number, number]>
-  initialCenter: [number, number]
-}) {
-  const map = useMap()
-  const lastViewKeyRef = useRef<string | null>(null)
+function createMarkerNode({ color, boosted }: { color: string; boosted: boolean }) {
+  const container = document.createElement("div")
+  container.className = "viao-marker-container"
+  container.innerHTML = `<div class="viao-marker${boosted ? " viao-marker--boosted" : ""}" style="--viao-marker-color:${color}"></div>`
+  return container
+}
 
-  const computeViewKey = useCallback(() => {
-    if (mode === "user" && userLatLng) {
-      return `user:${userLatLng[0].toFixed(4)},${userLatLng[1].toFixed(4)}`
-    }
-
-    if (eventLatLngs.length === 1) {
-      const [lat, lng] = eventLatLngs[0]
-      return `event:${lat.toFixed(4)},${lng.toFixed(4)}`
-    }
-
-    if (eventLatLngs.length > 1) {
-      let minLat = Infinity
-      let minLng = Infinity
-      let maxLat = -Infinity
-      let maxLng = -Infinity
-      for (const [lat, lng] of eventLatLngs) {
-        if (lat < minLat) minLat = lat
-        if (lng < minLng) minLng = lng
-        if (lat > maxLat) maxLat = lat
-        if (lng > maxLng) maxLng = lng
-      }
-      return `events:${eventLatLngs.length}:${minLat.toFixed(3)},${minLng.toFixed(3)}:${maxLat.toFixed(3)},${maxLng.toFixed(3)}`
-    }
-
-    if (userLatLng) {
-      return `fallback-user:${userLatLng[0].toFixed(4)},${userLatLng[1].toFixed(4)}`
-    }
-
-    return `default:${initialCenter[0].toFixed(3)},${initialCenter[1].toFixed(3)}`
-  }, [eventLatLngs, initialCenter, mode, userLatLng])
-
-  useEffect(() => {
-    const viewKey = computeViewKey()
-    if (lastViewKeyRef.current === viewKey) return
-    lastViewKeyRef.current = viewKey
-
-    if (mode === "user" && userLatLng) {
-      map.setView(userLatLng, 12, { animate: true })
-      return
-    }
-
-    if (eventLatLngs.length === 1) {
-      map.setView(eventLatLngs[0], 12, { animate: true })
-      return
-    }
-
-    if (eventLatLngs.length > 1) {
-      const bounds = L.latLngBounds(eventLatLngs)
-      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 13, animate: true })
-      return
-    }
-
-    if (userLatLng) {
-      map.setView(userLatLng, 12, { animate: true })
-      return
-    }
-
-    map.setView(initialCenter, 7, { animate: true })
-  }, [computeViewKey, eventLatLngs, initialCenter, map, mode, userLatLng])
-
-  return null
+function createUserMarkerNode() {
+  const container = document.createElement("div")
+  container.className = "viao-marker-container"
+  container.innerHTML = `
+    <div class="viao-user-pin" aria-hidden="true">
+      <svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15 37C15 37 28 24.4 28 15C28 7.8 22.2 2 15 2C7.8 2 2 7.8 2 15C2 24.4 15 37 15 37Z" fill="#ef4444"/>
+        <path d="M15 21.5C18.5899 21.5 21.5 18.5899 21.5 15C21.5 11.4101 18.5899 8.5 15 8.5C11.4101 8.5 8.5 11.4101 8.5 15C8.5 18.5899 11.4101 21.5 15 21.5Z" fill="white" fill-opacity="0.18"/>
+        <path d="M12.2 15.3L14.1 17.2L18.0 13.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  `
+  return container
 }
 
 export default function InteractiveMap({ events: externalEvents, onEventClick }: InteractiveMapProps) {
   const { events: contextEvents } = useEvents()
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [userLocation, setUserLocation] = useState<LatLng | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
   const [hoveredEvent, setHoveredEvent] = useState<Event | null>(null)
-  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number } | null>(null)
+  const [hoveredPoint, setHoveredPoint] = useState<Point | null>(null)
   const [viewMode, setViewMode] = useState<"events" | "user">("events")
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [mapsRuntime, setMapsRuntime] = useState<MapsRuntime | null>(null)
+  const [mapLoadError, setMapLoadError] = useState<string | null>(null)
+  const [mapReady, setMapReady] = useState(false)
+
+  const frameRef = useRef<HTMLDivElement | null>(null)
+  const mapElementRef = useRef<HTMLDivElement | null>(null)
+  const mapRef = useRef<GoogleMapInstance | null>(null)
+  const mapsRuntimeRef = useRef<MapsRuntime | null>(null)
+  const mapReadyRef = useRef(false)
+  const mapReadyTimeoutRef = useRef<number | null>(null)
+  const markerRefs = useRef<GoogleMarkerInstance[]>([])
+  const userMarkerRef = useRef<GoogleMarkerInstance | null>(null)
+  const mapListenerRefs = useRef<GoogleMapListener[]>([])
+  const markerCleanupRefs = useRef<Array<() => void>>([])
 
   const clearHovered = useCallback(() => {
     setHoveredEvent(null)
     setHoveredPoint(null)
   }, [])
 
-  // Use external events if provided, otherwise use context events
   const events = externalEvents || contextEvents
+  const missingApiKey = !getGoogleMapsApiKey()
+  const showMapChrome = !missingApiKey && !mapLoadError && mapReady
+  const fallbackEvents = events.slice(0, 3)
 
   const handleNearMe = useCallback((opts?: { focus?: boolean }) => {
     if (!navigator.geolocation) {
@@ -224,8 +147,8 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000, // 5 minutes
+        timeout: 10_000,
+        maximumAge: 300_000,
       },
     )
   }, [])
@@ -246,7 +169,7 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
     [],
   )
 
-  const swissCities = useMemo<Record<string, { lat: number; lng: number }>>(
+  const swissCities = useMemo<Record<string, LatLng>>(
     () => ({
       zurich: { lat: 47.3769, lng: 8.5417 },
       geneva: { lat: 46.2044, lng: 6.1432 },
@@ -298,7 +221,7 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
       }
 
       const locationStr = getEventLocationSearchString(event)
-      for (const [city, coords] of Object.entries(swissCities) as Array<[string, { lat: number; lng: number }]>) {
+      for (const [city, coords] of Object.entries(swissCities)) {
         if (locationStr.includes(city)) {
           const seed = stableSeed(event.id)
           const jitterLat = ((seed % 1000) / 1000 - 0.5) * 0.04
@@ -320,150 +243,376 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
     handleNearMe({ focus: false })
   }, [handleNearMe])
 
-  const initialCenter = useMemo<[number, number]>(() => [46.8182, 8.2275], [])
+  const initialCenter = useMemo<LatLng>(() => ({ lat: 46.8182, lng: 8.2275 }), [])
 
-  const eventLatLngs = useMemo<Array<[number, number]>>(
+  const eventLatLngs = useMemo(
     () =>
       (Array.isArray(events) ? events : []).map((event) => {
         const pos = getEventLatLng(event)
-        return [pos.lat, pos.lng]
+        return pos
       }),
     [events, getEventLatLng],
   )
 
-  const userLatLng = useMemo<[number, number] | null>(() => {
-    if (!userLocation) return null
-    return [userLocation.lat, userLocation.lng]
-  }, [userLocation])
+  const updateHoveredFromElement = useCallback((event: Event, element: HTMLElement) => {
+    const frame = frameRef.current
+    if (!frame) return
 
-  const userIcon = useMemo(() => {
-    return L.divIcon({
-      className: "viao-marker-container",
-      html: `
-        <div class="viao-user-pin" aria-hidden="true">
-          <svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 37C15 37 28 24.4 28 15C28 7.8 22.2 2 15 2C7.8 2 2 7.8 2 15C2 24.4 15 37 15 37Z" fill="#ef4444"/>
-            <path d="M15 21.5C18.5899 21.5 21.5 18.5899 21.5 15C21.5 11.4101 18.5899 8.5 15 8.5C11.4101 8.5 8.5 11.4101 8.5 15C8.5 18.5899 11.4101 21.5 15 21.5Z" fill="white" fill-opacity="0.18"/>
-            <path d="M12.2 15.3L14.1 17.2L18.0 13.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-      `,
-      iconSize: [30, 38],
-      iconAnchor: [15, 38],
+    const frameRect = frame.getBoundingClientRect()
+    const markerRect = element.getBoundingClientRect()
+    setHoveredEvent(event)
+    setHoveredPoint({
+      x: markerRect.left - frameRect.left + markerRect.width / 2,
+      y: markerRect.top - frameRect.top + markerRect.height / 2,
     })
   }, [])
 
-  const getEventIcon = useCallback((color: string, boosted: boolean) => {
-    const boostedClass = boosted ? " viao-marker--boosted" : ""
-    return L.divIcon({
-      className: "viao-marker-container",
-      html: `<div class="viao-marker${boostedClass}" style="--viao-marker-color:${color}"></div>`,
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
+  const clearMarkers = useCallback(() => {
+    markerCleanupRefs.current.forEach((cleanup) => cleanup())
+    markerCleanupRefs.current = []
+
+    markerRefs.current.forEach((marker) => {
+      if (marker) marker.map = null
     })
+    markerRefs.current = []
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.map = null
+      userMarkerRef.current = null
+    }
   }, [])
 
+  const syncViewport = useCallback(() => {
+    const map = mapRef.current
+    const runtime = mapsRuntime
+    if (!map || !runtime) return
+
+    if (viewMode === "user" && userLocation) {
+      map.setCenter(userLocation)
+      map.setZoom(12)
+      return
+    }
+
+    if (eventLatLngs.length === 1) {
+      map.setCenter(eventLatLngs[0])
+      map.setZoom(12)
+      return
+    }
+
+    if (eventLatLngs.length > 1) {
+      const bounds = new runtime.maps.LatLngBounds()
+      eventLatLngs.forEach((point) => bounds.extend(point))
+      map.fitBounds(bounds, 48)
+      return
+    }
+
+    if (userLocation) {
+      map.setCenter(userLocation)
+      map.setZoom(12)
+      return
+    }
+
+    map.setCenter(initialCenter)
+    map.setZoom(7)
+  }, [eventLatLngs, initialCenter, mapsRuntime, userLocation, viewMode])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const setupMap = async () => {
+      if (missingApiKey || !mapElementRef.current) return
+
+      try {
+        mapReadyRef.current = false
+        setMapReady(false)
+        if (mapReadyTimeoutRef.current) {
+          window.clearTimeout(mapReadyTimeoutRef.current)
+        }
+        mapReadyTimeoutRef.current = window.setTimeout(() => {
+          if (!mapReadyRef.current) {
+            setMapLoadError("The live map is taking longer than expected.")
+          }
+        }, 4000)
+
+        const maps = (await loadGoogleMaps()) as unknown as GoogleMapsApi
+        const mapsLibrary = await maps.importLibrary("maps")
+        const markerLibrary = await maps.importLibrary("marker")
+        if (cancelled || !mapElementRef.current) return
+
+        const MapCtor = (mapsLibrary as { Map?: MapsRuntime["maps"]["Map"] }).Map ?? maps.Map
+        const AdvancedMarkerCtor = (markerLibrary as { AdvancedMarkerElement?: MapsRuntime["AdvancedMarkerElement"] }).AdvancedMarkerElement
+
+        if (!MapCtor || !AdvancedMarkerCtor) {
+          throw new Error("Required Google Maps libraries are unavailable")
+        }
+
+        const map = new MapCtor(mapElementRef.current, {
+          center: initialCenter,
+          zoom: 7,
+          mapId: GOOGLE_MAPS_MAP_ID,
+          clickableIcons: false,
+          disableDefaultUI: false,
+          fullscreenControl: false,
+          mapTypeControl: false,
+          streetViewControl: false,
+          gestureHandling: "greedy",
+          zoomControl: true,
+        })
+
+        mapListenerRefs.current.forEach((listener) => listener.remove?.())
+        mapListenerRefs.current = [
+          map.addListener?.("click", clearHovered),
+          map.addListener?.("dragstart", clearHovered),
+          map.addListener?.("zoom_changed", clearHovered),
+          map.addListener?.("tilesloaded", () => {
+            mapReadyRef.current = true
+            setMapReady(true)
+            setMapLoadError(null)
+            if (mapReadyTimeoutRef.current) {
+              window.clearTimeout(mapReadyTimeoutRef.current)
+              mapReadyTimeoutRef.current = null
+            }
+          }),
+        ].filter((listener): listener is GoogleMapListener => Boolean(listener))
+
+        const runtime = { maps, AdvancedMarkerElement: AdvancedMarkerCtor }
+        mapRef.current = map
+        mapsRuntimeRef.current = runtime
+        setMapsRuntime(runtime)
+        setMapLoadError(null)
+      } catch (error) {
+        if (!cancelled) {
+          mapReadyRef.current = false
+          setMapReady(false)
+          setMapLoadError(toMapErrorMessage(error))
+          setMapsRuntime(null)
+        }
+      }
+    }
+
+    void setupMap()
+
+    return () => {
+      cancelled = true
+      mapListenerRefs.current.forEach((listener) => listener.remove?.())
+      mapListenerRefs.current = []
+      if (mapReadyTimeoutRef.current) {
+        window.clearTimeout(mapReadyTimeoutRef.current)
+        mapReadyTimeoutRef.current = null
+      }
+      clearMarkers()
+      if (mapRef.current && mapsRuntimeRef.current?.maps.event?.clearInstanceListeners) {
+        mapsRuntimeRef.current.maps.event.clearInstanceListeners(mapRef.current)
+      }
+      mapRef.current = null
+      mapsRuntimeRef.current = null
+    }
+  }, [clearHovered, clearMarkers, initialCenter, missingApiKey])
+
+  useEffect(() => {
+    if (!mapsRuntime || !mapRef.current) return
+
+    try {
+      clearMarkers()
+
+      const map = mapRef.current
+      const { AdvancedMarkerElement } = mapsRuntime
+
+      if (userLocation) {
+        userMarkerRef.current = new AdvancedMarkerElement({
+          map,
+          position: userLocation,
+          content: createUserMarkerNode(),
+          title: "Your location",
+          zIndex: 20,
+        })
+      }
+
+      markerRefs.current = events.map((event) => {
+        const pos = getEventLatLng(event)
+        const color = getCategoryColorHex(event.category)
+        const content = createMarkerNode({ color, boosted: Boolean(event.isBoosted) })
+
+        const handleMouseEnter = () => updateHoveredFromElement(event, content)
+        const handleClick = () => {
+          updateHoveredFromElement(event, content)
+          onEventClick?.(event)
+        }
+
+        content.addEventListener("mouseenter", handleMouseEnter)
+        content.addEventListener("click", handleClick)
+
+        markerCleanupRefs.current.push(() => {
+          content.removeEventListener("mouseenter", handleMouseEnter)
+          content.removeEventListener("click", handleClick)
+        })
+
+        return new AdvancedMarkerElement({
+          map,
+          position: pos,
+          content,
+          title: event.title,
+          zIndex: event.isBoosted ? 15 : 10,
+        })
+      })
+      setMapLoadError(null)
+    } catch (error) {
+      mapReadyRef.current = false
+      setMapReady(false)
+      clearMarkers()
+      setMapLoadError(toMapErrorMessage(error))
+      setMapsRuntime(null)
+    }
+  }, [clearMarkers, events, getCategoryColorHex, getEventLatLng, mapsRuntime, onEventClick, updateHoveredFromElement, userLocation])
+
+  useEffect(() => {
+    syncViewport()
+  }, [syncViewport])
+
+  useEffect(() => {
+    if (!mapsRuntime || !mapRef.current) return
+
+    const id = window.setTimeout(() => {
+      const map = mapRef.current
+      if (!map) return
+      mapsRuntime.maps.event?.trigger?.(map, "resize")
+      syncViewport()
+    }, 120)
+
+    return () => window.clearTimeout(id)
+  }, [isFullscreen, mapsRuntime, syncViewport])
 
   return (
     <div
+      ref={frameRef}
       className={
         isFullscreen
           ? "fixed inset-0 z-[2000] w-screen h-[100dvh] bg-gradient-to-br from-green-100 via-blue-50 to-purple-100 overflow-hidden"
           : "relative w-full h-full bg-gradient-to-br from-green-100 via-blue-50 to-purple-100 rounded-lg overflow-hidden"
       }
     >
-      {/* Switzerland Map Background */}
-      <div className="absolute inset-0 z-0">
-        <MapContainer
-          center={initialCenter}
-          zoom={7}
-          scrollWheelZoom
-          className="w-full h-full"
-          attributionControl
-        >
-          <ViewUpdater mode={viewMode} userLatLng={userLatLng} eventLatLngs={eventLatLngs} initialCenter={initialCenter} />
-          <MapClickHandler onClear={clearHovered} />
-          <MapResizeHandler fullscreen={isFullscreen} />
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+      <div ref={mapElementRef} className={`absolute inset-0 z-0 ${showMapChrome ? "" : "pointer-events-none opacity-0"}`} />
 
-          <MarkersLayer
-            items={events}
-            userLocation={userLocation}
-            userIcon={userIcon}
-            getEventLatLng={getEventLatLng}
-            getCategoryColorHex={getCategoryColorHex}
-            getEventIcon={getEventIcon}
-            onEventClick={onEventClick}
-            onEventHover={(event, point) => {
-              setHoveredEvent(event)
-              if (!point) {
-                setHoveredPoint(null)
-                return
-              }
-              setHoveredPoint(point)
-            }}
-          />
-        </MapContainer>
-      </div>
-
-      {/* Control Panel */}
-      <div className={isFullscreen ? "absolute top-4 left-4 z-[2100] flex gap-2" : "absolute top-4 left-4 z-30 flex gap-2"}>
-        <Button
-          onClick={() => handleNearMe({ focus: true })}
-          variant="secondary"
-          size="sm"
-          className="bg-white/90 hover:bg-white shadow-md"
-        >
-          <Navigation className="w-4 h-4 mr-1" />
-          Near me
-        </Button>
-
-        {locationError && <div className="bg-red-100 text-red-700 px-3 py-1 rounded-md text-sm">{locationError}</div>}
-
-        {userLocation && <div className="bg-green-100 text-green-700 px-3 py-1 rounded-md text-sm">Location found</div>}
-      </div>
-
-      {/* Legend */}
-      <div
-        className={
-          isFullscreen
-            ? "absolute top-4 right-4 z-[2100] flex flex-col items-end gap-2"
-            : "absolute top-4 right-4 z-30 flex flex-col items-end gap-2"
-        }
-      >
-        <Button
-          onClick={() => setIsFullscreen((v) => !v)}
-          variant="secondary"
-          size="icon"
-          className="bg-white/90 hover:bg-white shadow-md"
-        >
-          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-        </Button>
-
-        <div className="bg-white/90 rounded-lg p-3 shadow-md">
-          <h4 className="text-sm font-semibold mb-2">Event Types</h4>
-          <div className="space-y-1 text-xs">
-            {categoryConfig.map((c) => (
-              <div key={c.id} className="flex items-center gap-2">
-                <div className={`w-3 h-3 ${c.colorClass} rounded-full`}></div>
-                <span>{c.id}</span>
-              </div>
-            ))}
+      {!missingApiKey && !mapLoadError && !mapReady ? (
+        <div className={isFullscreen ? "absolute inset-0 z-[2100] flex items-center justify-center" : "absolute inset-0 z-30 flex items-center justify-center"}>
+          <div className="rounded-[24px] border border-[#eee6ff] bg-white/94 px-5 py-4 text-center shadow-[0_18px_44px_rgba(101,73,214,0.12)]">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#ece4ff] border-t-[#7c5cff]" />
+            <p className="mt-3 text-sm font-medium text-[#24154b]">Loading the live map preview…</p>
           </div>
         </div>
-      </div>
+      ) : null}
 
-      {/* User Location Marker */}
-      {userLocation ? null : null}
+      {showMapChrome ? (
+        <div className={isFullscreen ? "absolute top-4 left-4 z-[2100] flex gap-2" : "absolute top-4 left-4 z-30 flex gap-2"}>
+          <Button
+            onClick={() => handleNearMe({ focus: true })}
+            variant="secondary"
+            size="sm"
+            className="bg-white/90 hover:bg-white shadow-md"
+          >
+            <Navigation className="w-4 h-4 mr-1" />
+            Near me
+          </Button>
 
-      {/* Event Markers */}
-      {events.length === 0 ? null : null}
+          {locationError && <div className="rounded-md bg-red-100 px-3 py-1 text-sm text-red-700">{locationError}</div>}
 
-      {/* Event Tooltip */}
-      {hoveredEvent && hoveredPoint && (
+          {userLocation && <div className="rounded-md bg-green-100 px-3 py-1 text-sm text-green-700">Location found</div>}
+        </div>
+      ) : null}
+
+      {showMapChrome ? (
+        <div
+          className={
+            isFullscreen
+              ? "absolute top-4 right-4 z-[2100] flex flex-col items-end gap-2"
+              : "absolute top-4 right-4 z-30 flex flex-col items-end gap-2"
+          }
+        >
+          <Button
+            onClick={() => setIsFullscreen((v) => !v)}
+            variant="secondary"
+            size="icon"
+            className="bg-white/90 hover:bg-white shadow-md"
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </Button>
+
+          <div className="hidden rounded-lg bg-white/90 p-3 shadow-md md:block">
+            <h4 className="mb-2 text-sm font-semibold">Event Types</h4>
+            <div className="space-y-1 text-xs">
+              {categoryConfig.map((c) => (
+                <div key={c.id} className="flex items-center gap-2">
+                  <div className={`h-3 w-3 rounded-full ${c.colorClass}`}></div>
+                  <span>{c.id}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {(missingApiKey || mapLoadError) && (
+        <div className={isFullscreen ? "absolute inset-0 z-[2100] flex items-center justify-center" : "absolute inset-0 z-30 flex items-center justify-center"}>
+          <div className="mx-4 flex h-[calc(100%-2rem)] w-full max-w-3xl flex-col rounded-[28px] border border-[#eee6ff] bg-[radial-gradient(circle_at_top_right,rgba(124,92,255,0.14),transparent_30%),linear-gradient(180deg,#ffffff,#faf7ff)] p-5 shadow-[0_24px_60px_rgba(101,73,214,0.14)] sm:p-6">
+            <div className="flex h-full flex-col justify-between gap-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="max-w-xl">
+                  <div className="inline-flex items-center rounded-full border border-[#e8dcff] bg-white/92 px-4 py-2 text-sm font-medium text-[#6a5f8f] shadow-[0_10px_24px_rgba(101,73,214,0.06)]">
+                    <MapPin className="mr-2 h-4 w-4 text-[#7c5cff]" />
+                    Live map preview unavailable
+                  </div>
+                  <h3 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-[#24154b]">
+                    The event radar is falling back to quick picks for now.
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-[#6a5f8f]">
+                    The map is still being set up on this device, so the next few events are surfaced here instead.
+                  </p>
+                </div>
+                <Badge className="self-start rounded-full bg-[#f6f1ff] px-3 py-1 text-[#5f43e5] shadow-none">
+                  {fallbackEvents.length} picks
+                </Badge>
+              </div>
+
+              {fallbackEvents.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {fallbackEvents.map((event) => (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => onEventClick?.(event)}
+                      className="overflow-hidden rounded-[22px] border border-[#efe8ff] bg-white text-left shadow-[0_10px_24px_rgba(101,73,214,0.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(101,73,214,0.12)]"
+                    >
+                      <div className="relative h-24 bg-[#f7f3ff]">
+                        <AppImage src={event.imageUrl} alt={event.title} fill sizes="(min-width: 640px) 30vw, 100vw" className="object-cover" />
+                      </div>
+                      <div className="space-y-2 px-4 py-4">
+                        <Badge variant="secondary" className="rounded-full bg-[#f6f1ff] px-2.5 py-1 text-[#5f43e5] shadow-none">
+                          {event.category}
+                        </Badge>
+                        <div className="line-clamp-2 text-sm font-semibold text-[#24154b]">{event.title}</div>
+                        <div className="text-sm text-[#6a5f8f]">{event.city || getLocationString(event.location)}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-[22px] border border-[#efe8ff] bg-white px-4 py-4 text-sm leading-7 text-[#6a5f8f]">
+                  Event cards below will still update normally as the feed changes.
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <p className="text-xs text-[#9a8fc2]">
+                  Use the fallback cards here or scroll to the main event feed below for the full list.
+                </p>
+                {mapLoadError ? <p className="text-xs text-[#9a8fc2]">{mapLoadError}</p> : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hoveredEvent && hoveredPoint && !missingApiKey && !mapLoadError && (
         <div
           className={isFullscreen ? "absolute z-[2200] pointer-events-auto" : "absolute z-40 pointer-events-auto"}
           style={{
@@ -479,17 +628,12 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
             onClick={(e) => {
               e.stopPropagation()
               onEventClick?.(hoveredEvent)
-              setHoveredEvent(null)
-              setHoveredPoint(null)
+              clearHovered()
             }}
           >
             <div className="flex gap-3 p-3">
               <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                <img
-                  src={getSafeImageSrc(hoveredEvent.imageUrl)}
-                  alt={hoveredEvent.title}
-                  className="w-full h-full object-cover"
-                />
+                <AppImage src={hoveredEvent.imageUrl} alt={hoveredEvent.title} width={48} height={48} className="w-full h-full object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold leading-snug line-clamp-2">{hoveredEvent.title}</div>
@@ -509,8 +653,7 @@ export default function InteractiveMap({ events: externalEvents, onEventClick }:
         </div>
       )}
 
-      {/* No Events Message */}
-      {events.length === 0 && (
+      {events.length === 0 && !missingApiKey && !mapLoadError && (
         <div className={isFullscreen ? "absolute inset-0 z-[2100] flex items-center justify-center" : "absolute inset-0 z-30 flex items-center justify-center"}>
           <div className="text-center text-gray-500">
             <MapPin className="w-12 h-12 mx-auto mb-2 opacity-50" />

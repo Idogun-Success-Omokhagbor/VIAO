@@ -33,11 +33,12 @@ async function main() {
     return
   }
 
-  const adminEmail = (process.env.ADMIN_EMAIL || "idogunsuccessomokhagbor@outlook.com").toLowerCase()
-  const adminPassword = process.env.ADMIN_PASSWORD || "Omokhagbor.0"
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+  const adminPassword = process.env.ADMIN_PASSWORD?.trim()
 
   if (!adminEmail || !adminPassword) {
-    throw new Error("ADMIN_EMAIL/ADMIN_PASSWORD are required")
+    console.warn("Admin bootstrap skipped: ADMIN_EMAIL and ADMIN_PASSWORD must both be set")
+    return
   }
 
   const prisma = new PrismaClient()

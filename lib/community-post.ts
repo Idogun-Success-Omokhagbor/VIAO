@@ -1,4 +1,50 @@
-export async function mapPost(post: any, sessionUserId?: string) {
+import { Prisma } from "@prisma/client"
+
+export const communityPostClientSelect = Prisma.validator<Prisma.CommunityPostSelect>()({
+  id: true,
+  title: true,
+  content: true,
+  tags: true,
+  imageUrl: true,
+  mediaType: true,
+  category: true,
+  likedBy: true,
+  location: true,
+  createdAt: true,
+  updatedAt: true,
+  author: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatarUrl: true,
+      location: true,
+    },
+  },
+  comments: {
+    select: {
+      id: true,
+      content: true,
+      likedBy: true,
+      createdAt: true,
+      author: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatarUrl: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  },
+})
+
+export type CommunityPostWithRelations = Prisma.CommunityPostGetPayload<{
+  select: typeof communityPostClientSelect
+}>
+
+export async function mapPost(post: CommunityPostWithRelations, sessionUserId?: string) {
   const location = post.location ?? post.author?.location ?? null
 
   return {
@@ -25,7 +71,7 @@ export async function mapPost(post: any, sessionUserId?: string) {
       location: post.author.location ?? undefined,
     },
     comments:
-      post.comments?.map((comment: any) => ({
+      post.comments?.map((comment) => ({
         id: comment.id,
         content: comment.content,
         likes: comment.likedBy?.length ?? 0,

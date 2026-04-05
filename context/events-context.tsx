@@ -33,6 +33,10 @@ export function useEvents() {
   return context
 }
 
+export function useOptionalEvents() {
+  return useContext(EventsContext)
+}
+
 interface EventsProviderProps {
   children: ReactNode
 }
@@ -52,61 +56,10 @@ async function handleJson<T>(resPromise: Promise<Response> | Response): Promise<
   return res.json() as Promise<T>
 }
 
-function mapEvent(event: any): Event {
-  const safeImageUrl =
-    typeof event.imageUrl === "string" && event.imageUrl.startsWith("data:")
-      ? `/api/events/${event.id}/image`
-      : (event.imageUrl ?? null)
-  const safeImageUrls = Array.isArray(event.imageUrls)
-    ? event.imageUrls
-        .map((u: unknown, idx: number) =>
-          typeof u === "string" && u.startsWith("data:") ? `/api/events/${event.id}/image?index=${idx}` : u,
-        )
-        .filter((u: unknown) => typeof u === "string" && u.length > 0)
-    : safeImageUrl
-      ? [safeImageUrl]
-      : []
-  return {
-    id: event.id,
-    title: event.title,
-    description: event.description,
-    date: event.date,
-    time: event.time,
-    location: event.location,
-    startsAt: event.startsAt ?? null,
-    endsAt: event.endsAt ?? null,
-    city: event.city ?? null,
-    venue: event.venue ?? null,
-    address: event.address ?? null,
-    lat: event.lat ?? null,
-    lng: event.lng ?? null,
-    status: event.status ?? "PUBLISHED",
-    isCancelled: event.isCancelled ?? false,
-    cancelledAt: event.cancelledAt ?? null,
-    category: event.category,
-    imageUrl: safeImageUrl,
-    imageUrls: safeImageUrls,
-    price: event.price ?? null,
-    isBoosted: event.isBoosted,
-    boostLevel: typeof event.boostLevel === "number" ? event.boostLevel : event.isBoosted ? 1 : 0,
-    boostUntil: event.boostUntil ?? null,
-    maxAttendees: event.maxAttendees ?? null,
-    organizerId: event.organizerId,
-    organizerName: event.organizerName,
-    organizerAvatarUrl: event.organizerAvatarUrl ?? null,
-    attendeesCount: event.attendeesCount ?? 0,
-    isGoing: event.isGoing ?? false,
-    rsvpStatus: event.rsvpStatus ?? null,
-    isSaved: event.isSaved ?? false,
-    createdAt: event.createdAt,
-    updatedAt: event.updatedAt,
-  }
-}
-
 export function EventsProvider({ children }: EventsProviderProps) {
   const [events, setEvents] = useState<Event[]>([])
   const [filters, setFilters] = useState<EventFilters>({})
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const refreshEvents = useCallback(async () => {
@@ -116,7 +69,7 @@ export function EventsProvider({ children }: EventsProviderProps) {
       const data = await handleJson<{ events: Event[] }>(
         fetch("/api/events", { cache: "no-store", credentials: "include" }),
       )
-      setEvents(data.events.map(mapEvent))
+      setEvents(data.events)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to fetch events"
       setError(message)
@@ -163,7 +116,7 @@ export function EventsProvider({ children }: EventsProviderProps) {
           body: JSON.stringify(data),
         }),
       )
-      const created = mapEvent(res.event)
+      const created = res.event
       setEvents((prev) => [created, ...prev])
       return created
     } catch (err) {
@@ -187,7 +140,7 @@ export function EventsProvider({ children }: EventsProviderProps) {
           body: JSON.stringify(data),
         }),
       )
-      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
+      setEvents((prev) => prev.map((e) => (e.id === id ? res.event : e)))
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update event"
       setError(message)
@@ -219,7 +172,7 @@ export function EventsProvider({ children }: EventsProviderProps) {
       const res = await handleJson<{ event: Event }>(
         fetch(`/api/events/${id}/rsvp`, { method: "POST", credentials: "include" }),
       )
-      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
+      setEvents((prev) => prev.map((e) => (e.id === id ? res.event : e)))
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to RSVP"
       setError(message)
@@ -241,7 +194,7 @@ export function EventsProvider({ children }: EventsProviderProps) {
           body: JSON.stringify({ status }),
         }),
       )
-      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
+      setEvents((prev) => prev.map((e) => (e.id === id ? res.event : e)))
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update RSVP"
       setError(message)
@@ -258,7 +211,7 @@ export function EventsProvider({ children }: EventsProviderProps) {
       const res = await handleJson<{ event: Event }>(
         fetch(`/api/events/${id}/rsvp`, { method: "DELETE", credentials: "include" }),
       )
-      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
+      setEvents((prev) => prev.map((e) => (e.id === id ? res.event : e)))
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to cancel RSVP"
       setError(message)
@@ -273,7 +226,7 @@ export function EventsProvider({ children }: EventsProviderProps) {
     setError(null)
     try {
       const res = await handleJson<{ event: Event }>(fetch(`/api/events/${id}/save`, { method: "POST", credentials: "include" }))
-      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
+      setEvents((prev) => prev.map((e) => (e.id === id ? res.event : e)))
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save event"
       setError(message)
@@ -288,7 +241,7 @@ export function EventsProvider({ children }: EventsProviderProps) {
     setError(null)
     try {
       const res = await handleJson<{ event: Event }>(fetch(`/api/events/${id}/save`, { method: "DELETE", credentials: "include" }))
-      setEvents((prev) => prev.map((e) => (e.id === id ? mapEvent(res.event) : e)))
+      setEvents((prev) => prev.map((e) => (e.id === id ? res.event : e)))
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to unsave event"
       setError(message)

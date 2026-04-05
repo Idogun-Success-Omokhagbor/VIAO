@@ -1,11 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Viao">
   <defs>
-    <linearGradient id="g" x1="0" x2="1" y1="1" y2="0">
-      <stop offset="0%" stop-color="#7c3aed"/>
-      <stop offset="100%" stop-color="#38bdf8"/>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f3efff"/>
+    </linearGradient>
+    <linearGradient id="stroke" x1="0.08" x2="0.92" y1="0.16" y2="0.84">
+      <stop offset="0%" stop-color="#5b34ff"/>
+      <stop offset="100%" stop-color="#a06dff"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="url(#g)"/>
-  <path d="M15 44.5 26.5 19h11L49 44.5h-8l-7.5-18-7.5 18z" fill="#fff" />
-  <circle cx="32" cy="24" r="4" fill="#c084fc"/>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#bg)" stroke="#e7defe" stroke-width="1.5"/>
+  <text
+    x="32"
+    y="43"
+    fill="url(#stroke)"
+    font-family="Inter, Arial, Helvetica, sans-serif"
+    font-size="34"
+    font-weight="900"
+    letter-spacing="-4"
+    text-anchor="middle"
+  >V</text>
 </svg>

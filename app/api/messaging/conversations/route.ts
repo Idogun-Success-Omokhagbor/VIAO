@@ -1,5 +1,6 @@
 "use server"
 
+import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -12,8 +13,37 @@ const createSchema = z.object({
   message: z.string().optional(),
 })
 
-async function mapConversation(conv: any, currentUserId: string) {
-  const selfParticipant = conv.participants?.find((p: any) => p.userId === currentUserId)
+const conversationListInclude = Prisma.validator<Prisma.ConversationInclude>()({
+  participants: {
+    select: {
+      userId: true,
+      clearedAt: true,
+      hiddenAt: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          avatarUrl: true,
+          location: true,
+          lastSeenAt: true,
+          preferences: true,
+        },
+      },
+    },
+  },
+  messages: { orderBy: { createdAt: "desc" }, take: 1 },
+})
+
+type ConversationWithParticipants = Prisma.ConversationGetPayload<{
+  include: typeof conversationListInclude
+}>
+
+function toPreferences(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+async function mapConversation(conv: ConversationWithParticipants, currentUserId: string) {
+  const selfParticipant = conv.participants.find((participant) => participant.userId === currentUserId)
   const clearedAt = selfParticipant?.clearedAt ? new Date(selfParticipant.clearedAt) : null
   const hiddenAt = selfParticipant?.hiddenAt ? new Date(selfParticipant.hiddenAt) : null
 
@@ -60,7 +90,7 @@ async function mapConversation(conv: any, currentUserId: string) {
   const now = Date.now()
   const ONLINE_WINDOW_MS = 2 * 60 * 1000
 
-  const viewerPrefs = ((selfParticipant?.user?.preferences ?? {}) as Record<string, unknown>) ?? {}
+  const viewerPrefs = toPreferences(selfParticipant?.user?.preferences)
   const viewerAllowsPresence = (viewerPrefs.showOnlineStatus as boolean | undefined) ?? true
 
   return {
@@ -70,25 +100,25 @@ async function mapConversation(conv: any, currentUserId: string) {
     updatedAt: conv.updatedAt.toISOString(),
     createdAt: conv.createdAt.toISOString(),
     participants:
-      conv.participants?.map((p: any) => {
-        const prefs = ((p.user?.preferences ?? {}) as Record<string, unknown>) ?? {}
+      conv.participants.map((participant) => {
+        const prefs = toPreferences(participant.user.preferences)
         const showOnlineStatus = (prefs.showOnlineStatus as boolean | undefined) ?? true
 
-        const canViewPresence = p.user.id === currentUserId ? true : viewerAllowsPresence && showOnlineStatus
+        const canViewPresence = participant.user.id === currentUserId ? true : viewerAllowsPresence && showOnlineStatus
 
-        const userLastSeen = canViewPresence && p.user.lastSeenAt ? new Date(p.user.lastSeenAt).getTime() : 0
+        const userLastSeen = canViewPresence && participant.user.lastSeenAt ? new Date(participant.user.lastSeenAt).getTime() : 0
         const lastSeenMs = userLastSeen
         const isOnline = canViewPresence && lastSeenMs ? now - lastSeenMs < ONLINE_WINDOW_MS : undefined
 
         return {
-          id: p.user.id,
-          name: p.user.name,
-          avatar: p.user.avatarUrl ?? undefined,
-          location: p.user.location ?? null,
+          id: participant.user.id,
+          name: participant.user.name,
+          avatar: participant.user.avatarUrl ?? undefined,
+          location: participant.user.location ?? null,
           lastSeen: canViewPresence && lastSeenMs ? new Date(lastSeenMs).toISOString() : undefined,
           isOnline,
         }
-      }) ?? [],
+      }),
     lastMessage,
     unreadCount,
   }
@@ -106,10 +136,7 @@ export async function GET() {
           some: { userId: session.sub },
         },
       },
-      include: {
-        participants: { select: { userId: true, clearedAt: true, hiddenAt: true, user: true } },
-        messages: { orderBy: { createdAt: "desc" }, take: 1 },
-      },
+      include: conversationListInclude,
       orderBy: { updatedAt: "desc" },
     })
 
@@ -134,14 +161,14 @@ export async function POST(req: Request) {
     if (userId === session.sub) return NextResponse.json({ error: "Cannot message yourself" }, { status: 400 })
 
     const [currentUser, otherUser] = await Promise.all([
-      prisma.user.findUnique({ where: { id: session.sub } }),
-      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.user.findUnique({ where: { id: session.sub }, select: { location: true } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { id: true, location: true } }),
     ])
     if (!otherUser) return NextResponse.json({ error: "User not found" }, { status: 404 })
 
     // Location gating if both have locations
-    const currentLocation = (currentUser as any)?.location?.toString().trim().toLowerCase()
-    const otherLocation = (otherUser as any)?.location?.toString().trim().toLowerCase()
+    const currentLocation = currentUser?.location?.toString().trim().toLowerCase()
+    const otherLocation = otherUser.location?.toString().trim().toLowerCase()
     if (currentLocation && otherLocation && currentLocation !== otherLocation) {
       return NextResponse.json({ error: "Messaging is limited to your city/community." }, { status: 403 })
     }
@@ -151,24 +178,18 @@ export async function POST(req: Request) {
         participants: { some: { userId: session.sub } },
         AND: [{ participants: { some: { userId } } }],
       },
-      include: {
-        participants: { select: { userId: true, clearedAt: true, hiddenAt: true, user: true } },
-        messages: { orderBy: { createdAt: "desc" }, take: 1 },
-      },
+      include: conversationListInclude,
     })
 
     if (existing) {
-      await (prisma.conversationParticipant as any).updateMany({
+      await prisma.conversationParticipant.updateMany({
         where: { conversationId: existing.id, userId: session.sub },
         data: { hiddenAt: null, clearedAt: null },
       })
 
       const refreshed = await prisma.conversation.findFirst({
         where: { id: existing.id },
-        include: {
-          participants: { select: { userId: true, clearedAt: true, hiddenAt: true, user: true } },
-          messages: { orderBy: { createdAt: "desc" }, take: 1 },
-        },
+        include: conversationListInclude,
       })
 
       return NextResponse.json({ conversation: refreshed ? await mapConversation(refreshed, session.sub) : null })
@@ -189,10 +210,7 @@ export async function POST(req: Request) {
           },
         },
       },
-      include: {
-        participants: { select: { userId: true, clearedAt: true, hiddenAt: true, user: true } },
-        messages: { orderBy: { createdAt: "desc" }, take: 1 },
-      },
+      include: conversationListInclude,
     })
 
     return NextResponse.json({ conversation: await mapConversation(created, session.sub) }, { status: 201 })

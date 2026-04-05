@@ -1,12 +1,13 @@
 "use client"
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode, useCallback } from "react"
 import { usePathname } from "next/navigation"
 import type { Message, Conversation, ConversationStatus } from "@/types/messaging"
 import { useAuth } from "@/context/auth-context"
 import { createWsClient } from "@/lib/ws-client"
 
 const ACTIVE_POLL_MS = 5000
+const IDLE_POLL_MS = 15000
 
 interface MessagingContextType {
   conversations: Conversation[]
@@ -30,6 +31,29 @@ interface MessagingContextType {
 
 const MessagingContext = createContext<MessagingContextType | undefined>(undefined)
 
+async function handleJson<T>(res: Response): Promise<T> {
+  const data = (await res.json().catch(() => null)) as unknown
+  if (!res.ok) {
+    const message =
+      data && typeof data === "object" && "error" in data && typeof data.error === "string" ? data.error : "Request failed"
+    throw new Error(message)
+  }
+  return data as T
+}
+
+function mapMessage(message: Message): Message {
+  return {
+    id: message.id,
+    conversationId: message.conversationId,
+    senderId: message.senderId,
+    content: message.content,
+    timestamp: message.timestamp ?? new Date().toISOString(),
+    readAt: message.readAt ?? null,
+    deliveredAt: message.deliveredAt ?? null,
+    type: "text",
+  }
+}
+
 export function useMessaging() {
   const context = useContext(MessagingContext)
   if (!context) {
@@ -45,46 +69,29 @@ interface MessagingProviderProps {
 export function MessagingProvider({ children }: MessagingProviderProps) {
   const { user } = useAuth()
   const pathname = usePathname()
+  const isMessagesRoute = pathname === "/messages"
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loadedConversations, setLoadedConversations] = useState<Set<string>>(new Set())
+  const [isRealtimeReady, setIsRealtimeReady] = useState(false)
 
-  const handleJson = async <T,>(res: Response) => {
-    const data = await res.json().catch(() => null)
-    if (!res.ok) {
-      const message = (data as any)?.error || "Request failed"
-      throw new Error(message)
-    }
-    return data as T
-  }
-
-  const mapMessage = (m: any): Message => ({
-    id: m.id,
-    conversationId: m.conversationId,
-    senderId: m.senderId,
-    content: m.content,
-    timestamp: m.timestamp ?? m.createdAt ?? new Date().toISOString(),
-    readAt: m.readAt ?? null,
-    deliveredAt: m.deliveredAt ?? null,
-    type: "text",
-  })
-
-  const fetchConversations = async () => {
-    if (!user) return
+  const fetchConversations = useCallback(async () => {
+    if (!user?.id) return
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch("/api/messaging/conversations", { credentials: "include", cache: "no-store" })
-      const data = await handleJson<{ conversations: any[] }>(res)
+      const data = await handleJson<{ conversations: Conversation[] }>(res)
       const mapped = data.conversations.map((c) => ({
         ...c,
         lastMessage: c.lastMessage ? mapMessage(c.lastMessage) : undefined,
       }))
 
       setConversations(mapped)
+      setIsRealtimeReady(true)
 
       // Ensure presence (isOnline/lastSeen) stays fresh in the open chat
       setActiveConversation((prev) => {
@@ -98,17 +105,18 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user?.id])
 
   // WebSocket live updates
   useEffect(() => {
-    if (!user?.id) return
+    if (!user?.id || !isRealtimeReady) return
     const client = createWsClient({
       userId: user.id,
       onMessage: (data) => {
         if (!data || typeof data !== "object") return
-        if (data.type === "message:new" && data.message) {
-          const m = mapMessage(data.message)
+        const payload = data as { type?: string; message?: Message }
+        if (payload.type === "message:new" && payload.message && typeof payload.message === "object") {
+          const m = mapMessage(payload.message)
           setMessages((prev) => {
             if (prev.some((x) => x.id === m.id)) return prev
             return [...prev, m]
@@ -130,16 +138,20 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
       },
     })
     return () => client.close()
-  }, [user?.id, activeConversation?.id])
+  }, [user?.id, activeConversation?.id, isRealtimeReady])
 
-  const fetchMessages = async (conversationId: string) => {
-    if (!user) return
+  useEffect(() => {
+    setIsRealtimeReady(false)
+  }, [user?.id])
+
+  const fetchMessages = useCallback(async (conversationId: string) => {
+    if (!user?.id) return
     try {
       const res = await fetch(`/api/messaging/conversations/${conversationId}/messages`, {
         credentials: "include",
         cache: "no-store",
       })
-      const data = await handleJson<{ messages: any[] }>(res)
+      const data = await handleJson<{ messages: Message[] }>(res)
       setMessages((prev) => {
         const without = prev.filter((m) => m.conversationId !== conversationId)
         const mapped = data.messages.map(mapMessage)
@@ -159,26 +171,7 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
       const message = err instanceof Error ? err.message : "Failed to load messages"
       setError(message)
     }
-  }
-
-  useEffect(() => {
-    void fetchConversations()
   }, [user?.id])
-
-  // Poll conversations and active conversation messages for near-real-time updates
-  useEffect(() => {
-    if (!user) return
-    const interval = setInterval(() => {
-      void fetchConversations()
-      if (activeConversation) {
-        void fetchMessages(activeConversation.id).then(() => {
-          if (pathname !== "/messages") return
-          void markAsRead(activeConversation.id)
-        })
-      }
-    }, ACTIVE_POLL_MS)
-    return () => clearInterval(interval)
-  }, [user?.id, activeConversation?.id, pathname])
 
   const sendMessage: MessagingContextType["sendMessage"] = async (conversationId, content) => {
     if (!content.trim()) return
@@ -214,7 +207,7 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
         credentials: "include",
         body: JSON.stringify({ content: content.trim() }),
       })
-      const data = await handleJson<{ message: any }>(res)
+      const data = await handleJson<{ message: Message }>(res)
       const saved = mapMessage(data.message)
       setMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), saved])
       setConversations((prev) =>
@@ -228,7 +221,7 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     }
   }
 
-  const markAsRead = async (conversationId: string) => {
+  const markAsRead = useCallback(async (conversationId: string) => {
     try {
       await fetch(`/api/messaging/conversations/${conversationId}/read`, { method: "POST", credentials: "include" })
       setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c)))
@@ -242,7 +235,38 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
     } catch {
       // silent
     }
-  }
+  }, [user?.id])
+
+  useEffect(() => {
+    void fetchConversations()
+  }, [fetchConversations])
+
+  // Poll conversations and active conversation messages for near-real-time updates
+  useEffect(() => {
+    if (!user?.id) return
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "hidden") return
+
+      void fetchConversations()
+      if (activeConversation) {
+        void fetchMessages(activeConversation.id).then(() => {
+          if (!isMessagesRoute) return
+          void markAsRead(activeConversation.id)
+        })
+      }
+    }
+
+    const pollMs = activeConversation || isMessagesRoute ? ACTIVE_POLL_MS : IDLE_POLL_MS
+    const interval = setInterval(refreshIfVisible, pollMs)
+
+    document.addEventListener("visibilitychange", refreshIfVisible)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", refreshIfVisible)
+    }
+  }, [activeConversation, fetchConversations, fetchMessages, isMessagesRoute, markAsRead, user?.id])
 
   const createConversation = async (userId: string): Promise<Conversation> => {
     const res = await fetch("/api/messaging/conversations", {
@@ -251,7 +275,7 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
       credentials: "include",
       body: JSON.stringify({ userId }),
     })
-    const data = await handleJson<{ conversation: any }>(res)
+    const data = await handleJson<{ conversation: Conversation }>(res)
     const conv = {
       ...data.conversation,
       lastMessage: data.conversation.lastMessage ? mapMessage(data.conversation.lastMessage) : undefined,
@@ -363,7 +387,7 @@ export function MessagingProvider({ children }: MessagingProviderProps) {
       if (pathname !== "/messages") return
       void markAsRead(activeConversation.id)
     }
-  }, [activeConversation?.id, pathname])
+  }, [activeConversation, fetchMessages, loadedConversations, markAsRead, pathname])
 
   const value: MessagingContextType = {
     conversations,

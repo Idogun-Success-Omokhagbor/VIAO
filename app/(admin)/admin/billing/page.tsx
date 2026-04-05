@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { RefreshCcw, Search } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { getErrorMessage, readJsonOrNull } from "@/lib/http"
 
 type BillingResponse = {
   page: number
@@ -64,25 +65,25 @@ export default function AdminBillingPage() {
     return params.toString()
   }, [from, page, q, to])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/admin/billing?${query}`, { credentials: "include", cache: "no-store" })
-      const json = (await res.json().catch(() => null)) as any
-      if (!res.ok) throw new Error(json?.error || "Failed to load billing")
-      setData(json as BillingResponse)
+      const json = await readJsonOrNull<BillingResponse>(res)
+      if (!res.ok) throw new Error(getErrorMessage(json, "Failed to load billing"))
+      setData(json)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load billing")
       setData(null)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [query])
 
   useEffect(() => {
     void load()
-  }, [query])
+  }, [load])
 
   const canPrev = page > 1
   const canNext = data ? page * data.pageSize < data.total : false

@@ -3,9 +3,11 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { PostType } from "@prisma/client"
+
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
-import { mapPost } from "@/lib/community-post"
+import { communityPostClientSelect, mapPost } from "@/lib/community-post"
 
 const createPostSchema = z.object({
   title: z.string().min(1),
@@ -13,7 +15,7 @@ const createPostSchema = z.object({
   tags: z.array(z.string().min(1)).optional(),
   imageUrl: z.string().url().optional().or(z.literal("")),
   mediaType: z.string().optional(),
-  type: z.string().optional(),
+  type: z.enum(["GENERAL", "EVENT", "ALERT"]).optional(),
   category: z.string().optional(),
 })
 
@@ -41,44 +43,7 @@ export async function GET() {
               ],
             }
           : undefined,
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        tags: true,
-        location: true,
-        mediaType: true,
-        category: true,
-        likedBy: true,
-        createdAt: true,
-        updatedAt: true,
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatarUrl: true,
-            location: true,
-          },
-        },
-        comments: {
-          select: {
-            id: true,
-            content: true,
-            likedBy: true,
-            createdAt: true,
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                avatarUrl: true,
-              },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-        },
-      },
+      select: communityPostClientSelect,
       orderBy: { createdAt: "desc" },
     })
 
@@ -114,15 +79,12 @@ export async function POST(req: Request) {
         tags: data.tags ?? [],
         imageUrl: data.imageUrl || undefined,
         mediaType: data.mediaType ?? undefined,
-        type: (data.type as any) ?? "GENERAL",
+        type: data.type ? PostType[data.type] : PostType.GENERAL,
         category: data.category ?? undefined,
         location: user?.location ?? undefined,
         authorId: session.sub,
       },
-      include: {
-        author: true,
-        comments: { include: { author: true } },
-      },
+      select: communityPostClientSelect,
     })
 
     return NextResponse.json({ post: await mapPost(created, session.sub) }, { status: 201 })

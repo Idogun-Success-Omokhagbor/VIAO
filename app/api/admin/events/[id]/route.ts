@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { toEventImageUrl, toEventImageUrls } from "@/lib/image-utils"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 
@@ -8,14 +9,8 @@ function forbidden() {
 }
 
 function mapSafeImages(eventId: string, imageUrl: string | null, imageUrls: unknown) {
-  const safeImageUrl = typeof imageUrl === "string" && imageUrl.startsWith("data:") ? `/api/events/${eventId}/image` : (imageUrl ?? null)
-  const safeImageUrls = Array.isArray(imageUrls)
-    ? imageUrls
-        .map((u: unknown, idx: number) =>
-          typeof u === "string" && u.startsWith("data:") ? `/api/events/${eventId}/image?index=${idx}` : u,
-        )
-        .filter((u: unknown) => typeof u === "string" && u.length > 0)
-    : []
+  const safeImageUrl = toEventImageUrl(eventId, imageUrl)
+  const safeImageUrls = toEventImageUrls(eventId, imageUrls, safeImageUrl)
 
   return {
     imageUrl: safeImageUrl,
@@ -23,7 +18,8 @@ function mapSafeImages(eventId: string, imageUrl: string | null, imageUrls: unkn
   }
 }
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session || session.role !== "ADMIN") return forbidden()
 
@@ -106,9 +102,9 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
       organizerId: event.organizerId,
       organizer: event.organizer,
       counts: {
-        rsvps: Number((event as any)._count?.rsvps ?? 0),
-        saves: Number((event as any)._count?.saves ?? 0),
-        reports: Number((event as any)._count?.reports ?? 0),
+        rsvps: Number(event._count.rsvps ?? 0),
+        saves: Number(event._count.saves ?? 0),
+        reports: Number(event._count.reports ?? 0),
         openReports: Number(openReports ?? 0),
       },
     },

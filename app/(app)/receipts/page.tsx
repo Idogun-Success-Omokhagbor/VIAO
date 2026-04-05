@@ -37,19 +37,6 @@ function formatDateTime(value: string | null) {
   return d.toLocaleString()
 }
 
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const a = document.createElement("a")
-  a.href = dataUrl
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-}
-
-function safeFilename(value: string) {
-  return value.replace(/[^a-z0-9\-_ ]/gi, "").trim().replace(/\s+/g, " ").slice(0, 80) || "receipt"
-}
-
 export default function ReceiptsPage() {
   const router = useRouter()
   const { user, isLoading: authLoading, refresh } = useAuth()
@@ -59,6 +46,9 @@ export default function ReceiptsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [receipts, setReceipts] = useState<ReceiptItem[]>([])
+
+  const isSearchField = (value: string): value is typeof searchField =>
+    value === "all" || value === "event" || value === "receipt" || value === "amount" || value === "level"
 
   useEffect(() => {
     if (authLoading) return
@@ -187,7 +177,12 @@ export default function ReceiptsPage() {
                 />
               </div>
               <div className="w-full md:w-56">
-                <Select value={searchField} onValueChange={(v) => setSearchField(v as any)}>
+                <Select
+                  value={searchField}
+                  onValueChange={(value) => {
+                    if (isSearchField(value)) setSearchField(value)
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Filter" />
                   </SelectTrigger>

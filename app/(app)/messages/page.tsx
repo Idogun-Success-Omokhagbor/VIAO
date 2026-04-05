@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -13,7 +13,7 @@ import { EmojiPicker } from "@/components/emoji-picker"
 import { Send, Search, MessageSquare, Check, CheckCheck, ArrowLeft } from "lucide-react"
 import { useMessaging } from "@/context/messaging-context"
 import { useAuth } from "@/context/auth-context"
-import { getAvatarSrc, formatTimeAgo, formatTime } from "@/lib/utils"
+import { getAvatarSrc, formatTimeAgo } from "@/lib/utils"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -42,7 +42,7 @@ export default function MessagesPage() {
     acceptConversation,
     declineConversation,
   } = useMessaging()
-  const { user, isAuthenticated, showAuthModal } = useAuth()
+  const { user, isAuthenticated, openAuthPage } = useAuth()
   const router = useRouter()
   const goToUser = (targetUserId: string) => {
     router.push(user?.id === targetUserId ? "/account" : `/profile/${targetUserId}`)
@@ -51,6 +51,7 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const deferredSearchQuery = useDeferredValue(searchQuery)
 
   const scrollToBottom = () => {
     const target = messagesEndRef.current
@@ -66,16 +67,26 @@ export default function MessagesPage() {
     }
   }
 
-  const conversationMessages =
-    activeConversation && messages
-      ? messages
-          .filter((m) => m.conversationId === activeConversation.id)
-          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      : []
+  const conversationMessages = useMemo(() => {
+    if (!activeConversation || !messages) return []
+
+    return messages
+      .filter((message) => message.conversationId === activeConversation.id)
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  }, [activeConversation, messages])
 
   useEffect(() => {
     scrollToBottom()
   }, [conversationMessages.length])
+
+  const filteredConversations = useMemo(() => {
+    const normalizedSearch = deferredSearchQuery.trim().toLowerCase()
+    if (!normalizedSearch) return conversations
+
+    return conversations.filter((conversation) =>
+      conversation.participants.some((participant) => participant.name.toLowerCase().includes(normalizedSearch)),
+    )
+  }, [conversations, deferredSearchQuery])
 
   if (!isAuthenticated) {
     return (
@@ -87,10 +98,10 @@ export default function MessagesPage() {
             <p className="text-gray-600">Connect with event organizers and community members</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button onClick={() => showAuthModal("login")} className="w-full">
+            <Button onClick={() => openAuthPage("login")} className="w-full">
               Log In
             </Button>
-            <Button onClick={() => showAuthModal("signup")} variant="outline" className="w-full">
+            <Button onClick={() => openAuthPage("signup")} variant="outline" className="w-full">
               Sign Up
             </Button>
           </CardContent>
@@ -139,12 +150,6 @@ export default function MessagesPage() {
       run()
     }
   }
-
-  const filteredConversations = conversations.filter((conv) =>
-    conv.participants.some((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase())),
-  )
-
-  const otherParticipant = activeConversation?.participants.find((p) => p.id !== user?.id)
 
   const renderStatus = (message: typeof conversationMessages[number]) => {
     const isOwnMessage = message.senderId === user?.id

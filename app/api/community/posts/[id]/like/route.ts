@@ -4,27 +4,28 @@ import { NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
-import { mapPost } from "@/lib/community-post"
+import { communityPostClientSelect, mapPost } from "@/lib/community-post"
 import { createNotification } from "@/lib/notifications"
 
-export async function POST(_: Request, { params }: { params: { id: string } }) {
+export async function POST(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   try {
-    const existing = (await prisma.communityPost.findUnique({ where: { id: params.id } })) as any
+    const existing = await prisma.communityPost.findUnique({ where: { id: params.id }, select: { id: true, likedBy: true } })
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
     const nextLikedBy: string[] = Array.isArray(existing.likedBy)
       ? existing.likedBy.includes(session.sub)
         ? existing.likedBy
         : [...existing.likedBy, session.sub]
       : [session.sub]
-    const post = (await prisma.communityPost.update({
+    const post = await prisma.communityPost.update({
       where: { id: params.id },
       data: {
         likedBy: { set: nextLikedBy },
-      } as any,
-      include: { author: true, comments: { include: { author: true } } },
-    })) as any
+      },
+      select: communityPostClientSelect,
+    })
 
     if (post.author?.id && post.author.id !== session.sub) {
       const actor = await prisma.user.findUnique({ where: { id: session.sub }, select: { name: true } })
@@ -45,20 +46,21 @@ export async function POST(_: Request, { params }: { params: { id: string } }) {
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   try {
-    const existing = (await prisma.communityPost.findUnique({ where: { id: params.id } })) as any
+    const existing = await prisma.communityPost.findUnique({ where: { id: params.id }, select: { id: true, likedBy: true } })
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
     const nextLikedBy: string[] = Array.isArray(existing.likedBy) ? existing.likedBy.filter((u: string) => u !== session.sub) : []
-    const post = (await prisma.communityPost.update({
+    const post = await prisma.communityPost.update({
       where: { id: params.id },
       data: {
         likedBy: { set: nextLikedBy },
-      } as any,
-      include: { author: true, comments: { include: { author: true } } },
-    })) as any
+      },
+      select: communityPostClientSelect,
+    })
     return NextResponse.json({ post: await mapPost(post, session.sub) })
   } catch (error) {
     console.error("DELETE /api/community/posts/[id]/like error:", error)

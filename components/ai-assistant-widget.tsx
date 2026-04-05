@@ -6,21 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { MessageCircle, Send, X, Minimize2 } from "lucide-react"
-import { getViaoAIResponseWithHistory } from "@/lib/viao-ai-assistant"
+import { Send, X, Minimize2 } from "lucide-react"
+import { loadAiHistory, sendAiMessage, type AiUiMessage, type MarkdownAnchorProps } from "@/lib/ai-chat-client"
 import { toast } from "sonner"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
-interface Message {
-  id: string
-  content: string
-  isUser: boolean
-  timestamp: Date
-  suggestions?: string[]
-}
-
-interface AIAssistantWidgetProps {
+export interface AIAssistantWidgetProps {
   isOpen?: boolean
   onClose?: () => void
 }
@@ -28,7 +20,7 @@ interface AIAssistantWidgetProps {
 function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWidgetProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<AiUiMessage[]>([
     {
       id: "1",
       content:
@@ -67,23 +59,8 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/ai/chat", { credentials: "include", cache: "no-store" })
-        const data = (await res.json().catch(() => null)) as { messages?: any[]; error?: string } | null
-        if (!res.ok) return
-        const raw = Array.isArray(data?.messages) ? data!.messages : []
-        if (raw.length === 0) return
-
-        setMessages(
-          raw
-            .filter((m) => m && typeof m.content === "string")
-            .map((m) => ({
-              id: String(m.id ?? `${Date.now()}`),
-              content: String(m.content ?? ""),
-              isUser: m.role === "user",
-              timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
-              suggestions: Array.isArray(m.suggestions) ? m.suggestions : undefined,
-            })),
-        )
+        const history = await loadAiHistory()
+        if (history && history.length > 0) setMessages(history)
       } catch {
       }
     }
@@ -98,12 +75,7 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
   const handleSendMessage = async (content: string = inputValue) => {
     if (!content.trim() || isLoading) return
 
-    const history = messages
-      .filter((m) => typeof m.content === "string" && m.content.trim().length > 0)
-      .slice(-12)
-      .map((m) => ({ role: m.isUser ? ("user" as const) : ("assistant" as const), content: m.content }))
-
-    const userMessage: Message = {
+    const userMessage: AiUiMessage = {
       id: Date.now().toString(),
       content: content.trim(),
       isUser: true,
@@ -115,9 +87,9 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
     setIsLoading(true)
 
     try {
-      const response = await getViaoAIResponseWithHistory(content.trim(), history)
+      const response = await sendAiMessage(content.trim(), messages)
 
-      const aiMessage: Message = {
+      const aiMessage: AiUiMessage = {
         id: (Date.now() + 1).toString(),
         content: response.message,
         isUser: false,
@@ -130,7 +102,7 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
       toast.error("Failed to get AI response. Please try again.")
 
       const errText = error instanceof Error ? error.message : "AI request failed"
-      const errorMessage: Message = {
+      const errorMessage: AiUiMessage = {
         id: (Date.now() + 1).toString(),
         content: `Sorry — I couldn't respond right now. ${errText}`,
         isUser: false,
@@ -190,9 +162,9 @@ function AIAssistantWidget({ isOpen: controlledIsOpen, onClose }: AIAssistantWid
                     >
                       <div className="whitespace-pre-wrap">
                         <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            a: (props: any) => <a {...props} className="underline" target="_blank" rel="noreferrer" />,
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                            a: (props: MarkdownAnchorProps) => <a {...props} className="underline" target="_blank" rel="noreferrer" />,
                           }}
                         >
                           {message.content}
