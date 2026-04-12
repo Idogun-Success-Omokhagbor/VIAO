@@ -142,7 +142,7 @@ export default function AdminReportsPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Reports</h1>
-          <p className="text-sm text-muted-foreground">Review and resolve event reports.</p>
+          <p className="text-sm text-muted-foreground">Work through trust and safety issues before they damage the marketplace.</p>
         </div>
         <Button variant="outline" onClick={load} disabled={isLoading}>
           <RefreshCcw className="mr-2 h-4 w-4" />

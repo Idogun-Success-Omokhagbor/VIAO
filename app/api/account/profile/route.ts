@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { Prisma } from "@prisma/client"
 
+import { authUserSelect, mapAuthUser } from "@/lib/current-user"
 import { storedImageInputSchema } from "@/lib/image-schemas"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
@@ -18,6 +19,7 @@ const updateSchema = z.object({
   email: z.string().email().optional(),
   avatarUrl: storedImageInputSchema.optional().or(z.literal("")),
   location: z.string().max(120).optional(),
+  interests: z.array(z.string().trim().min(1).max(60)).max(20).optional(),
   phone: z.string().max(30).optional(),
   bio: z.string().max(1_000).optional(),
   preferences: preferencesSchema.optional(),
@@ -39,25 +41,15 @@ export async function PATCH(req: Request) {
         email: data.email ?? undefined,
         avatarUrl: data.avatarUrl === "" ? null : data.avatarUrl ?? undefined,
         location: data.location ?? undefined,
+        interests: data.interests ?? undefined,
         phone: data.phone ?? undefined,
         bio: data.bio ?? undefined,
         preferences: data.preferences === undefined ? undefined : (data.preferences as Prisma.InputJsonValue),
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        avatarUrl: true,
-        createdAt: true,
-        location: true,
-        phone: true,
-        bio: true,
-        preferences: true,
-      },
+      select: authUserSelect,
     })
 
-    return NextResponse.json({ user: { ...updated, createdAt: updated.createdAt.toISOString() } })
+    return NextResponse.json({ user: mapAuthUser(updated) })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ error: "Email already in use" }, { status: 400 })

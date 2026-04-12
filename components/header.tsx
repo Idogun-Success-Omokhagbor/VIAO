@@ -3,13 +3,14 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { LogOut, Calendar, MessageSquare, Users, Receipt, Shield } from "lucide-react"
+import { LogOut, Calendar, Compass, MessageSquare, Receipt, Shield } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useMessaging } from "@/context/messaging-context"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { NotificationDropdown } from "@/components/notification-dropdown"
 import { BrandLockup } from "@/components/brand-logo"
+import { getDefaultAppPath } from "@/lib/default-app-path"
 import { getAvatarSrc } from "@/lib/utils"
 
 export function Header() {
@@ -17,14 +18,74 @@ export function Header() {
   const { unreadCount } = useMessaging()
   const pathname = usePathname() ?? ""
 
-  const isActive = (path: string) => pathname === path
+  const isActive = (path: string) => pathname === path || pathname.startsWith(`${path}/`)
+  const homeHref = user ? getDefaultAppPath(user.role) : "/"
+  const desktopNavItems =
+    user?.role === "ADMIN"
+      ? [
+          {
+            href: "/admin",
+            label: "Admin",
+            icon: Shield,
+          },
+          {
+            href: "/messages",
+            label: "Messages",
+            icon: MessageSquare,
+            badge: unreadCount,
+          },
+        ]
+      : user?.role === "ORGANIZER"
+        ? [
+            {
+              href: "/events",
+              label: "Events",
+              icon: Calendar,
+            },
+            {
+              href: "/discover",
+              label: "Discover",
+              icon: Compass,
+            },
+            {
+              href: "/messages",
+              label: "Messages",
+              icon: MessageSquare,
+              badge: unreadCount,
+            },
+            {
+              href: "/receipts",
+              label: "Receipts",
+              icon: Receipt,
+            },
+          ]
+        : user
+          ? [
+              {
+                href: "/discover",
+                label: "Discover",
+                icon: Compass,
+              },
+              {
+                href: "/my-events",
+                label: "Plans",
+                icon: Calendar,
+              },
+              {
+                href: "/messages",
+                label: "Messages",
+                icon: MessageSquare,
+                badge: unreadCount,
+              },
+            ]
+          : []
 
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-16 items-center justify-between w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-6">
-            <Link href="/" className="flex items-center space-x-2">
+            <Link href={homeHref} className="flex items-center space-x-2">
               <BrandLockup
                 iconSize={32}
                 titleClassName="text-xl font-bold text-foreground"
@@ -49,63 +110,23 @@ export function Header() {
 
             {user && (
               <nav className="hidden md:flex items-center space-x-6">
-                {user.role === "ADMIN" && (
+                {desktopNavItems.map(({ href, label, icon: Icon, badge }) => (
                   <Link
-                    href="/admin"
+                    key={href}
+                    href={href}
                     className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
-                      pathname.startsWith("/admin") ? "text-primary" : "text-muted-foreground"
+                      isActive(href) ? "text-primary" : "text-muted-foreground"
                     }`}
                   >
-                    <Shield className="h-4 w-4" />
-                    <span>Admin</span>
+                    <Icon className="h-4 w-4" />
+                    <span>{label}</span>
+                    {typeof badge === "number" && badge > 0 ? (
+                      <Badge variant="secondary" className="ml-1">
+                        {badge}
+                      </Badge>
+                    ) : null}
                   </Link>
-                )}
-                {user.role === "ORGANIZER" && (
-                  <Link
-                    href="/events"
-                    className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
-                      isActive("/events") ? "text-primary" : "text-muted-foreground"
-                    }`}
-                  >
-                    <Calendar className="h-4 w-4" />
-                    <span>Events</span>
-                  </Link>
-                )}
-                <Link
-                  href="/community"
-                  className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
-                    isActive("/community") ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  <Users className="h-4 w-4" />
-                  <span>Community</span>
-                </Link>
-                <Link
-                  href="/messages"
-                  className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
-                    isActive("/messages") ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Messages</span>
-                  {unreadCount > 0 && (
-                    <Badge variant="secondary" className="ml-1">
-                      {unreadCount}
-                    </Badge>
-                  )}
-                </Link>
-
-                {user.role === "ORGANIZER" && (
-                  <Link
-                    href="/receipts"
-                    className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
-                      isActive("/receipts") ? "text-primary" : "text-muted-foreground"
-                    }`}
-                  >
-                    <Receipt className="h-4 w-4" />
-                    <span>Receipts</span>
-                  </Link>
-                )}
+                ))}
               </nav>
             )}
           </div>
@@ -113,12 +134,6 @@ export function Header() {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <Link href="/my-events" className="hidden md:block">
-                  <Button variant="ghost" size="icon" aria-label="My Events">
-                    <Calendar className="h-4 w-4" />
-                  </Button>
-                </Link>
-
                 <NotificationDropdown />
 
                 <Link href="/account" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">

@@ -47,7 +47,7 @@ export function MessageUserButton({
       ? "Request declined"
       : existingConversation?.status === "ACCEPTED"
       ? "Open chat"
-      : "Request to PM"
+      : "Send message"
 
   const handleMessageClick = async () => {
     if (!user || userId === user.id) return

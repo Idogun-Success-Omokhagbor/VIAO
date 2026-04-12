@@ -94,7 +94,7 @@ export default function AdminBillingPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Billing</h1>
-          <p className="text-sm text-muted-foreground">Boost receipts and revenue overview.</p>
+          <p className="text-sm text-muted-foreground">Track boost revenue, receipt volume, and organiser spend in one place.</p>
         </div>
         <Button variant="outline" onClick={load} disabled={isLoading}>
           <RefreshCcw className="mr-2 h-4 w-4" />

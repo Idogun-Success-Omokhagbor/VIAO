@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Receipt, Search } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
+import { getDefaultAppPath } from "@/lib/default-app-path"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type ReceiptItem = {
@@ -57,7 +58,7 @@ export default function ReceiptsPage() {
       return
     }
     if (user.role !== "ORGANIZER") {
-      router.replace("/dashboard")
+      router.replace(getDefaultAppPath(user.role))
     }
   }, [authLoading, router, user])
 
@@ -146,12 +147,12 @@ export default function ReceiptsPage() {
                 <Receipt className="h-7 w-7" />
                 Receipts
               </h1>
-              <p className="text-gray-600 mt-1">All receipts from boosting your events.</p>
+              <p className="text-gray-600 mt-1">Track every boost payment tied to your events, spend, and promotion history.</p>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <div className="text-sm text-gray-500">Total in view</div>
+                <div className="text-sm text-gray-500">Visible spend</div>
                 <div className="text-lg font-semibold text-gray-900">{formatMoney(totals.totalAmount, totals.currency)}</div>
               </div>
             </div>
@@ -164,14 +165,14 @@ export default function ReceiptsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
-              Search
+              Find a receipt
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col md:flex-row gap-3">
               <div className="flex-1">
                 <Input
-                  placeholder="Search receipts..."
+                  placeholder="Search by event, receipt, amount, or level..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -213,7 +214,7 @@ export default function ReceiptsPage() {
               <Receipt className="h-7 w-7 text-purple-700" />
             </div>
             <h2 className="mt-4 text-xl font-semibold text-gray-900">No receipts yet</h2>
-            <p className="mt-2 text-gray-600">When you boost an event, your receipts will show up here.</p>
+            <p className="mt-2 text-gray-600">As soon as you pay to boost an event, VIAO stores the receipt here for finance and follow-up.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -280,7 +281,7 @@ function ReceiptCard({ receipt }: { receipt: ReceiptItem }) {
 
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleOpenReceipt} disabled={!receipt.receiptUrl || opening}>
-            {opening ? "Opening..." : "Receipt"}
+            {opening ? "Opening..." : "Open receipt"}
           </Button>
         </div>
       </div>

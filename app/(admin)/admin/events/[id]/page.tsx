@@ -125,8 +125,8 @@ export default function AdminEventDetailsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Event Details</h1>
-          <p className="text-sm text-muted-foreground">View full event information.</p>
+          <h1 className="text-2xl font-semibold">Event Review</h1>
+          <p className="text-sm text-muted-foreground">See the full listing, organiser context, and risk signals before taking action.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => router.push("/admin/events")}>Back</Button>
@@ -246,7 +246,7 @@ export default function AdminEventDetailsPage() {
 
                 <div className="flex items-center gap-3 text-sm">
                   <Link className="text-primary hover:underline" href={`/events/${event.id}`} target="_blank">
-                    Open public event page
+                    Open live event
                   </Link>
                 </div>
               </CardContent>

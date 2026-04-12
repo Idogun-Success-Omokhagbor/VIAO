@@ -1,17 +1,11 @@
-"use server"
-
-import { z } from "zod"
+import "server-only"
 
 import { prisma } from "@/lib/prisma"
-
-const adminSettingsSchema = z.object({
-  siteName: z.string().max(120).optional(),
-  supportEmail: z.string().email().max(200).optional(),
-  allowSignups: z.boolean().optional(),
-  maintenanceMode: z.boolean().optional(),
-  announcement: z.string().max(2000).optional(),
-  stripeEnabled: z.boolean().optional(),
-})
+import {
+  mergeSiteConfigPreferences,
+  parseSiteConfigSettings,
+  siteConfigSettingsSchema,
+} from "@/lib/site-config-settings"
 
 export type SiteConfig = {
   siteName?: string
@@ -22,21 +16,30 @@ export type SiteConfig = {
   stripeEnabled: boolean
 }
 
-function getSettingsFromPreferences(preferences: unknown): z.infer<typeof adminSettingsSchema> {
-  if (!preferences || typeof preferences !== "object") return {}
-  const raw = (preferences as Record<string, unknown>).adminSettings
-  const parsed = adminSettingsSchema.safeParse(raw)
-  return parsed.success ? parsed.data : {}
+export async function getSiteConfigStoreUser(fallbackAdminId?: string) {
+  const canonicalAdmin = await prisma.user.findFirst({
+    where: { role: "ADMIN" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, preferences: true },
+  })
+
+  if (canonicalAdmin) {
+    return canonicalAdmin
+  }
+
+  if (!fallbackAdminId) {
+    return null
+  }
+
+  return prisma.user.findFirst({
+    where: { id: fallbackAdminId, role: "ADMIN" },
+    select: { id: true, preferences: true },
+  })
 }
 
 export async function getSiteConfig(): Promise<SiteConfig> {
-  const admin = await prisma.user.findFirst({
-    where: { role: "ADMIN" },
-    orderBy: { createdAt: "asc" },
-    select: { preferences: true },
-  })
-
-  const settings = getSettingsFromPreferences(admin?.preferences)
+  const admin = await getSiteConfigStoreUser()
+  const settings = parseSiteConfigSettings(admin?.preferences)
 
   return {
     siteName: settings.siteName,
@@ -47,3 +50,6 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     stripeEnabled: settings.stripeEnabled !== false,
   }
 }
+
+export { mergeSiteConfigPreferences, parseSiteConfigSettings, siteConfigSettingsSchema }
+export type { SiteConfigSettings } from "@/lib/site-config-settings"

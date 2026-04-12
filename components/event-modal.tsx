@@ -25,6 +25,7 @@ const PaymentModal = dynamic<PaymentModalProps>(() => import("@/components/payme
 export interface EventModalProps {
   event: Event
   onClose: () => void
+  showCloseButton?: boolean
 }
 
 async function requestEventAction(resPromise: Promise<Response>) {
@@ -43,7 +44,7 @@ async function requestEventAction(resPromise: Promise<Response>) {
   }
 }
 
-export default function EventModal({ event, onClose }: EventModalProps) {
+export default function EventModal({ event, onClose, showCloseButton = true }: EventModalProps) {
   const { user, openAuthPage } = useAuth()
   const events = useOptionalEvents()
   const effectiveBoostLevel = typeof event.boostLevel === "number" ? event.boostLevel : event.isBoosted ? 1 : 0
@@ -255,16 +256,17 @@ export default function EventModal({ event, onClose }: EventModalProps) {
   return (
     <>
       <Card className="w-full bg-white">
-        {/* Header with close button */}
-        <div className="sticky top-0 z-20 flex justify-end p-4 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-          <button
-            type="button"
-            onClick={onClose}
-            className="bg-white/90 hover:bg-white rounded-full p-2 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        {showCloseButton ? (
+          <div className="sticky top-0 z-20 flex justify-end bg-white/80 p-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full bg-white/90 p-2 transition-colors hover:bg-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        ) : null}
 
         <div className="relative">
           {/* Hero Image */}

@@ -17,7 +17,8 @@ import { useAuth } from "@/context/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { getAvatarSrc } from "@/lib/utils"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import type { UserPreferences } from "@/types/auth"
+import { USER_INTEREST_OPTIONS } from "@/lib/user-interests"
+import type { AuthUser, UserPreferences } from "@/types/auth"
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
@@ -28,6 +29,17 @@ function urlBase64ToUint8Array(base64String: string) {
     outputArray[i] = rawData.charCodeAt(i)
   }
   return outputArray
+}
+
+function buildProfileFormData(user: AuthUser | null | undefined) {
+  return {
+    name: user?.name || "",
+    email: user?.email || "",
+    phone: user?.phone || "",
+    bio: user?.bio || "",
+    location: user?.location || "",
+    interests: Array.isArray(user?.interests) ? user.interests : [],
+  }
 }
 
 export default function AccountPage() {
@@ -44,12 +56,7 @@ export default function AccountPage() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [isConfiguringPush, setIsConfiguringPush] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
-  const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
-    bio: user?.bio || "",
-  })
+  const [formData, setFormData] = useState(() => buildProfileFormData(user))
 
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -126,14 +133,19 @@ export default function AccountPage() {
     })
   }, [])
 
+  useEffect(() => {
+    if (isEditing) return
+    setFormData(buildProfileFormData(user))
+  }, [isEditing, user])
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <User className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-            <CardTitle>Sign in to view your account</CardTitle>
-            <CardDescription>Access your profile and settings</CardDescription>
+            <CardTitle>Sign in to manage your account</CardTitle>
+            <CardDescription>Keep your profile, preferences, and security settings up to date</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button onClick={() => openAuthPage("login")} className="w-full">
@@ -148,23 +160,36 @@ export default function AccountPage() {
     )
   }
 
-  const handleSave = () => {
-    updateUser(formData)
-    setIsEditing(false)
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been successfully updated.",
-    })
+  const handleSave = async () => {
+    try {
+      await updateUser(formData)
+      setIsEditing(false)
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been successfully updated.",
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update profile"
+      toast({
+        title: "Error",
+        description: message,
+      })
+    }
   }
 
   const handleCancel = () => {
-    setFormData({
-      name: user?.name || "",
-      email: user?.email || "",
-      phone: user?.phone || "",
-      bio: user?.bio || "",
-    })
+    setFormData(buildProfileFormData(user))
     setIsEditing(false)
+  }
+
+  const toggleInterest = (interest: string) => {
+    if (!isEditing) return
+    setFormData((current) => ({
+      ...current,
+      interests: current.interests.includes(interest)
+        ? current.interests.filter((value) => value !== interest)
+        : [...current.interests, interest],
+    }))
   }
 
   const handleAvatarUpload = async (file: File) => {
@@ -500,7 +525,14 @@ export default function AccountPage() {
                       <Label>Location</Label>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input id="location" value={user?.location || "Not set"} disabled className="pl-10" />
+                        <Input
+                          id="location"
+                          value={formData.location}
+                          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                          disabled={!isEditing}
+                          className="pl-10"
+                          placeholder="City or area"
+                        />
                       </div>
                     </div>
                   </div>
@@ -517,12 +549,39 @@ export default function AccountPage() {
                     />
                   </div>
 
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-base">Discovery Preferences</Label>
+                      <p className="mt-1 text-sm text-gray-600">Your city and interests help VIAO keep nearby plans and better-fit events in front of you.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {USER_INTEREST_OPTIONS.map((interest) => {
+                        const active = formData.interests.includes(interest)
+                        return (
+                          <button
+                            key={interest}
+                            type="button"
+                            disabled={!isEditing}
+                            onClick={() => toggleInterest(interest)}
+                            className={`rounded-full border px-3 py-2 text-sm font-medium transition-all ${
+                              active
+                                ? "border-[#cdbdff] bg-[#f6f1ff] text-[#4f33d8]"
+                                : "border-[#e8deff] bg-white text-[#5d5184]"
+                            } ${isEditing ? "hover:border-[#cdbdff] hover:text-[#4f33d8]" : "cursor-default opacity-90"}`}
+                          >
+                            {interest}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
                   {isEditing && (
                     <div className="flex justify-end space-x-2">
                       <Button variant="outline" onClick={handleCancel}>
                         Cancel
                       </Button>
-                      <Button onClick={handleSave} className="flex items-center gap-2">
+                      <Button onClick={() => void handleSave()} className="flex items-center gap-2">
                         <Save className="h-4 w-4" />
                         Save Changes
                       </Button>

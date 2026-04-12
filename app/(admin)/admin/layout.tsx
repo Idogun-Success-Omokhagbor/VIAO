@@ -1,5 +1,6 @@
 import type React from "react"
 import { redirect } from "next/navigation"
+import { getDefaultAppPath } from "@/lib/default-app-path"
 import { getSessionUser } from "@/lib/session"
 import { AdminShell } from "./shell"
 
@@ -11,7 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   if (session.role !== "ADMIN") {
-    redirect("/dashboard")
+    redirect(getDefaultAppPath(session.role))
   }
 
   return <AdminShell>{children}</AdminShell>

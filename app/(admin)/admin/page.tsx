@@ -120,8 +120,8 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Overview of the platform.</p>
+          <h1 className="text-2xl font-semibold">Platform Pulse</h1>
+          <p className="text-sm text-muted-foreground">See growth, revenue, moderation risk, and recent platform activity in one pass.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-44">
@@ -196,7 +196,7 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Recent Receipts</CardTitle>
+            <CardTitle className="text-base">Recent Boost Payments</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 
 import HomePageClient from "@/components/home-page-client"
 import { getCurrentUser } from "@/lib/current-user"
+import { getDefaultAppPath } from "@/lib/default-app-path"
 import { listPublicEvents } from "@/lib/public-events"
 import { getSiteConfig } from "@/lib/site-config"
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic"
 export default async function HomePage() {
   const user = await getCurrentUser()
   if (user) {
-    redirect("/dashboard")
+    redirect(getDefaultAppPath(user.role))
   }
 
   const [eventsResult, siteConfigResult] = await Promise.allSettled([listPublicEvents(), getSiteConfig()])

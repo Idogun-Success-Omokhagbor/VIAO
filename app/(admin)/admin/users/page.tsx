@@ -123,7 +123,7 @@ export default function AdminUsersPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">User Management</h1>
-          <p className="text-sm text-muted-foreground">Search users and change roles.</p>
+          <p className="text-sm text-muted-foreground">Find people quickly, fix role issues, and keep access aligned with the business.</p>
         </div>
         <Button variant="outline" onClick={load} disabled={isLoading}>
           Refresh

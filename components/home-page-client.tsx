@@ -21,6 +21,7 @@ import { BrandLockup } from "@/components/brand-logo"
 import { Footer } from "@/components/footer"
 import { AppImage } from "@/components/ui/app-image"
 import { useAuth } from "@/context/auth-context"
+import { getDefaultAppPath } from "@/lib/default-app-path"
 import type { Event } from "@/types/event"
 
 const dmSans = DM_Sans({
@@ -35,14 +36,14 @@ const dmSerif = DM_Serif_Display({
 
 const marketingTheme = {
   token: {
-    colorPrimary: "#7c5cff",
-    colorInfo: "#7c5cff",
-    colorSuccess: "#2ca58d",
-    colorWarning: "#c270f8",
-    colorTextBase: "#24154b",
-    colorBgBase: "#f6f1ff",
-    colorBorder: "#d8ccff",
-    borderRadius: 20,
+    colorPrimary: "#5f43e5",
+    colorInfo: "#5f43e5",
+    colorSuccess: "#1f8f73",
+    colorWarning: "#c88238",
+    colorTextBase: "#1f1736",
+    colorBgBase: "#f8f6fc",
+    colorBorder: "#dfd8ee",
+    borderRadius: 18,
     fontFamily: dmSans.style.fontFamily,
   },
   components: {
@@ -68,13 +69,10 @@ const marketingTheme = {
 } as const
 
 const glassCardClass =
-  "border !border-[#eee6ff] bg-white/92 backdrop-blur-xl shadow-[0_22px_60px_rgba(101,73,214,0.08)]"
-
-const softPanelClass =
-  "rounded-[28px] border border-[#eee6ff] bg-white/94 backdrop-blur-xl shadow-[0_18px_48px_rgba(101,73,214,0.08)]"
+  "border !border-[#e8e1f2] bg-white/96 shadow-[0_22px_56px_rgba(31,23,54,0.07)]"
 
 const pillSurfaceClass =
-  "rounded-2xl border border-[#eee6ff] bg-white/96 backdrop-blur-md shadow-[0_10px_24px_rgba(101,73,214,0.06)]"
+  "rounded-full border border-[#ece5f2] bg-[#fcfbfe] shadow-[0_8px_18px_rgba(31,23,54,0.04)]"
 
 const joinBenefitItems = [
   { icon: CheckCircleOutlined, label: "Save events for later" },
@@ -241,8 +239,8 @@ function EventHostBadge({
   const initial = organizerName.charAt(0).toUpperCase() || "V"
 
   return (
-    <div className={`flex items-center gap-3 ${compact ? "text-xs" : "text-sm"} text-[#75699e]`}>
-      <div className={`${compact ? "h-8 w-8" : "h-10 w-10"} overflow-hidden rounded-full border border-[#ece4ff] bg-[#f7f3ff] shadow-[0_8px_18px_rgba(101,73,214,0.08)]`}>
+    <div className={`flex items-center gap-3 ${compact ? "text-xs" : "text-sm"} text-[#6f658b]`}>
+      <div className={`${compact ? "h-8 w-8" : "h-10 w-10"} overflow-hidden rounded-full border border-[#ece5f2] bg-[#f7f5fb] shadow-[0_6px_14px_rgba(31,23,54,0.05)]`}>
         {organizerAvatar ? (
           <AppImage
             src={organizerAvatar}
@@ -252,12 +250,12 @@ function EventHostBadge({
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-[#5f43e5]">{initial}</div>
+          <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-[#4f3fc1]">{initial}</div>
         )}
       </div>
       <div className="min-w-0">
-        <div className={`${compact ? "text-[11px]" : "text-xs"} uppercase tracking-[0.16em] text-[#9588bb]`}>Hosted by</div>
-        <div className="truncate font-medium text-[#4f4672]">{organizerName}</div>
+        <div className={`${compact ? "text-[11px]" : "text-xs"} uppercase tracking-[0.16em] text-[#9186ab]`}>Hosted by</div>
+        <div className="truncate font-medium text-[#443c61]">{organizerName}</div>
       </div>
     </div>
   )
@@ -293,8 +291,8 @@ function EventVisual({
   }
 
   return (
-    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,#ffffff,transparent_35%),linear-gradient(160deg,#efe8ff,#d7cbff_58%,#f6f3ff)]">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/80 bg-white/75 text-2xl font-semibold tracking-[0.16em] text-[#6b4eff] backdrop-blur-sm shadow-[0_10px_26px_rgba(101,73,214,0.12)]">
+    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,#ffffff,transparent_35%),linear-gradient(160deg,#f1ecfb,#e5deff_56%,#f7f5fc)]">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/80 bg-white/80 text-2xl font-semibold tracking-[0.16em] text-[#5948d1] shadow-[0_10px_26px_rgba(31,23,54,0.08)]">
         {badge || "V"}
       </div>
     </div>
@@ -304,14 +302,14 @@ function EventVisual({
 function EventPreviewCard({ event, onOpenEvent, priority = false }: EventPreviewCardProps) {
   return (
     <Card className={`h-full overflow-hidden ${glassCardClass}`} styles={{ body: { padding: 0 } }}>
-      <div className="relative h-56 overflow-hidden bg-[#efe9ff]">
+      <div className="relative h-56 overflow-hidden bg-[#f3eefb]">
         <EventVisual event={event} priority={priority} />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#24154b]/68 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#201636]/70 via-transparent to-transparent" />
         <div className="absolute left-4 top-4 flex flex-wrap gap-2">
           <Tag
             variant="filled"
             className="m-0 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
-            style={{ background: "rgba(255,255,255,0.78)", color: "#4a2ac7" }}
+            style={{ background: "rgba(255,255,255,0.84)", color: "#4338a6" }}
           >
             {event.category || "Featured"}
           </Tag>
@@ -319,7 +317,7 @@ function EventPreviewCard({ event, onOpenEvent, priority = false }: EventPreview
             <Tag
               variant="filled"
               className="m-0 rounded-full px-3 py-1 text-xs font-semibold"
-              style={{ background: "rgba(255,255,255,0.72)", color: "#6a4cff" }}
+              style={{ background: "rgba(32,22,54,0.76)", color: "#ffffff" }}
             >
               Featured
             </Tag>
@@ -338,7 +336,7 @@ function EventPreviewCard({ event, onOpenEvent, priority = false }: EventPreview
             </Typography.Paragraph>
             <EventHostBadge event={event} />
           </div>
-          <div className="rounded-full border border-white/70 bg-white/78 px-3 py-2 text-sm font-semibold text-[#4a2ac7] shadow-[8px_8px_18px_rgba(124,92,255,0.12),-6px_-6px_12px_rgba(255,255,255,0.7)]">
+          <div className="rounded-2xl border border-[#ece5f2] bg-[#faf8fd] px-3 py-2 text-sm font-semibold text-[#4338a6]">
             {formatPriceChf(event.price)}
           </div>
         </div>
@@ -358,7 +356,7 @@ function EventPreviewCard({ event, onOpenEvent, priority = false }: EventPreview
           <Typography.Text className="!text-[#72669a]">
             {typeof event.attendeesCount === "number" && event.attendeesCount > 0
               ? `${event.attendeesCount} people already interested`
-              : "Open the full event page and decide when it feels worth keeping"}
+              : "See what matters fast and decide if it fits your plan"}
           </Typography.Text>
           <Button type="primary" onClick={() => onOpenEvent(event)} icon={<ArrowRightOutlined />}>
             View details
@@ -380,7 +378,7 @@ function QuickLookItem({
     <button
       type="button"
       onClick={() => onOpenEvent(event)}
-      className="w-full rounded-[26px] border border-[#ebe2ff] bg-white/92 p-4 text-left transition-all hover:border-[#d7c8ff] hover:shadow-[0_18px_40px_rgba(101,73,214,0.10)]"
+      className="w-full rounded-[24px] border border-[#ece5f2] bg-[#fbf9fd] p-4 text-left transition-all hover:border-[#d9d0eb] hover:shadow-[0_18px_40px_rgba(31,23,54,0.08)]"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
@@ -388,19 +386,19 @@ function QuickLookItem({
             <Tag
               variant="filled"
               className="m-0 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]"
-              style={{ background: "rgba(124,92,255,0.12)", color: "#5f43e5" }}
+              style={{ background: "rgba(95,67,229,0.10)", color: "#4f3fc1" }}
             >
               {event.category || "Event"}
             </Tag>
             {event.isBoosted ? (
-              <span className="rounded-full border border-[#e8ddff] bg-[#faf7ff] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7b5cff]">
+              <span className="rounded-full border border-[#e8e1f2] bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#5c5091]">
                 Featured
               </span>
             ) : null}
           </div>
           <div className="line-clamp-2 text-base font-semibold leading-6 text-[#24154b]">{event.title}</div>
         </div>
-        <div className="shrink-0 rounded-full border border-[#ede5ff] bg-[#faf7ff] px-3 py-2 text-sm font-semibold text-[#4a2ac7]">
+        <div className="shrink-0 rounded-2xl border border-[#ece5f2] bg-white px-3 py-2 text-sm font-semibold text-[#4338a6]">
           {formatPriceChf(event.price)}
         </div>
       </div>
@@ -421,7 +419,7 @@ function QuickLookItem({
         <span>
           {typeof event.attendeesCount === "number" && event.attendeesCount > 0
             ? `${event.attendeesCount} people already interested`
-            : "Open the full event page"}
+            : "Check the details"}
         </span>
         <span className="font-semibold text-[#5f43e5]">Details</span>
       </div>
@@ -450,7 +448,7 @@ export default function HomePageClient({
 
   useEffect(() => {
     if (user) {
-      router.replace("/dashboard")
+      router.replace(getDefaultAppPath(user.role))
     }
   }, [router, user])
 
@@ -524,7 +522,7 @@ export default function HomePageClient({
   }, [activeCategory, activeIntent, query, showcaseEvents])
 
   const runwayEvents = filteredEvents.slice(0, 6)
-  const quickLookEvents = (filteredEvents.length > 0 ? filteredEvents : showcaseEvents).slice(0, 3)
+  const quickLookEvents = (filteredEvents.length > 0 ? filteredEvents : showcaseEvents).slice(0, 2)
   const ambientHeroEvent = useMemo(() => {
     const pool = filteredEvents.length > 0 ? filteredEvents : showcaseEvents
     return pickAmbientHeroEvent(pool)
@@ -576,7 +574,7 @@ export default function HomePageClient({
 
     const eventLabel = filteredEvents.length === 1 ? "event" : "events"
     const placeLabel = places === 1 ? "place" : "places"
-    return `${filteredEvents.length} ${eventLabel} across ${places} ${placeLabel} ready to scan.`
+    return `${filteredEvents.length} ${eventLabel} across ${places} ${placeLabel} worth checking right now.`
   }, [filteredEvents])
 
   const publicProofStats = useMemo(() => {
@@ -596,12 +594,12 @@ export default function HomePageClient({
     return [
       {
         value: showcaseEvents.length,
-        label: "Upcoming public events",
-        detail: "Live options guests can scan right now.",
+        label: "Upcoming events",
+        detail: "Live options already worth checking on VIAO.",
       },
       {
         value: cityCount,
-        label: "Cities in view",
+        label: "Cities represented",
         detail: "Enough spread to make local browsing feel alive.",
       },
       {
@@ -612,7 +610,7 @@ export default function HomePageClient({
       {
         value: categoryCount || boostedCount,
         label: categoryCount > 0 ? "Categories represented" : "Featured picks",
-        detail: categoryCount > 0 ? "Breadth matters on a public first visit." : "Promoted events still need to earn the click.",
+        detail: categoryCount > 0 ? "Enough range to match different moods, budgets, and plans." : "Featured picks still need to feel worth showing up for.",
       },
     ]
   }, [showcaseEvents])
@@ -630,8 +628,8 @@ export default function HomePageClient({
 
   return (
     <ConfigProvider theme={marketingTheme}>
-      <div className={`${dmSans.className} min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#faf7ff_34%,#ffffff_72%,#fbf9ff_100%)] text-[#24154b]`}>
-        <header className="sticky top-0 z-30 border-b border-[#efe9ff] bg-white/88 backdrop-blur-2xl">
+      <div className={`${dmSans.className} min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#faf8fc_32%,#ffffff_70%,#fbfafc_100%)] text-[#24154b]`}>
+        <header className="sticky top-0 z-30 border-b border-[#ece5f2] bg-white/90 backdrop-blur-2xl">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
             <Link href="/" className="text-[#24154b] no-underline">
               <BrandLockup
@@ -678,9 +676,9 @@ export default function HomePageClient({
         <main>
           <section className="relative overflow-hidden">
             <div className="pointer-events-none absolute inset-0">
-              <div className="absolute left-[-8%] top-[-8%] h-72 w-72 rounded-full bg-[#f3eefe] blur-3xl" />
-              <div className="absolute right-[-4%] top-20 h-96 w-96 rounded-full bg-[#f6f2ff] blur-3xl" />
-              <div className="absolute bottom-[-10%] left-1/3 h-64 w-64 rounded-full bg-[#eef7ff] blur-3xl" />
+              <div className="absolute left-[-8%] top-[-8%] h-72 w-72 rounded-full bg-[#f3eef9] blur-3xl" />
+              <div className="absolute right-[-4%] top-20 h-96 w-96 rounded-full bg-[#f5f0ff] blur-3xl" />
+              <div className="absolute bottom-[-10%] left-1/3 h-64 w-64 rounded-full bg-[#eef6fb] blur-3xl" />
               {ambientHeroImage ? (
                 <div className="absolute inset-y-10 right-[-10%] hidden w-[55%] min-w-[460px] max-w-[860px] lg:block" aria-hidden="true">
                   <div className="absolute inset-0 rounded-[54px] border border-white/40 bg-white/30 shadow-[0_24px_90px_rgba(101,73,214,0.12)] backdrop-blur-[2px]" />
@@ -711,7 +709,7 @@ export default function HomePageClient({
                 <Tag
                   variant="filled"
                   className="mb-5 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em]"
-                  style={{ background: "rgba(124,92,255,0.12)", color: "#5f43e5" }}
+                  style={{ background: "rgba(95,67,229,0.10)", color: "#5140bc" }}
                 >
                   Local plans, without the digging
                 </Tag>
@@ -720,27 +718,27 @@ export default function HomePageClient({
                   Find local events worth showing up for.
                 </h1>
 
-                <Typography.Paragraph className="mt-6 max-w-2xl !text-lg !leading-8 !text-[#6a5f8f]">
+                <Typography.Paragraph className="mt-6 max-w-2xl !text-lg !leading-8 !text-[#5f5678]">
                   Viao puts the time, place, price, and category up front so you can scan what is happening nearby and
                   decide fast.
                 </Typography.Paragraph>
 
-                <div className="mt-6 flex flex-wrap gap-2.5 sm:gap-3">
-                  <span className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#5d5184] ${pillSurfaceClass}`}>
+                <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm font-medium text-[#5f5678]">
+                  <span className="inline-flex items-center gap-2">
                     <ClockCircleOutlined className="text-[#6f54ff]" />
                     Time and price first
                   </span>
-                  <span className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#5d5184] ${pillSurfaceClass}`}>
+                  <span className="inline-flex items-center gap-2">
                     <CompassOutlined className="text-[#6f54ff]" />
                     Search by city or category
                   </span>
-                  <span className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#5d5184] ${pillSurfaceClass}`}>
+                  <span className="inline-flex items-center gap-2">
                     <HeartOutlined className="text-[#6f54ff]" />
                     Save and RSVP once you join
                   </span>
                 </div>
 
-                <div className={`mt-6 max-w-2xl p-4 ${softPanelClass}`}>
+                <div className="mt-7 max-w-2xl rounded-[30px] border border-[#e8e1f2] bg-white/96 p-5 shadow-[0_18px_42px_rgba(31,23,54,0.06)] sm:p-6">
                   <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                     <Input
                       size="large"
@@ -751,24 +749,8 @@ export default function HomePageClient({
                       onChange={(event) => setQuery(event.target.value)}
                     />
                     <Button type="primary" size="large" onClick={scrollToFeatured}>
-                      See events
+                      Browse events
                     </Button>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {categoryOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setActiveCategory(option.value)}
-                        className={`rounded-full border px-3 py-2 text-sm font-medium transition-all ${
-                          activeCategory === option.value
-                            ? "border-[#cdbdff] bg-[#f6f1ff] text-[#4f33d8]"
-                            : "border-[#e8deff] bg-white text-[#5d5184] hover:border-[#cdbdff] hover:text-[#4f33d8]"
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {intentOptions.map((option) => (
@@ -786,23 +768,7 @@ export default function HomePageClient({
                       </button>
                     ))}
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {cityShortcuts.map((city) => (
-                      <button
-                        key={city}
-                        type="button"
-                        onClick={() => {
-                          setActiveCategory("ALL")
-                          setActiveIntent("ALL")
-                          setQuery(city)
-                        }}
-                        className="rounded-full border border-[#e8deff] bg-white px-3 py-2 text-sm font-medium text-[#5d5184] transition-all hover:border-[#cdbdff] hover:text-[#4f33d8]"
-                      >
-                        {city}
-                      </button>
-                    ))}
-                  </div>
-                  <Typography.Paragraph className="!mb-0 !mt-4 !text-sm !leading-7 !text-[#7d71a4]">
+                  <Typography.Paragraph className="!mb-0 !mt-4 !text-sm !leading-7 !text-[#756c95]">
                     {resultSummary}
                   </Typography.Paragraph>
                 </div>
@@ -813,27 +779,27 @@ export default function HomePageClient({
                   <div className="space-y-6 p-6">
                     <div>
                       <Typography.Text className="!text-xs !font-semibold !uppercase !tracking-[0.22em] !text-[#8a7ab6]">
-                        Starting soon
+                        Worth your time
                       </Typography.Text>
-                      <Typography.Title level={2} className={`${dmSerif.className} !mb-2 !mt-2 !text-4xl !leading-tight !text-[#24154b]`}>
-                        A quick read on the next plans in the feed.
+                      <Typography.Title level={2} className="!mb-2 !mt-2 !text-[2rem] !font-semibold !leading-tight !tracking-[-0.03em] !text-[#24154b]">
+                        Start with the plans most likely to fit next.
                       </Typography.Title>
-                      <Typography.Paragraph className="!mb-0 !text-[16px] !leading-8 !text-[#6a5f8f]">
-                        Use this side panel to scan the next few options fast, then open the full event page when one feels right.
+                      <Typography.Paragraph className="!mb-0 !text-[16px] !leading-8 !text-[#5f5678]">
+                        A tighter shortlist for people choosing what to do next without digging through weak options.
                       </Typography.Paragraph>
                     </div>
 
                     {quickLookEvents.length > 0 ? (
                       <div className="space-y-4">
-                        {quickLookEvents.map((event, index) => (
-                          <div key={event.id} className={index === 0 ? "" : "hidden lg:block"}>
+                        {quickLookEvents.map((event) => (
+                          <div key={event.id}>
                             <QuickLookItem event={event} onOpenEvent={openEventPage} />
                           </div>
                         ))}
                       </div>
                     ) : (
                       <Empty
-                        description="Fresh events will appear here as soon as organizers publish them."
+                        description="New events will go live here as soon as organizers publish something worth checking."
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                       />
                     )}
@@ -845,30 +811,69 @@ export default function HomePageClient({
           </section>
 
           <section id="featured" className="mx-auto max-w-7xl px-6 py-6 lg:py-10">
-            <div className="rounded-[36px] border border-[#ebe2ff] bg-[radial-gradient(circle_at_top_left,#f6f1ff,transparent_26%),linear-gradient(180deg,#ffffff,#fcfaff)] p-8 shadow-[0_22px_56px_rgba(101,73,214,0.07)] lg:p-10">
-                  <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="rounded-[36px] border border-[#e9e2f0] bg-[radial-gradient(circle_at_top_left,#f8f4fb,transparent_26%),linear-gradient(180deg,#ffffff,#fcfbfd)] p-8 shadow-[0_22px_56px_rgba(31,23,54,0.06)] lg:p-10">
+              <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
                   <Typography.Text className="!text-xs !font-semibold !uppercase !tracking-[0.22em] !text-[#8a7ab6]">
-                    Upcoming public events
+                    Upcoming events
                   </Typography.Text>
-                  <Typography.Title level={2} className={`${dmSerif.className} !mb-2 !mt-2 !text-4xl !text-[#24154b]`}>
+                  <Typography.Title level={2} className="!mb-2 !mt-2 !text-4xl !font-semibold !tracking-[-0.03em] !text-[#24154b]">
                     Start with events that already make sense in one glance.
                   </Typography.Title>
-                  <Typography.Paragraph className="!mb-0 !max-w-2xl !text-[16px] !leading-8 !text-[#6a5f8f]">
+                  <Typography.Paragraph className="!mb-0 !max-w-2xl !text-[16px] !leading-8 !text-[#5f5678]">
                     Start with events you can understand in one glance: what it is, where it happens, when it starts,
                     and whether it fits the plan.
                   </Typography.Paragraph>
                 </div>
-                <div className="rounded-full border border-[#ebe2ff] bg-white px-4 py-2 text-sm font-medium text-[#6a5f8f]">
-                  {runwayEvents.length} events in this view
+                <div className="rounded-full border border-[#ece5f2] bg-white px-4 py-2 text-sm font-medium text-[#6a5f8f]">
+                  {runwayEvents.length} matching events right now
                 </div>
+              </div>
+
+              <div className="mb-6 flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {categoryOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setActiveCategory(option.value)}
+                      className={`rounded-full border px-3 py-2 text-sm font-medium transition-all ${
+                        activeCategory === option.value
+                          ? "border-[#cdbdff] bg-[#f6f1ff] text-[#4f33d8]"
+                          : "border-[#e8e1f2] bg-white text-[#5d5184] hover:border-[#cdbdff] hover:text-[#4f33d8]"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                {cityShortcuts.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-[#72688f]">
+                    <span className="font-medium">Popular cities:</span>
+                    {cityShortcuts.map((city) => (
+                      <button
+                        key={city}
+                        type="button"
+                        onClick={() => {
+                          setActiveCategory("ALL")
+                          setActiveIntent("ALL")
+                          setQuery(city)
+                        }}
+                        className="rounded-full border border-[#e8e1f2] bg-[#fcfbfe] px-3 py-1.5 font-medium text-[#5d5184] transition-all hover:border-[#cdbdff] hover:text-[#4f33d8]"
+                      >
+                        {city}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
               {loadError ? <Alert className="mb-6" showIcon type="error" message={loadError} /> : null}
 
               {runwayEvents.length === 0 ? (
                 <Card className={glassCardClass}>
-                  <Empty description="No matching events yet. Clear the search to see the full lineup." />
+                  <Empty description="No events match this combination yet. Try a wider city, category, or time filter." />
                 </Card>
               ) : (
                 <div className="grid gap-6 lg:grid-cols-3">
@@ -881,46 +886,62 @@ export default function HomePageClient({
           </section>
 
           <section id="why-viao" className="mx-auto max-w-7xl px-6 pb-20 pt-16">
-            <div className="grid gap-10 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-start">
-              <div className={`${softPanelClass} p-8`}>
-                <Typography.Text className="!text-xs !font-semibold !uppercase !tracking-[0.22em] !text-[#8a7ab6]">
-                  Browse first
-                </Typography.Text>
-                <Typography.Title level={2} className={`${dmSerif.className} !mb-4 !mt-2 !text-4xl !leading-tight !text-[#24154b]`}>
-                  Clear enough to judge before asking for an account.
-                </Typography.Title>
-                <Typography.Paragraph className="!mb-6 !text-[16px] !leading-8 !text-[#6a5f8f]">
-                  A public event page should earn trust fast: enough live inventory to feel real, enough detail to support a clean yes-or-no decision, and a signup ask only when it unlocks something useful.
-                </Typography.Paragraph>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {publicProofStats.map((stat) => (
-                    <div key={stat.label} className="rounded-[26px] border border-[#ebe2ff] bg-white/94 px-5 py-5 shadow-[0_12px_28px_rgba(101,73,214,0.06)]">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#887ab8]">{stat.label}</div>
-                      <div className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[#24154b]">{stat.value}</div>
-                      <div className="mt-2 text-sm leading-7 text-[#6a5f8f]">{stat.detail}</div>
+            <div className="grid gap-10 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] xl:items-start">
+              <div className="space-y-8">
+                <div className="max-w-3xl">
+                  <Typography.Text className="!text-xs !font-semibold !uppercase !tracking-[0.22em] !text-[#8a7ab6]">
+                    Trust the signal fast
+                  </Typography.Text>
+                  <Typography.Title level={2} className="!mb-4 !mt-2 !text-4xl !font-semibold !leading-tight !tracking-[-0.04em] !text-[#24154b]">
+                    Enough signal to know what deserves your time.
+                  </Typography.Title>
+                  <Typography.Paragraph className="!mb-0 !text-[16px] !leading-8 !text-[#5f5678]">
+                    VIAO works when the event lineup feels real and every plan is easy to judge on timing, place, price, and fit.
+                  </Typography.Paragraph>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  {publicProofStats.slice(0, 3).map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="rounded-[28px] border border-[#e8e1f2] bg-white px-5 py-6 shadow-[0_14px_32px_rgba(31,23,54,0.05)]"
+                    >
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#887ab8]">{stat.label}</div>
+                      <div className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[#24154b]">{stat.value}</div>
+                      <div className="mt-2 text-sm leading-7 text-[#655c80]">{stat.detail}</div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-5 space-y-3">
-                  <div className={`flex items-start gap-3 px-5 py-4 ${softPanelClass}`}>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f1ebff] text-sm font-semibold text-[#6f54ff]">
-                      1
-                    </div>
-                    <div>
-                      <div className="font-semibold text-[#24154b]">Guests can open the full public event page</div>
-                      <div className="text-sm leading-7 text-[#6a5f8f]">
-                        The page should not hide the useful details behind auth.
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-[28px] border border-[#e8e1f2] bg-[linear-gradient(180deg,#ffffff,#fcfafc)] px-6 py-6 shadow-[0_14px_32px_rgba(31,23,54,0.05)]">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f2edff] text-sm font-semibold text-[#5948d1]">
+                        1
+                      </div>
+                      <div>
+                        <div className="text-lg font-semibold tracking-[-0.02em] text-[#24154b]">
+                          Everything needed for a fast yes-or-no
+                        </div>
+                        <div className="mt-2 text-sm leading-7 text-[#655c80]">
+                          Time, place, price, and host should be clear right away.
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className={`flex items-start gap-3 px-5 py-4 ${softPanelClass}`}>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f1ebff] text-sm font-semibold text-[#6f54ff]">
-                      2
-                    </div>
-                    <div>
-                      <div className="font-semibold text-[#24154b]">Accounts unlock memory and commitment</div>
-                      <div className="text-sm leading-7 text-[#6a5f8f]">
-                        Saving, RSVPing, and messaging organizers become the real reason to join.
+
+                  <div className="rounded-[28px] border border-[#e8e1f2] bg-[linear-gradient(180deg,#ffffff,#fcfafc)] px-6 py-6 shadow-[0_14px_32px_rgba(31,23,54,0.05)]">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eef7f4] text-sm font-semibold text-[#1f8f73]">
+                        2
+                      </div>
+                      <div>
+                        <div className="text-lg font-semibold tracking-[-0.02em] text-[#24154b]">
+                          Save the plans that become real
+                        </div>
+                        <div className="mt-2 text-sm leading-7 text-[#655c80]">
+                          Saving, RSVPing, and messaging organizers matter once a plan moves from maybe to yes.
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -929,59 +950,61 @@ export default function HomePageClient({
 
               <Card
                 id="join"
-                className="overflow-hidden border !border-[#e8e0ff] shadow-[0_24px_70px_rgba(101,73,214,0.1)]"
+                className="overflow-hidden border !border-[#e8e1f2] shadow-[0_24px_60px_rgba(31,23,54,0.08)]"
                 styles={{ body: { padding: 0, background: "#ffffff" } }}
                 style={{ background: "#ffffff" }}
               >
-                <div className="grid gap-8 bg-[radial-gradient(circle_at_top_left,#f5f0ff,transparent_22%),radial-gradient(circle_at_bottom_right,#eff8ff,transparent_26%),linear-gradient(180deg,#ffffff,#faf7ff)] px-8 py-10 lg:px-12 lg:py-12 2xl:grid-cols-[minmax(0,1fr)_320px] 2xl:items-center">
+                <div className="space-y-8 bg-[radial-gradient(circle_at_top_left,#f6f0fb,transparent_24%),radial-gradient(circle_at_bottom_right,#eef7fb,transparent_28%),linear-gradient(180deg,#ffffff,#fbf9fc)] px-8 py-9 lg:px-10 lg:py-10">
                   <div>
                     <Typography.Text className="!text-xs !font-semibold !uppercase !tracking-[0.22em] !text-[#887ab8]">
                       Join Viao
                     </Typography.Text>
-                    <Typography.Title level={2} className={`${dmSerif.className} !mb-4 !mt-3 !text-4xl !text-[#24154b]`}>
-                      Create an account when a plan becomes worth keeping.
+                    <Typography.Title level={2} className="!mb-4 !mt-3 !text-4xl !font-semibold !leading-tight !tracking-[-0.04em] !text-[#24154b]">
+                      Keep the plans you want to come back to.
                     </Typography.Title>
-                    <Typography.Paragraph className="!mb-0 !max-w-2xl !text-[16px] !leading-8 !text-[#6a5f8f]">
-                      Guests should be able to browse first. Joining starts to matter when an event feels like a real yes and they want it saved, organized, and ready to RSVP.
+                    <Typography.Paragraph className="!mb-0 !text-[16px] !leading-8 !text-[#5f5678]">
+                      VIAO gets better once a plan becomes real: save it, RSVP, and keep the conversation moving with organizers.
                     </Typography.Paragraph>
-                    <div className="mt-6 grid gap-3 text-[#5d5184] md:grid-cols-2">
-                      {joinBenefitItems.map(({ icon: Icon, label }) => (
-                        <div
-                          key={label}
-                          className={`flex items-start gap-3 rounded-[26px] px-4 py-4 text-left ${pillSurfaceClass}`}
-                        >
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f5f0ff] text-[18px] text-[#6f54ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
-                            <Icon />
-                          </div>
-                          <div className="max-w-[18rem] text-[15px] font-medium leading-7 text-[#4f4379] sm:text-base">
-                            {label}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                </div>
+                  </div>
 
-                <div className={`${softPanelClass} space-y-4 p-6`}>
-                    <div className="hidden space-y-4 sm:block">
-                      <div className="flex items-center gap-3 rounded-2xl border border-[#efe6ff] bg-white px-4 py-3 text-[#5d5184]">
-                        <CalendarOutlined />
+                  <div className="grid gap-4">
+                    {joinBenefitItems.map(({ icon: Icon, label }) => (
+                      <div
+                        key={label}
+                        className="flex items-center gap-4 border-b border-[#ece5f2] pb-4 last:border-b-0 last:pb-0"
+                      >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[18px] text-[#5948d1] shadow-[0_10px_20px_rgba(31,23,54,0.06)]">
+                          <Icon />
+                        </div>
+                        <div className="text-[15px] font-medium leading-7 text-[#453d61] sm:text-base">{label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-[28px] border border-[#e8e1f2] bg-white/94 p-5 shadow-[0_16px_32px_rgba(31,23,54,0.06)]">
+                    <div className="space-y-3 text-sm text-[#5d5478]">
+                      <div className="flex items-center gap-3">
+                        <CalendarOutlined className="text-[#5948d1]" />
                         Personal event shortlist
                       </div>
-                      <div className="flex items-center gap-3 rounded-2xl border border-[#efe6ff] bg-white px-4 py-3 text-[#5d5184]">
-                        <HeartOutlined />
+                      <div className="flex items-center gap-3">
+                        <HeartOutlined className="text-[#5948d1]" />
                         RSVP and reminder-ready
                       </div>
-                      <div className="flex items-center gap-3 rounded-2xl border border-[#efe6ff] bg-white px-4 py-3 text-[#5d5184]">
-                        <MessageOutlined />
+                      <div className="flex items-center gap-3">
+                        <MessageOutlined className="text-[#5948d1]" />
                         Direct organizer messaging
                       </div>
                     </div>
-                  <Button type="primary" size="large" block onClick={() => openAuthPage("signup")}>
-                    Create your account
-                  </Button>
-                    <Button size="large" block ghost onClick={() => openAuthPage("login")}>
-                      I already have an account
-                    </Button>
+
+                    <div className="mt-5 space-y-3">
+                      <Button type="primary" size="large" block onClick={() => openAuthPage("signup")}>
+                        Create your account
+                      </Button>
+                      <Button size="large" block ghost onClick={() => openAuthPage("login")}>
+                        I already have an account
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </Card>

@@ -27,6 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/context/auth-context"
+import { USER_INTEREST_OPTIONS } from "@/lib/user-interests"
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -37,19 +38,6 @@ const dmSerif = DM_Serif_Display({
   subsets: ["latin"],
   weight: ["400"],
 })
-
-const interests = [
-  "Technology",
-  "Art & Culture",
-  "Music",
-  "Sports",
-  "Food & Drink",
-  "Business",
-  "Health & Wellness",
-  "Education",
-  "Travel",
-  "Photography",
-] as const
 
 type AuthPageClientProps = {
   mode: "signin" | "signup"
@@ -516,7 +504,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-[#24154b]">Interests</Label>
                   <div className="flex flex-wrap gap-2">
-                    {interests.map((interest) => {
+                    {USER_INTEREST_OPTIONS.map((interest) => {
                       const active = signUpData.interests.includes(interest)
                       return (
                         <button
@@ -583,12 +571,12 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
 
 function resolveNextPath(next: string | null): string {
   if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return "/dashboard"
+    return "/"
   }
 
   const normalized = next.split("?")[0] || next
   if (normalized === "/signin" || normalized === "/signup" || normalized === "/reset-password") {
-    return "/dashboard"
+    return "/"
   }
 
   return next

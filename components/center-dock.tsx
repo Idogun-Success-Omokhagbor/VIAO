@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Home, Calendar, Users, MessageCircle } from "lucide-react"
+import { Compass, Calendar, MessageCircle, User } from "lucide-react"
 import { useMessaging } from "@/context/messaging-context"
 
 export default function CenterDock() {
@@ -23,22 +23,16 @@ export default function CenterDock() {
 
   const navItems = [
     {
-      href: "/dashboard",
-      icon: Home,
-      label: "Home",
-      isActive: pathname === "/dashboard",
+      href: "/discover",
+      icon: Compass,
+      label: "Discover",
+      isActive: pathname === "/discover",
     },
     {
-      href: "/events",
+      href: "/my-events",
       icon: Calendar,
-      label: "Events",
-      isActive: pathname === "/events",
-    },
-    {
-      href: "/community",
-      icon: Users,
-      label: "Community",
-      isActive: pathname === "/community",
+      label: "Plans",
+      isActive: pathname === "/my-events",
     },
     {
       href: "/messages",
@@ -46,6 +40,12 @@ export default function CenterDock() {
       label: "Messages",
       isActive: pathname === "/messages",
       badge: unreadCount > 0 ? unreadCount : undefined,
+    },
+    {
+      href: "/account",
+      icon: User,
+      label: "Account",
+      isActive: pathname === "/account",
     },
   ]
 

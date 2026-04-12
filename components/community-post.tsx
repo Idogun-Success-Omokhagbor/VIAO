@@ -363,11 +363,11 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                       size="sm"
                     onClick={() => handleMessageUser(post.author.id)}
                       className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                      aria-label={hasConversationWith(post.author.id) ? "Open chat" : "Request to PM"}
-                      title={hasConversationWith(post.author.id) ? "Open chat" : "Request to PM"}
+                      aria-label={hasConversationWith(post.author.id) ? "Open chat" : "Send message"}
+                      title={hasConversationWith(post.author.id) ? "Open chat" : "Send message"}
                     >
                       <MessageSquare className="h-3 w-3 mr-1" />
-                      {!hasConversationWith(post.author.id) && "Request to PM"}
+                      {!hasConversationWith(post.author.id) && "Send message"}
                     </Button>
                   )}
                 </div>
@@ -550,11 +550,11 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                                 size="sm"
                           onClick={() => handleMessageUser(comment.author.id)}
                                 className="h-5 px-1 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                aria-label={hasConversationWith(comment.author.id) ? "Open chat" : "Request to PM"}
-                                title={hasConversationWith(comment.author.id) ? "Open chat" : "Request to PM"}
+                                aria-label={hasConversationWith(comment.author.id) ? "Open chat" : "Send message"}
+                                title={hasConversationWith(comment.author.id) ? "Open chat" : "Send message"}
                               >
                                 <MessageSquare className="h-3 w-3 mr-1" />
-                                {!hasConversationWith(comment.author.id) && "Request to PM"}
+                                {!hasConversationWith(comment.author.id) && "Send message"}
                               </Button>
                             )}
                             <span className="text-[11px] text-gray-500">{formatTimeAgo(comment.createdAt)}</span>

@@ -77,8 +77,8 @@ export default function AdminSettingsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Site Configuration</h1>
-          <p className="text-sm text-muted-foreground">Control site behavior and announcements.</p>
+          <h1 className="text-2xl font-semibold">Platform Controls</h1>
+          <p className="text-sm text-muted-foreground">Adjust signups, announcements, and payments without changing application code.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={load} disabled={isLoading}>
@@ -132,7 +132,7 @@ export default function AdminSettingsPage() {
               id="announcement"
               value={settings.announcement ?? ""}
               onChange={(e) => setSettings((s) => ({ ...s, announcement: e.target.value }))}
-              placeholder="Optional message shown to users."
+              placeholder="Optional message shown across the product."
             />
           </div>
         </CardContent>
@@ -157,7 +157,7 @@ export default function AdminSettingsPage() {
           <div className="flex items-center justify-between gap-4 rounded-md border p-3">
             <div>
               <div className="font-medium">Maintenance mode</div>
-              <div className="text-sm text-muted-foreground">Show a maintenance message (UI only; you can hook middleware later).</div>
+              <div className="text-sm text-muted-foreground">Show a maintenance message across the product while operations are paused.</div>
             </div>
             <Switch
               checked={Boolean(settings.maintenanceMode)}
@@ -175,7 +175,7 @@ export default function AdminSettingsPage() {
           <div className="flex items-center justify-between gap-4 rounded-md border p-3">
             <div>
               <div className="font-medium">Stripe features enabled</div>
-              <div className="text-sm text-muted-foreground">Toggle UI-level visibility of billing-related features.</div>
+              <div className="text-sm text-muted-foreground">Control whether payment and boost features are visible to users and organisers.</div>
             </div>
             <Switch
               checked={Boolean(settings.stripeEnabled)}

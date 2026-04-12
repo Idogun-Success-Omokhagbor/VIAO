@@ -30,6 +30,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { formatBoostCountdown, getBoostCountdownToneClass, getLocationString } from "@/lib/utils"
 import { getEventCategoryColor } from "@/lib/event-categories"
 import { getErrorMessage, readJsonOrNull } from "@/lib/http"
+import { getDefaultAppPath } from "@/lib/default-app-path"
+import { toast } from "sonner"
 
 const EventModal = dynamic<EventModalProps>(() => import("@/components/event-modal"), { ssr: false })
 const EventForm = dynamic<EventFormProps>(() => import("@/components/event-form"), { ssr: false })
@@ -91,7 +93,7 @@ export default function EventsPage() {
       return
     }
     if (user.role !== "ORGANIZER") {
-      router.replace("/dashboard")
+      router.replace(getDefaultAppPath(user.role))
     }
   }, [authLoading, router, user])
 
@@ -282,7 +284,7 @@ export default function EventsPage() {
       setDeleteEvent(null)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete event"
-      window.alert(message)
+      toast.error(message)
     } finally {
       setDeleteLoading(false)
     }
