@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { stripe } from "@/lib/stripe"
+import { getDefaultAppPath } from "@/lib/default-app-path"
 import { getSiteConfig } from "@/lib/site-config"
 import { applySuccessfulBoostPayment, getPublicAppUrl, getStripeSessionHashSecret, parseBoostLevel } from "@/lib/stripe-boost"
 
@@ -21,7 +22,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/?error=unauthorized", publicOrigin))
   }
   if (sessionUser.role !== "ORGANIZER") {
-    return NextResponse.redirect(new URL("/dashboard?error=forbidden", publicOrigin))
+    return NextResponse.redirect(new URL(`${getDefaultAppPath(sessionUser.role)}?error=forbidden`, publicOrigin))
   }
 
   const config = await getSiteConfig()

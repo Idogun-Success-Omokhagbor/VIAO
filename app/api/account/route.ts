@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 import { clearSessionCookie } from "@/lib/session"
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   const session = await getSessionUser()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -39,7 +39,7 @@ export async function DELETE() {
     })
 
     const res = NextResponse.json({ success: true })
-    clearSessionCookie(res)
+    clearSessionCookie(res, request)
     return res
   } catch (error) {
     console.error("DELETE /api/account error:", error)

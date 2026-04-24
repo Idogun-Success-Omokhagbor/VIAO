@@ -10,6 +10,7 @@ interface WsOptions {
 const WS_URL = (process.env.NEXT_PUBLIC_WS_URL || "").trim()
 const WS_PORT = (process.env.NEXT_PUBLIC_WS_PORT || "").trim()
 const WS_PATH = process.env.NEXT_PUBLIC_WS_PATH || ""
+const DEFAULT_DEV_WS_PORT = "3002"
 
 function buildUrl() {
   if (typeof window === "undefined") return ""
@@ -20,7 +21,7 @@ function buildUrl() {
 
   const { protocol, hostname } = window.location
   const isSecure = protocol === "https:"
-  const hostPort = WS_PORT || (process.env.NODE_ENV === "development" ? "3001" : "")
+  const hostPort = WS_PORT || (process.env.NODE_ENV === "development" ? DEFAULT_DEV_WS_PORT : "")
   const portPart = hostPort ? `:${hostPort}` : ""
   return `${isSecure ? "wss" : "ws"}://${hostname}${portPart}${WS_PATH}`
 }

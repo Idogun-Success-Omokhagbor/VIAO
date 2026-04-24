@@ -25,7 +25,7 @@ export default function EventDeepLinkPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fallbackHref = from === "plans" ? "/my-events" : from === "dashboard" ? "/dashboard" : "/discover"
+  const fallbackHref = from === "plans" ? "/my-events" : "/discover"
 
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {

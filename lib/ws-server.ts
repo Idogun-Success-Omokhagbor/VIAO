@@ -14,7 +14,8 @@ declare const globalThis: {
   __viaoWSS__?: WsRegistry
 } & typeof global
 
-const WS_PORT = Number(process.env.WS_PORT ?? 3001)
+const DEFAULT_WS_PORT = 3002
+const WS_PORT = Number(process.env.WS_PORT ?? DEFAULT_WS_PORT)
 
 function attachHandlers(registry: WsRegistry) {
   const { wss, userSockets } = registry

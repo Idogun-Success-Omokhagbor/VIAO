@@ -1,4 +1,29 @@
 /** @type {import('next').NextConfig} */
+const localOrigins = [
+  "localhost:3000",
+  "localhost:3001",
+  "localhost:10000",
+  "127.0.0.1:3000",
+  "127.0.0.1:3001",
+  "127.0.0.1:10000",
+]
+
+const appOriginHost = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL || "").host || null
+  } catch {
+    return null
+  }
+})()
+
+const allowedOrigins = Array.from(
+  new Set([
+    ...localOrigins,
+    ...(appOriginHost ? [appOriginHost] : []),
+    "*.vercel.app",
+  ]),
+)
+
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -34,9 +59,9 @@ const nextConfig = {
   },
   serverExternalPackages: ["ws"],
   experimental: {
-    optimizePackageImports: ["lucide-react"],
+    optimizePackageImports: ["lucide-react", "antd", "@ant-design/icons"],
     serverActions: {
-      allowedOrigins: ['localhost:3000', '*.vercel.app']
+      allowedOrigins,
     },
   },
   env: {

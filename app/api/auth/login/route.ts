@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       },
       { status: 200 },
     )
-    setSessionCookie(response, token)
+    setSessionCookie(response, token, request)
     return response
   } catch (error) {
     console.error("Login error", error)

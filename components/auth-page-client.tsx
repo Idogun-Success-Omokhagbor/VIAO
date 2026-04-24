@@ -327,6 +327,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
                     <Input
                       id="signin-email"
                       type="email"
+                      autoComplete="email"
                       value={signInData.email}
                       onChange={(event) => setSignInData((current) => ({ ...current, email: event.target.value }))}
                       placeholder="you@example.com"
@@ -344,6 +345,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
                     <Input
                       id="signin-password"
                       type={showSignInPassword ? "text" : "password"}
+                      autoComplete="current-password"
                       value={signInData.password}
                       onChange={(event) => setSignInData((current) => ({ ...current, password: event.target.value }))}
                       placeholder="Enter your password"
@@ -394,6 +396,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
                       <User className="absolute left-4 top-4 h-4 w-4 text-[#9185ba]" />
                       <Input
                         id="signup-name"
+                        autoComplete="name"
                         value={signUpData.name}
                         onChange={(event) => setSignUpData((current) => ({ ...current, name: event.target.value }))}
                         placeholder="Your name"
@@ -413,6 +416,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
                       <Input
                         id="signup-email"
                         type="email"
+                        autoComplete="email"
                         value={signUpData.email}
                         onChange={(event) => setSignUpData((current) => ({ ...current, email: event.target.value }))}
                         placeholder="you@example.com"
@@ -434,6 +438,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
                       <Input
                         id="signup-password"
                         type={showSignUpPassword ? "text" : "password"}
+                        autoComplete="new-password"
                         value={signUpData.password}
                         onChange={(event) => setSignUpData((current) => ({ ...current, password: event.target.value }))}
                         placeholder="Create a password"
@@ -460,6 +465,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
                       <Input
                         id="signup-confirm-password"
                         type={showSignUpConfirmPassword ? "text" : "password"}
+                        autoComplete="new-password"
                         value={signUpData.confirmPassword}
                         onChange={(event) => setSignUpData((current) => ({ ...current, confirmPassword: event.target.value }))}
                         placeholder="Confirm password"
