@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { AppImage } from "@/components/ui/app-image"
 import { AppSpinner } from "@/components/ui/app-spinner"
@@ -138,7 +138,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
     }
   }, [post.hasMedia, post.id, resolvedMediaUrl])
 
-  const ensurePostDetails = async () => {
+  const ensurePostDetails = useCallback(async () => {
     if (isLoadingDetails || commentCount === 0 || (post.comments?.length ?? 0) > 0) {
       return
     }
@@ -159,13 +159,13 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
     } finally {
       setIsLoadingDetails(false)
     }
-  }
+  }, [commentCount, isLoadingDetails, post.comments?.length, post.id])
 
   useEffect(() => {
     if (!showComments) return
     if (commentCount === 0 || (post.comments?.length ?? 0) > 0) return
     void ensurePostDetails()
-  }, [commentCount, post.comments?.length, showComments])
+  }, [commentCount, ensurePostDetails, post.comments?.length, showComments])
 
   const handleDeletePost = async () => {
     if (!isAuthenticated || !user) {

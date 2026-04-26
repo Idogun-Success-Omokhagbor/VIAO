@@ -86,6 +86,17 @@ async function handleJson<T>(resPromise: Promise<Response> | Response): Promise<
   return res.json() as Promise<T>
 }
 
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export function CommunityProvider({ children }: { children: ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -111,12 +122,18 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
     const request = (async () => {
       try {
-        const data = await handleJson<{ posts: Post[] }>(fetch("/api/community/posts", { cache: "no-store", credentials: "include" }))
+        const data = await handleJson<{ posts: Post[] }>(
+          fetchWithTimeout("/api/community/posts", { cache: "no-store", credentials: "include" }, 15000),
+        )
         setPosts(data.posts)
         hasLoadedRef.current = true
         lastLoadedAtRef.current = Date.now()
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to load posts"
+        const message = err instanceof DOMException && err.name === "AbortError"
+          ? "Community is taking too long to load. Please try again."
+          : err instanceof Error
+            ? err.message
+            : "Failed to load posts"
         setError(message)
       } finally {
         refreshInFlightRef.current = null
