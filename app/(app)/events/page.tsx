@@ -4,6 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "rea
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { AppImage } from "@/components/ui/app-image"
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -192,8 +193,8 @@ export default function EventsPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="h-full min-h-0 bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-[calc(100dvh-4rem)] bg-gray-50 flex items-center justify-center">
+        <AppSpinner label="Loading events..." size="lg" fullHeight />
       </div>
     )
   }
@@ -291,7 +292,7 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="h-full min-h-0 bg-gray-50 overflow-y-auto">
+    <div className="min-h-full bg-gray-50">
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -392,7 +393,7 @@ export default function EventsPage() {
                 {organizerError ? (
                   <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{organizerError}</div>
                 ) : organizerLoading ? (
-                  <div className="text-sm text-gray-600">Loading your events…</div>
+                  <AppSpinner label="Loading your events..." size="sm" className="py-8" />
                 ) : (
                   <Tabs
                     value={organizerTab}
@@ -695,7 +696,7 @@ export default function EventsPage() {
             </div>
 
             {attendeesLoading ? (
-              <div className="text-sm text-muted-foreground">Loading attendees…</div>
+              <AppSpinner label="Loading attendees..." size="sm" className="py-8" />
             ) : filteredAttendees.length === 0 ? (
               <div className="text-sm text-muted-foreground">No attendees found.</div>
             ) : (

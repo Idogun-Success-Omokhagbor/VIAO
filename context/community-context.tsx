@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react"
 
 export interface Comment {
   id: string
@@ -44,6 +44,7 @@ export interface Post {
   isLiked?: boolean
   location?: string
   category?: string
+  commentsCount?: number
   comments: Comment[]
 }
 
@@ -89,24 +90,45 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const refreshInFlightRef = useRef<Promise<void> | null>(null)
+  const hasLoadedRef = useRef(false)
+  const lastLoadedAtRef = useRef(0)
 
   const refreshPosts = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const data = await handleJson<{ posts: Post[] }>(fetch("/api/community/posts", { cache: "no-store", credentials: "include" }))
-      setPosts(data.posts)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load posts"
-      setError(message)
-    } finally {
-      setIsLoading(false)
+    if (refreshInFlightRef.current) {
+      return refreshInFlightRef.current
     }
-  }, [])
 
-  useEffect(() => {
-    void refreshPosts()
-  }, [refreshPosts])
+    if (hasLoadedRef.current && Date.now() - lastLoadedAtRef.current < 10000) {
+      return
+    }
+
+    const shouldBlockUI = !hasLoadedRef.current && posts.length === 0
+    if (shouldBlockUI) {
+      setIsLoading(true)
+    }
+    setError(null)
+
+    const request = (async () => {
+      try {
+        const data = await handleJson<{ posts: Post[] }>(fetch("/api/community/posts", { cache: "no-store", credentials: "include" }))
+        setPosts(data.posts)
+        hasLoadedRef.current = true
+        lastLoadedAtRef.current = Date.now()
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load posts"
+        setError(message)
+      } finally {
+        refreshInFlightRef.current = null
+        if (shouldBlockUI) {
+          setIsLoading(false)
+        }
+      }
+    })()
+
+    refreshInFlightRef.current = request
+    return request
+  }, [posts.length])
 
   const createPost = async (post: {
     title: string

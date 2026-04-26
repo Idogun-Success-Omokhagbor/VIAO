@@ -2,6 +2,7 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -102,7 +103,7 @@ export default function CommunityPage() {
         return (b.likes || 0) - (a.likes || 0)
       }
       if (sortBy === "comments") {
-        return (b.comments?.length || 0) - (a.comments?.length || 0)
+        return (b.commentsCount ?? b.comments?.length ?? 0) - (a.commentsCount ?? a.comments?.length ?? 0)
       }
       return 0
     })
@@ -113,7 +114,7 @@ export default function CommunityPage() {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
     return posts.filter((post) => new Date(post.createdAt).getTime() >= cutoff).length
   }, [posts])
-  const activeThreads = useMemo(() => posts.filter((post) => (post.comments?.length ?? 0) > 0).length, [posts])
+  const activeThreads = useMemo(() => posts.filter((post) => (post.commentsCount ?? post.comments?.length ?? 0) > 0).length, [posts])
 
   const handleCreatePost = () => {
     if (!isAuthenticated) {
@@ -127,7 +128,7 @@ export default function CommunityPage() {
   const showingNearby = scope === "nearby" && Boolean(userLocation)
 
   return (
-    <div className="min-h-0 w-full overflow-y-auto bg-[#fcfaff] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="min-h-full w-full bg-[#fcfaff] px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <section className="overflow-hidden rounded-[28px] border border-[#eadfff] bg-[linear-gradient(135deg,#fff_0%,#f8f4ff_52%,#eef6ff_100%)] shadow-[0_24px_60px_rgba(98,59,188,0.08)]">
           <div className="flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between">
@@ -264,9 +265,12 @@ export default function CommunityPage() {
         ) : null}
 
         {isLoading ? (
-          <div className="rounded-[24px] border border-[#ece4ff] bg-white px-6 py-16 text-center text-gray-500 shadow-[0_12px_30px_rgba(98,59,188,0.05)]">
-            Loading local conversations...
-          </div>
+          <AppSpinner
+            label="Loading local conversations..."
+            size="lg"
+            fullHeight
+            className="rounded-[24px] border border-[#ece4ff] bg-white px-6 py-16 shadow-[0_12px_30px_rgba(98,59,188,0.05)]"
+          />
         ) : sortedPosts.length === 0 ? (
           <EmptyCommunityState
             searchActive={hasSearch}

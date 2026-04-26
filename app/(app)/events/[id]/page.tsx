@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 import { ArrowLeft, Compass } from "lucide-react"
 
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Button } from "@/components/ui/button"
 
 import type { EventModalProps } from "@/components/event-modal"
@@ -93,15 +94,15 @@ export default function EventDeepLinkPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading event...</div>
+      <div className="min-h-[calc(100dvh-4rem)] bg-gray-50 flex items-center justify-center">
+        <AppSpinner label="Loading event..." size="lg" fullHeight />
       </div>
     )
   }
 
   if (error || !event) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-[calc(100dvh-4rem)] bg-gray-50 flex items-center justify-center">
         <div className="text-center space-y-2">
           <div className="text-gray-900 font-semibold">Event not available</div>
           <div className="text-gray-600 text-sm">{error ?? "Not found"}</div>
@@ -118,7 +119,7 @@ export default function EventDeepLinkPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)]">
+    <div className="min-h-full bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)]">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Button type="button" variant="outline" onClick={handleBack} className="w-fit rounded-full border-[#ddd1ff] bg-white/85 text-[#5e4ea6] hover:bg-[#f6f1ff]">

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { DM_Sans, DM_Serif_Display } from "next/font/google"
 import {
   ArrowRightOutlined,
   CalendarOutlined,
@@ -22,17 +21,8 @@ import { Footer } from "@/components/footer"
 import { AppImage } from "@/components/ui/app-image"
 import { useAuth } from "@/context/auth-context"
 import { getDefaultAppPath } from "@/lib/default-app-path"
+import { VIAO_SANS_CLASS, VIAO_SANS_FONT_FAMILY, VIAO_SERIF_CLASS } from "@/lib/font-stacks"
 import type { Event } from "@/types/event"
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-})
-
-const dmSerif = DM_Serif_Display({
-  subsets: ["latin"],
-  weight: ["400"],
-})
 
 const marketingTheme = {
   token: {
@@ -44,7 +34,7 @@ const marketingTheme = {
     colorBgBase: "#f8f6fc",
     colorBorder: "#dfd8ee",
     borderRadius: 18,
-    fontFamily: dmSans.style.fontFamily,
+    fontFamily: VIAO_SANS_FONT_FAMILY,
   },
   components: {
     Button: {
@@ -628,7 +618,7 @@ export default function HomePageClient({
 
   return (
     <ConfigProvider theme={marketingTheme}>
-      <div className={`${dmSans.className} min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#faf8fc_32%,#ffffff_70%,#fbfafc_100%)] text-[#24154b]`}>
+      <div className={`${VIAO_SANS_CLASS} min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#faf8fc_32%,#ffffff_70%,#fbfafc_100%)] text-[#24154b]`}>
         <header className="sticky top-0 z-30 border-b border-[#ece5f2] bg-white/90 backdrop-blur-2xl">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
             <Link href="/" className="text-[#24154b] no-underline">
@@ -711,16 +701,15 @@ export default function HomePageClient({
                   className="mb-5 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em]"
                   style={{ background: "rgba(95,67,229,0.10)", color: "#5140bc" }}
                 >
-                  Local plans, without the digging
+                  Local plans, made clearer
                 </Tag>
 
-                <h1 className={`${dmSerif.className} max-w-4xl text-5xl leading-[0.98] tracking-[-0.03em] text-[#24154b] sm:text-6xl lg:text-[4.6rem]`}>
+                <h1 className={`${VIAO_SERIF_CLASS} max-w-4xl text-5xl leading-[0.98] tracking-[-0.03em] text-[#24154b] sm:text-6xl lg:text-[4.6rem]`}>
                   Find local events worth showing up for.
                 </h1>
 
                 <Typography.Paragraph className="mt-6 max-w-2xl !text-lg !leading-8 !text-[#5f5678]">
-                  Viao puts the time, place, price, and category up front so you can scan what is happening nearby and
-                  decide fast.
+                  Time, place, price, and category come first so you can decide fast.
                 </Typography.Paragraph>
 
                 <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm font-medium text-[#5f5678]">
@@ -779,13 +768,13 @@ export default function HomePageClient({
                   <div className="space-y-6 p-6">
                     <div>
                       <Typography.Text className="!text-xs !font-semibold !uppercase !tracking-[0.22em] !text-[#8a7ab6]">
-                        Worth your time
+                        Start here
                       </Typography.Text>
                       <Typography.Title level={2} className="!mb-2 !mt-2 !text-[2rem] !font-semibold !leading-tight !tracking-[-0.03em] !text-[#24154b]">
-                        Start with the plans most likely to fit next.
+                        Start with the best fits right now.
                       </Typography.Title>
                       <Typography.Paragraph className="!mb-0 !text-[16px] !leading-8 !text-[#5f5678]">
-                        A tighter shortlist for people choosing what to do next without digging through weak options.
+                        A tighter shortlist for what to do next.
                       </Typography.Paragraph>
                     </div>
 
@@ -818,11 +807,10 @@ export default function HomePageClient({
                     Upcoming events
                   </Typography.Text>
                   <Typography.Title level={2} className="!mb-2 !mt-2 !text-4xl !font-semibold !tracking-[-0.03em] !text-[#24154b]">
-                    Start with events that already make sense in one glance.
+                    Events that make sense at a glance.
                   </Typography.Title>
                   <Typography.Paragraph className="!mb-0 !max-w-2xl !text-[16px] !leading-8 !text-[#5f5678]">
-                    Start with events you can understand in one glance: what it is, where it happens, when it starts,
-                    and whether it fits the plan.
+                    See the essentials fast: what it is, where it happens, when it starts, and what it costs.
                   </Typography.Paragraph>
                 </div>
                 <div className="rounded-full border border-[#ece5f2] bg-white px-4 py-2 text-sm font-medium text-[#6a5f8f]">
@@ -890,13 +878,13 @@ export default function HomePageClient({
               <div className="space-y-8">
                 <div className="max-w-3xl">
                   <Typography.Text className="!text-xs !font-semibold !uppercase !tracking-[0.22em] !text-[#8a7ab6]">
-                    Trust the signal fast
+                    Know faster
                   </Typography.Text>
                   <Typography.Title level={2} className="!mb-4 !mt-2 !text-4xl !font-semibold !leading-tight !tracking-[-0.04em] !text-[#24154b]">
-                    Enough signal to know what deserves your time.
+                    Enough signal to judge a plan fast.
                   </Typography.Title>
                   <Typography.Paragraph className="!mb-0 !text-[16px] !leading-8 !text-[#5f5678]">
-                    VIAO works when the event lineup feels real and every plan is easy to judge on timing, place, price, and fit.
+                    VIAO works when the lineup feels real and the essentials are easy to judge.
                   </Typography.Paragraph>
                 </div>
 
@@ -960,10 +948,10 @@ export default function HomePageClient({
                       Join Viao
                     </Typography.Text>
                     <Typography.Title level={2} className="!mb-4 !mt-3 !text-4xl !font-semibold !leading-tight !tracking-[-0.04em] !text-[#24154b]">
-                      Keep the plans you want to come back to.
+                      Save the plans you want to keep.
                     </Typography.Title>
                     <Typography.Paragraph className="!mb-0 !text-[16px] !leading-8 !text-[#5f5678]">
-                      VIAO gets better once a plan becomes real: save it, RSVP, and keep the conversation moving with organizers.
+                      Create an account to save events, RSVP, and message organizers when a plan becomes real.
                     </Typography.Paragraph>
                   </div>
 

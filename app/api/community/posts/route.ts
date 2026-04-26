@@ -7,7 +7,7 @@ import { PostType } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
-import { communityPostClientSelect, mapPost } from "@/lib/community-post"
+import { communityPostClientSelect, communityPostListSelect, mapPost } from "@/lib/community-post"
 
 const createPostSchema = z.object({
   title: z.string().min(1),
@@ -22,32 +22,14 @@ const createPostSchema = z.object({
 export async function GET() {
   try {
     const session = await getSessionUser()
-    const user = session
-      ? await prisma.user.findUnique({
-          where: { id: session.sub },
-          select: { id: true, location: true },
-        })
-      : null
 
     const posts = await prisma.communityPost.findMany({
-      where:
-        user?.location && user.location.trim().length > 0
-          ? {
-              OR: [
-                { location: { equals: user.location, mode: "insensitive" } },
-                { author: { location: { equals: user.location, mode: "insensitive" } } },
-                { location: null },
-                { location: "" },
-                { author: { location: null } },
-                { author: { location: "" } },
-              ],
-            }
-          : undefined,
-      select: communityPostClientSelect,
+      select: communityPostListSelect,
       orderBy: { createdAt: "desc" },
+      take: 60,
     })
 
-    const mapped = await Promise.all(posts.map((p) => mapPost(p, session?.sub)))
+    const mapped = posts.map((post) => mapPost(post, session?.sub))
     return NextResponse.json({ posts: mapped })
   } catch (error) {
     console.error("GET /api/community/posts error:", error)

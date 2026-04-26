@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { DM_Sans, DM_Serif_Display } from "next/font/google"
 import { ArrowLeft, Eye, EyeOff, KeyRound, Mail, ShieldCheck } from "lucide-react"
 
 import { BrandLockup } from "@/components/brand-logo"
@@ -11,16 +10,7 @@ import { publicGlassCardClass, publicPillClass, publicSoftPanelClass } from "@/c
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-})
-
-const dmSerif = DM_Serif_Display({
-  subsets: ["latin"],
-  weight: ["400"],
-})
+import { VIAO_SANS_CLASS, VIAO_SERIF_CLASS } from "@/lib/font-stacks"
 
 export function ResetPasswordPageClient() {
   const router = useRouter()
@@ -143,7 +133,7 @@ export function ResetPasswordPageClient() {
 
   return (
     <div
-      className={`${dmSans.className} min-h-screen bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)] px-4 py-8 sm:px-6 lg:px-8`}
+      className={`${VIAO_SANS_CLASS} min-h-screen bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)] px-4 py-8 sm:px-6 lg:px-8`}
     >
       <div className="mx-auto flex max-w-[1160px] flex-col gap-8 pt-2 sm:pt-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -174,18 +164,18 @@ export function ResetPasswordPageClient() {
           <div className="space-y-6">
             <div className="space-y-4">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#887ab8]">Reset password</p>
-              <h1 className={`${dmSerif.className} max-w-3xl text-4xl leading-[1.02] tracking-[-0.04em] text-[#24154b] sm:text-5xl lg:text-[4.35rem]`}>
-                Reset access without leaving the product flow.
+              <h1 className={`${VIAO_SERIF_CLASS} max-w-3xl text-4xl leading-[1.02] tracking-[-0.04em] text-[#24154b] sm:text-5xl lg:text-[4.35rem]`}>
+                Reset your password.
               </h1>
               <p className="max-w-2xl text-[17px] leading-8 text-[#6a5f8f] sm:text-lg">
-                Enter the account email, verify the 6-digit code from the inbox, and choose a new password without getting bounced around.
+                Enter your email, verify the code, and choose a new password.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <div className={publicPillClass}>6-digit code</div>
-              <div className={publicPillClass}>Password minimum: 8 characters</div>
-              <div className={publicPillClass}>Redirects back to sign in</div>
+              <div className={publicPillClass}>8+ character password</div>
+              <div className={publicPillClass}>Back to sign in</div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -193,15 +183,15 @@ export function ResetPasswordPageClient() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#f5f0ff] text-[#7c5cff]">
                   <Mail className="h-5 w-5" />
                 </div>
-                <h2 className="mt-4 text-lg font-semibold text-[#24154b]">Step 1: send the code</h2>
-                <p className="mt-2 text-sm leading-7 text-[#6a5f8f]">Use the same email tied to the account so the reset code goes to the right inbox.</p>
+                <h2 className="mt-4 text-lg font-semibold text-[#24154b]">Step 1: send code</h2>
+                <p className="mt-2 text-sm leading-7 text-[#6a5f8f]">Use the email tied to the account.</p>
               </div>
               <div className={`${publicSoftPanelClass} rounded-[24px] p-5`}>
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#f5f0ff] text-[#7c5cff]">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
-                <h2 className="mt-4 text-lg font-semibold text-[#24154b]">Step 2: verify and update</h2>
-                <p className="mt-2 text-sm leading-7 text-[#6a5f8f]">Once the code is confirmed, choose a new password and head straight back to sign in.</p>
+                <h2 className="mt-4 text-lg font-semibold text-[#24154b]">Step 2: verify it</h2>
+                <p className="mt-2 text-sm leading-7 text-[#6a5f8f]">Enter the code, then set a new password.</p>
               </div>
             </div>
           </div>
@@ -213,14 +203,14 @@ export function ResetPasswordPageClient() {
               </div>
               <div>
                 <h2 className="text-2xl font-semibold tracking-[-0.03em] text-[#24154b]">
-                  {step === "email" ? "Send reset code" : step === "code" ? "Verify the code" : "Choose a new password"}
+                  {step === "email" ? "Send reset code" : step === "code" ? "Verify code" : "Choose a new password"}
                 </h2>
                 <p className="mt-2 text-sm leading-7 text-[#6a5f8f]">
                   {step === "email"
-                    ? "Start by entering the account email."
+                    ? "Start with the account email."
                     : step === "code"
-                      ? "Open the email, copy the 6-digit code, and confirm it here."
-                      : "Enter the new password twice so the update is deliberate and clear."}
+                      ? "Enter the 6-digit code from your email."
+                      : "Type the new password twice, then sign back in."}
                 </p>
               </div>
             </div>

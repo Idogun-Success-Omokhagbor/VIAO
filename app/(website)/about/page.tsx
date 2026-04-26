@@ -7,30 +7,30 @@ import { PublicPageShell, PublicSectionCard, publicPillClass, publicSoftPanelCla
 const productPillars = [
   {
     title: "For attendees",
-    description: "Spot the essentials quickly, keep a shortlist, and RSVP only when an event is genuinely worth it.",
+    description: "See the essentials quickly, keep a shortlist, and RSVP when a plan is real.",
   },
   {
     title: "For organizers",
-    description: "Create local events, keep details accurate, and surface the right plans to the right crowd.",
+    description: "Create local events, keep details accurate, and reach the right crowd.",
   },
   {
     title: "For communities",
-    description: "Stay close to the people, venues, and moments that turn a city into something worth showing up for.",
+    description: "Stay close to the people, venues, and moments that make a city feel active.",
   },
 ] as const
 
 const values = [
   {
     title: "Local first",
-    description: "Discovery starts with what is nearby, timely, and easy to act on instead of trying to be everything at once.",
+    description: "Discovery should start with what is nearby, timely, and easy to act on.",
   },
   {
     title: "Useful before signup",
-    description: "Browsing should stay open. Account creation matters when someone wants to save, RSVP, or keep plans organized.",
+    description: "Browsing should stay open. Accounts matter when someone wants to save or RSVP.",
   },
   {
     title: "Built for real plans",
-    description: "The product focuses on details that actually change decisions: date, price, venue, attendance, and host trust.",
+    description: "The product should focus on the details that change decisions: date, price, venue, turnout, and host trust.",
   },
 ] as const
 
@@ -38,36 +38,36 @@ export default function AboutPage() {
   return (
     <PublicPageShell
       eyebrow="About Viao"
-      title="A local event product built around the moment someone decides whether a plan is worth it."
-      description="Viao is designed to make nearby events easier to scan, easier to trust, and easier to keep. The goal is not endless browsing. The goal is helping someone spot a real plan quickly."
+      title="Viao helps people find local events faster."
+      description="It is built to make nearby events easy to scan, trust, and keep."
       highlights={[
-        { icon: Compass, label: "Discovery that starts with local context" },
-        { icon: Sparkles, label: "Clear details before commitment" },
-        { icon: HeartHandshake, label: "Community and organizer trust signals" },
+        { icon: Compass, label: "Local discovery first" },
+        { icon: Sparkles, label: "Clear details before signup" },
+        { icon: HeartHandshake, label: "Trust signals that help" },
       ]}
       sidebarEyebrow="What Viao is for"
-      sidebarTitle="The product should help people act, not dig."
-      sidebarDescription="Every core surface is shaped around a simple decision: should this event stay on the shortlist, or not?"
+      sidebarTitle="The product should help people decide fast."
+      sidebarDescription="See the essentials, keep the good plans, skip the rest."
       sidebarItems={[
         {
           icon: MapPinned,
           title: "Nearby relevance",
-          description: "Location, time, and category should narrow the field fast.",
+          description: "Location, time, and category should narrow the field quickly.",
         },
         {
           icon: Users,
           title: "Real social context",
-          description: "Hosts, attendance interest, and community activity should add confidence.",
+          description: "Hosts, turnout, and community activity should add confidence.",
         },
         {
           icon: Sparkles,
           title: "Low-friction discovery",
-          description: "People should get value before being pushed into account creation.",
+          description: "People should get value before they are pushed into signup.",
         },
       ]}
       sidebarFooter={
         <div className={`${publicSoftPanelClass} rounded-[24px] p-4`}>
-          <p className="text-sm leading-6 text-[#6a5f8f]">Want to talk to the team about a partnership, organizer rollout, or press request?</p>
+          <p className="text-sm leading-6 text-[#6a5f8f]">Want to talk to the team about partnerships, rollout, or press?</p>
           <div className="mt-4 flex flex-col gap-3">
             <Button asChild className="h-11 rounded-full bg-[#7c5cff] px-5 text-white hover:bg-[#6c4ef7]">
               <Link href="/contact">
@@ -91,8 +91,8 @@ export default function AboutPage() {
       <div className="grid gap-6 lg:grid-cols-[1.15fr_minmax(0,0.85fr)]">
         <PublicSectionCard
           eyebrow="Principles"
-          title="The product decisions should stay close to how people really pick plans."
-          description="Viao is strongest when the interface stays clear, the event details stay honest, and the app helps someone decide quickly without flooding them with noise."
+          title="How the product should feel"
+          description="Clear details, honest listings, and less noise between someone and a good plan."
         >
           <div className="grid gap-4 md:grid-cols-3">
             {values.map((value) => (
@@ -106,8 +106,8 @@ export default function AboutPage() {
 
         <PublicSectionCard
           eyebrow="Snapshot"
-          title="What someone should feel on first use"
-          description="Fast to understand. Clear enough to trust. Useful before the app asks for anything in return."
+          title="What first use should feel like"
+          description="Clear, local, and useful before signup."
         >
           <div className="flex flex-wrap gap-3">
             {["Simple event discovery", "Credible local plans", "Shortlist-ready decisions", "Organizer trust cues"].map((label) => (
@@ -118,7 +118,7 @@ export default function AboutPage() {
           </div>
           <div className="mt-6 rounded-[24px] border border-[#ebe2ff] bg-[linear-gradient(180deg,#ffffff,#faf7ff)] p-5">
             <p className="text-sm leading-7 text-[#6a5f8f]">
-              That same standard should carry across the marketing homepage, legal pages, support surfaces, and the signed-in app. This pass brings the guest side much closer to that.
+              That same standard should show up across the homepage, support pages, legal pages, and the app itself.
             </p>
           </div>
         </PublicSectionCard>

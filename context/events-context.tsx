@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
+import { usePathname } from "next/navigation"
 import type { Event, CreateEventData, EventFilters } from "@/types/event"
 
 interface EventsContextType {
@@ -57,9 +58,11 @@ async function handleJson<T>(resPromise: Promise<Response> | Response): Promise<
 }
 
 export function EventsProvider({ children }: EventsProviderProps) {
+  const pathname = usePathname() ?? ""
+  const shouldAutoLoadEvents = pathname === "/discover"
   const [events, setEvents] = useState<Event[]>([])
   const [filters, setFilters] = useState<EventFilters>({})
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(shouldAutoLoadEvents)
   const [error, setError] = useState<string | null>(null)
 
   const refreshEvents = useCallback(async () => {
@@ -79,8 +82,12 @@ export function EventsProvider({ children }: EventsProviderProps) {
   }, [])
 
   useEffect(() => {
+    if (!shouldAutoLoadEvents) {
+      setIsLoading(false)
+      return
+    }
     void refreshEvents()
-  }, [refreshEvents])
+  }, [refreshEvents, shouldAutoLoadEvents])
 
   const filteredEvents = events.filter((event) => {
     if (filters.category && event.category !== filters.category) return false

@@ -17,7 +17,7 @@ const privacySections = [
   },
   {
     title: "Why that data is used",
-    description: "The product uses data to keep local discovery useful, your account stable, and communications relevant to the things you chose to do.",
+    description: "Data is used to keep local discovery useful, your account stable, and communications relevant.",
     bullets: [
       "To show local events and community activity that matches your area or selected city",
       "To keep your shortlist, RSVPs, receipts, and account actions synced",
@@ -26,7 +26,7 @@ const privacySections = [
   },
   {
     title: "When information is shared",
-    description: "Viao does not sell personal data. Some information may be processed by trusted infrastructure or communication providers needed to run the service.",
+    description: "Viao does not sell personal data. Some information is processed by trusted providers needed to run the service.",
     bullets: [
       "Hosting, email delivery, payment, and similar service providers can process only what is needed for their role",
       "Organizers may see attendance-related information tied to their own events",
@@ -48,31 +48,31 @@ export default function PrivacyPage() {
   return (
     <PublicPageShell
       eyebrow="Privacy"
-      title="Privacy should protect the person without breaking the usefulness of a local event product."
-      description="Viao needs a small amount of personal and activity data to make nearby discovery, RSVPs, and account features work. The goal is to use that data carefully, keep it limited, and give people control."
+      title="Privacy should stay clear and limited."
+      description="Viao uses a small amount of personal and activity data to make discovery, RSVPs, and account features work."
       highlights={[
-        { icon: MapPinned, label: "Location helps find nearby events" },
+        { icon: MapPinned, label: "Location helps with nearby events" },
         { icon: ShieldCheck, label: "Personal data is not sold" },
-        { icon: UserRoundCog, label: "You can request changes or deletion" },
+        { icon: UserRoundCog, label: "Changes or deletion can be requested" },
       ]}
       sidebarEyebrow="In practice"
-      sidebarTitle="The essentials, quickly."
-      sidebarDescription="These are the privacy points most guests and members usually care about before they keep using the app."
+      sidebarTitle="The essentials"
+      sidebarDescription="These are the privacy points most people want first."
       sidebarItems={[
         {
           icon: Eye,
           title: "What is visible",
-          description: "Public profile and organizer information only show what the product surface needs to function.",
+          description: "Public profile and organizer information only show what the product needs to function.",
         },
         {
           icon: Bell,
           title: "What may be sent",
-          description: "Emails and notifications are tied to account security, activity, and event-related updates.",
+          description: "Emails and notifications are tied to account security, activity, and event updates.",
         },
         {
           icon: Trash2,
           title: "How to step away",
-          description: "If you need data removed or corrected, the team should be reachable without friction.",
+          description: "If you need data removed or corrected, the team should be easy to reach.",
         },
       ]}
       sidebarFooter={
@@ -103,8 +103,8 @@ export default function PrivacyPage() {
 
       <PublicSectionCard
         eyebrow="Contact"
-        title="Need a privacy action handled?"
-        description="For privacy questions, data correction requests, or account deletion requests, the cleanest route is to send the team a message with the email tied to your account."
+        title="Need a privacy request handled?"
+        description="For privacy questions, correction requests, or deletion requests, contact the team with the email tied to your account."
       >
         <div className="flex flex-wrap gap-3">
           {["Data access", "Correction request", "Deletion request", "Notification concerns"].map((label) => (

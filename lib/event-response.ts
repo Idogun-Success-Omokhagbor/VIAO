@@ -4,6 +4,43 @@ import type { Event as ApiEvent } from "@/types/event"
 
 import { toEventImageUrl, toEventImageUrls } from "@/lib/image-utils"
 
+export const eventCardSelect = Prisma.validator<Prisma.EventSelect>()({
+  id: true,
+  title: true,
+  description: true,
+  date: true,
+  timeLabel: true,
+  location: true,
+  startsAt: true,
+  endsAt: true,
+  city: true,
+  venue: true,
+  address: true,
+  lat: true,
+  lng: true,
+  status: true,
+  isCancelled: true,
+  cancelledAt: true,
+  category: true,
+  imageUrl: true,
+  imageUrls: true,
+  price: true,
+  isBoosted: true,
+  boostLevel: true,
+  boostUntil: true,
+  maxAttendees: true,
+  organizerId: true,
+  organizer: {
+    select: {
+      id: true,
+      name: true,
+      avatarUrl: true,
+    },
+  },
+  createdAt: true,
+  updatedAt: true,
+})
+
 export const eventClientInclude = Prisma.validator<Prisma.EventInclude>()({
   organizer: {
     select: {
@@ -25,6 +62,10 @@ export const eventClientInclude = Prisma.validator<Prisma.EventInclude>()({
   },
 })
 
+export type EventCardRecord = Prisma.EventGetPayload<{
+  select: typeof eventCardSelect
+}>
+
 export type EventWithClientRelations = Prisma.EventGetPayload<{
   include: typeof eventClientInclude
 }>
@@ -44,7 +85,14 @@ export function sortEventsForFeed(events: ApiEvent[]): ApiEvent[] {
   })
 }
 
-export function mapEventForClient(event: EventWithClientRelations, sessionUserId?: string): ApiEvent {
+export function mapEventCardForClient(
+  event: EventCardRecord,
+  extras?: {
+    attendeesCount?: number
+    isSaved?: boolean
+    rsvpStatus?: ApiEvent["rsvpStatus"]
+  },
+): ApiEvent {
   const safeImageUrl = toEventImageUrl(event.id, event.imageUrl)
   const safeImageUrls = toEventImageUrls(event.id, event.imageUrls, safeImageUrl)
   const isBoostExpired = event.boostUntil ? event.boostUntil.getTime() <= Date.now() : false
@@ -56,9 +104,9 @@ export function mapEventForClient(event: EventWithClientRelations, sessionUserId
       : event.isBoosted
         ? 1
         : 0
-  const rsvp = sessionUserId ? (event.rsvps.find((entry) => entry.userId === sessionUserId) ?? null) : null
-  const isSaved = sessionUserId ? event.saves.some((entry) => entry.userId === sessionUserId) : false
-  const attendeesCount = event.rsvps.filter((entry) => entry.status === "GOING").length
+  const rsvpStatus = extras?.rsvpStatus ?? null
+  const isSaved = extras?.isSaved === true
+  const attendeesCount = typeof extras?.attendeesCount === "number" ? extras.attendeesCount : undefined
 
   return {
     id: event.id,
@@ -89,10 +137,22 @@ export function mapEventForClient(event: EventWithClientRelations, sessionUserId
     organizerName: event.organizer.name,
     organizerAvatarUrl: event.organizer.avatarUrl ?? null,
     attendeesCount,
-    isGoing: rsvp ? rsvp.status === "GOING" : false,
-    rsvpStatus: rsvp?.status ?? null,
+    isGoing: rsvpStatus === "GOING",
+    rsvpStatus,
     isSaved,
     createdAt: event.createdAt.toISOString(),
     updatedAt: event.updatedAt.toISOString(),
   }
+}
+
+export function mapEventForClient(event: EventWithClientRelations, sessionUserId?: string): ApiEvent {
+  const rsvp = sessionUserId ? (event.rsvps.find((entry) => entry.userId === sessionUserId) ?? null) : null
+  const isSaved = sessionUserId ? event.saves.some((entry) => entry.userId === sessionUserId) : false
+  const attendeesCount = event.rsvps.filter((entry) => entry.status === "GOING").length
+
+  return mapEventCardForClient(event, {
+    attendeesCount,
+    isSaved,
+    rsvpStatus: rsvp?.status ?? null,
+  })
 }

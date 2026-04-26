@@ -1,8 +1,26 @@
-import { Prisma } from "@prisma/client"
+import { Prisma, RsvpStatus } from "@prisma/client"
+import { unstable_cache } from "next/cache"
 
 import { prisma } from "@/lib/prisma"
-import { eventClientInclude, mapEventForClient, sortEventsForFeed } from "@/lib/event-response"
+import { eventCardSelect, mapEventCardForClient, sortEventsForFeed } from "@/lib/event-response"
 import type { Event } from "@/types/event"
+
+const DEFAULT_PUBLIC_EVENT_LIMIT = 24
+
+export const publicEventCardSelect = Prisma.validator<Prisma.EventSelect>()({
+  ...eventCardSelect,
+  _count: {
+    select: {
+      rsvps: {
+        where: { status: RsvpStatus.GOING },
+      },
+    },
+  },
+})
+
+type PublicEventCardRecord = Prisma.EventGetPayload<{
+  select: typeof publicEventCardSelect
+}>
 
 export function buildUpcomingPublishedEventWhere(now = new Date()): Prisma.EventWhereInput {
   return {
@@ -15,29 +33,48 @@ export function buildUpcomingPublishedEventWhere(now = new Date()): Prisma.Event
   }
 }
 
-export async function listPublicEvents(limit = 60): Promise<Event[]> {
-  const events = await prisma.event.findMany({
-    where: buildUpcomingPublishedEventWhere(),
-    orderBy: { date: "asc" },
-    take: limit,
-    include: eventClientInclude,
+function mapPublicEvent(event: PublicEventCardRecord) {
+  return mapEventCardForClient(event, {
+    attendeesCount: event._count.rsvps,
   })
-
-  return sortEventsForFeed(events.map((event) => mapEventForClient(event)))
 }
 
-export async function getPublicEventById(id: string, sessionUserId?: string): Promise<Event | null> {
-  const event = await prisma.event.findFirst({
-    where: {
-      id,
-      ...buildUpcomingPublishedEventWhere(),
-    },
-    include: eventClientInclude,
-  })
+const getCachedPublicEvents = unstable_cache(
+  async () => {
+    const events = await prisma.event.findMany({
+      where: buildUpcomingPublishedEventWhere(),
+      orderBy: { date: "asc" },
+      take: DEFAULT_PUBLIC_EVENT_LIMIT,
+      select: publicEventCardSelect,
+    })
 
-  if (!event) {
-    return null
-  }
+    return sortEventsForFeed(events.map((event) => mapPublicEvent(event)))
+  },
+  ["public-events-v2"],
+  { revalidate: 60 },
+)
 
-  return mapEventForClient(event, sessionUserId)
+const getCachedPublicEventById = unstable_cache(
+  async (id: string) => {
+    const event = await prisma.event.findFirst({
+      where: {
+        id,
+        ...buildUpcomingPublishedEventWhere(),
+      },
+      select: publicEventCardSelect,
+    })
+
+    return event ? mapPublicEvent(event) : null
+  },
+  ["public-event-by-id-v2"],
+  { revalidate: 60 },
+)
+
+export async function listPublicEvents(limit = DEFAULT_PUBLIC_EVENT_LIMIT): Promise<Event[]> {
+  const events = await getCachedPublicEvents()
+  return events.slice(0, Math.max(1, limit))
+}
+
+export async function getPublicEventById(id: string, _sessionUserId?: string): Promise<Event | null> {
+  return getCachedPublicEventById(id)
 }

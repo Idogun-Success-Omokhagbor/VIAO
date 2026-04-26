@@ -7,15 +7,15 @@ import { PublicPageShell, PublicSectionCard, publicPillClass, publicSoftPanelCla
 const supportTopics = [
   {
     title: "Account and sign-in help",
-    description: "Password resets, access issues, profile updates, and other basic account questions.",
+    description: "Password resets, access issues, profile updates, and other account questions.",
   },
   {
     title: "Event browsing or RSVP issues",
-    description: "Something looks wrong in the feed, an RSVP state feels off, or a saved event is not behaving as expected.",
+    description: "Something looks wrong in the feed, an RSVP feels off, or a saved event is not behaving as expected.",
   },
   {
     title: "Organizer and billing questions",
-    description: "Event edits, boosts, receipts, or organizer-facing flows that need clarification.",
+    description: "Event edits, boosts, receipts, or organizer flows that need clarification.",
   },
   {
     title: "Reports, safety, or community concerns",
@@ -26,15 +26,15 @@ const supportTopics = [
 const faqItems = [
   {
     title: "I cannot find good nearby events.",
-    description: "Try refining by city, time window, and category first. If the feed still looks wrong, send support the city you expect to browse.",
+    description: "Try city, time, and category filters first. If the feed still looks wrong, tell support which city you expected to browse.",
   },
   {
     title: "An event changed after I saved it.",
-    description: "Organizers can update some event details. If something looks misleading, report the event or contact support with the event link.",
+    description: "Organizers can update details. If something looks misleading, report the event or contact support with the link.",
   },
   {
     title: "I need help with organizer tools.",
-    description: "Use the contact page and choose the organizer help topic so the right message lands with the team quickly.",
+    description: "Use the contact page and choose organizer help so the right message lands with the team quickly.",
   },
 ] as const
 
@@ -42,16 +42,16 @@ export default function SupportPage() {
   return (
     <PublicPageShell
       eyebrow="Support"
-      title="Help should be easy to reach and easy to understand."
-      description="If something in Viao feels unclear, broken, or simply confusing, support should help without sending people in circles."
+      title="Get help without the runaround."
+      description="If something feels broken, unclear, or off, support should get you moving again."
       highlights={[
-        { icon: LifeBuoy, label: "Clear paths for help" },
-        { icon: Mail, label: "Reply target within 48 hours" },
-        { icon: ShieldCheck, label: "Questions about safety and reports included" },
+        { icon: LifeBuoy, label: "Clear help paths" },
+        { icon: Mail, label: "Reply target: 48 hours" },
+        { icon: ShieldCheck, label: "Safety questions included" },
       ]}
       sidebarEyebrow="Best first step"
-      sidebarTitle="Send the team the practical details."
-      sidebarDescription="Support works best when the message includes the account email, the event or page involved, and what went wrong."
+      sidebarTitle="Send the useful details."
+      sidebarDescription="Include the account email, event, page, or action involved."
       sidebarItems={[
         {
           icon: CalendarRange,
@@ -89,8 +89,8 @@ export default function SupportPage() {
       <div className="grid gap-6 lg:grid-cols-[1.15fr_minmax(0,0.85fr)]">
         <PublicSectionCard
           eyebrow="Common questions"
-          title="The issues people usually run into first"
-          description="Support should not feel like a wall of text. These are the usual questions people want answered quickly."
+          title="Common questions"
+          description="These are the usual things people want answered fast."
         >
           <div className="space-y-4">
             {faqItems.map((item) => (
@@ -104,8 +104,8 @@ export default function SupportPage() {
 
         <PublicSectionCard
           eyebrow="Short route"
-          title="If you are not sure where to start"
-          description="Use the contact page and choose the topic that is closest. The team can route it from there."
+          title="Not sure where to start?"
+          description="Use the contact page and choose the closest topic."
         >
           <div className="flex flex-wrap gap-3">
             {["Account issue", "Organizer help", "Billing question", "Safety concern"].map((label) => (
@@ -116,7 +116,7 @@ export default function SupportPage() {
           </div>
           <div className="mt-6 rounded-[24px] border border-[#ece4ff] bg-white/96 p-5">
             <p className="text-sm leading-7 text-[#6a5f8f]">
-              When a message includes the affected event, page, or account email, support can usually move much faster.
+              Include the event, page, or account email and support can usually move faster.
             </p>
           </div>
         </PublicSectionCard>

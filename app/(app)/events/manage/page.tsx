@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import { AppImage } from "@/components/ui/app-image"
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
@@ -75,7 +76,7 @@ export default function ManageEventsPage() {
 
   if (!isOrganizer) {
     return (
-      <div className="min-h-screen bg-gray-50 px-4 py-8">
+      <div className="min-h-full bg-gray-50 px-4 py-8">
         <Card className="mx-auto max-w-xl rounded-[24px] border-[#eadfff] shadow-[0_20px_50px_rgba(76,53,160,0.08)]">
           <CardContent className="p-8 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f3ecff] text-[#5b34d6]">
@@ -95,7 +96,7 @@ export default function ManageEventsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fcfaff]">
+    <div className="min-h-full bg-[#fcfaff]">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <section className="overflow-hidden rounded-[28px] border border-[#eadfff] bg-[linear-gradient(135deg,#fff_0%,#f8f4ff_56%,#edf7ff_100%)] shadow-[0_24px_60px_rgba(98,59,188,0.08)]">
           <div className="flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between">
@@ -165,9 +166,12 @@ export default function ManageEventsPage() {
           ) : null}
 
           {isLoading ? (
-            <div className="mt-6 rounded-[22px] border border-dashed border-[#ddd1ff] px-6 py-16 text-center text-sm text-[#6b628d]">
-              Loading your events...
-            </div>
+            <AppSpinner
+              label="Loading your events..."
+              size="lg"
+              fullHeight
+              className="mt-6 rounded-[22px] border border-dashed border-[#ddd1ff] px-6 py-16"
+            />
           ) : metrics.visible.length === 0 ? (
             <Card className="mt-6 rounded-[24px] border-dashed border-[#d9cdfd] bg-[#fcfbff] shadow-none">
               <CardContent className="px-6 py-14 text-center">

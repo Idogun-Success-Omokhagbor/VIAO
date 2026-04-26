@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AppImage } from "@/components/ui/app-image"
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
@@ -41,7 +42,8 @@ export default function MyEventsPage() {
   const [activeTab, setActiveTab] = useState<MyEventsTab>(isMyEventsTab(queryTab) ? queryTab : "rsvp")
   const [rsvpEvents, setRsvpEvents] = useState<Event[]>([])
   const [savedEvents, setSavedEvents] = useState<Event[]>([])
-  const [loading, setLoading] = useState(true)
+  const [rsvpLoading, setRsvpLoading] = useState(true)
+  const [savedLoading, setSavedLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -58,22 +60,36 @@ export default function MyEventsPage() {
     if (authLoading || !user) return
 
     let cancelled = false
-    setLoading(true)
     setError(null)
+    setRsvpLoading(true)
+    setSavedLoading(true)
 
-    Promise.all([fetchMyEvents("/api/events/me/rsvps"), fetchMyEvents("/api/events/me/saved")])
-      .then(([rsvps, saved]) => {
+    fetchMyEvents("/api/events/me/rsvps")
+      .then((rsvps) => {
         if (cancelled) return
         setRsvpEvents(rsvps)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError((current) => current ?? (err instanceof Error ? err.message : "Failed to load your events"))
+      })
+      .finally(() => {
+        if (cancelled) return
+        setRsvpLoading(false)
+      })
+
+    fetchMyEvents("/api/events/me/saved")
+      .then((saved) => {
+        if (cancelled) return
         setSavedEvents(saved)
       })
       .catch((err) => {
         if (cancelled) return
-        setError(err instanceof Error ? err.message : "Failed to load your events")
+        setError((current) => current ?? (err instanceof Error ? err.message : "Failed to load your events"))
       })
       .finally(() => {
         if (cancelled) return
-        setLoading(false)
+        setSavedLoading(false)
       })
 
     return () => {
@@ -84,6 +100,8 @@ export default function MyEventsPage() {
   const tabEvents = useMemo(() => {
     return activeTab === "rsvp" ? rsvpEvents : savedEvents
   }, [activeTab, rsvpEvents, savedEvents])
+
+  const activeTabLoading = activeTab === "rsvp" ? rsvpLoading : savedLoading
 
   const summary = useMemo(() => {
     const deduped = Array.from(new Map([...rsvpEvents, ...savedEvents].map((event) => [event.id, event])).values())
@@ -106,8 +124,8 @@ export default function MyEventsPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="flex h-full min-h-0 items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading...</div>
+      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-gray-50">
+        <AppSpinner label="Loading your plans..." size="lg" fullHeight />
       </div>
     )
   }
@@ -132,7 +150,7 @@ export default function MyEventsPage() {
   }
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto bg-[#fcfaff]">
+    <div className="min-h-full bg-[#fcfaff]">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <section className="overflow-hidden rounded-[28px] border border-[#eadfff] bg-[linear-gradient(135deg,#fff_0%,#f8f4ff_56%,#edf7ff_100%)] shadow-[0_24px_60px_rgba(98,59,188,0.08)]">
           <div className="flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between">
@@ -203,7 +221,7 @@ export default function MyEventsPage() {
             </div>
 
             <TabsContent value="rsvp" className="mt-6">
-              {loading ? (
+              {activeTab === "rsvp" && activeTabLoading ? (
                 <LoadingState label="Loading your RSVP events..." />
               ) : tabEvents.length === 0 ? (
                 <EmptyMyEventsState
@@ -216,7 +234,7 @@ export default function MyEventsPage() {
             </TabsContent>
 
             <TabsContent value="saved" className="mt-6">
-              {loading ? (
+              {activeTab === "saved" && activeTabLoading ? (
                 <LoadingState label="Loading your saved events..." />
               ) : tabEvents.length === 0 ? (
                 <EmptyMyEventsState
@@ -259,9 +277,12 @@ function SummaryCard({
 
 function LoadingState({ label }: { label: string }) {
   return (
-    <div className="rounded-[22px] border border-dashed border-[#ddd1ff] px-6 py-16 text-center text-sm text-[#6b628d]">
-      {label}
-    </div>
+    <AppSpinner
+      label={label}
+      size="lg"
+      fullHeight
+      className="rounded-[22px] border border-dashed border-[#ddd1ff] px-6 py-16"
+    />
   )
 }
 

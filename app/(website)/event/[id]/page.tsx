@@ -27,8 +27,6 @@ import { getPublicEventById } from "@/lib/public-events"
 import { formatBoostCountdown, getBoostCountdownToneClass } from "@/lib/utils"
 import type { Event } from "@/types/event"
 
-export const dynamic = "force-dynamic"
-
 function getEventStart(event: Event) {
   return new Date(event.startsAt ?? event.date)
 }
@@ -156,15 +154,15 @@ function EventUnavailableState() {
     <div className="pb-28 lg:pb-0">
       <PublicPageShell
         eyebrow="Event unavailable"
-        title="This event is not currently available on the public site."
-        description="It may have ended, been unpublished, or been removed from the live public feed."
+        title="This event is not available on the public site."
+        description="It may have ended, been unpublished, or been removed from the live feed."
         highlights={[
           { icon: Sparkles, label: "Public browsing stays focused on live events" },
           { icon: ShieldCheck, label: "Unavailable events are hidden instead of misleading guests" },
         ]}
         sidebarEyebrow="Next step"
-        sidebarTitle="Keep browsing the public feed."
-        sidebarDescription="The homepage remains the best place to find current public events that are still open to browse."
+        sidebarTitle="Keep browsing live events."
+        sidebarDescription="The homepage is still the best place to find public events that are open to browse."
         sidebarItems={[
           {
             icon: CalendarDays,
@@ -189,7 +187,7 @@ function EventUnavailableState() {
         <PublicSectionCard
           eyebrow="Why this matters"
           title="The public route should stay honest."
-          description="If an event is no longer public, the site should say so clearly instead of teasing details that guests can no longer act on."
+          description="If an event is no longer public, the page should say so clearly."
         />
       </PublicPageShell>
     </div>
@@ -245,27 +243,27 @@ export default async function PublicEventPage({
           { icon: Users, label: `${event.attendeesCount ?? 0} attending` },
         ]}
         sidebarEyebrow={user ? "Open in app" : "Browse first"}
-        sidebarTitle={user ? "Take this plan into your account." : "Inspect the plan before you commit."}
+        sidebarTitle={user ? "Open this in your account." : "Check the details first."}
         sidebarDescription={
           user
-            ? "You can keep browsing here, or jump into the signed-in event flow to save, RSVP, and manage the plan."
-            : "Guests should get the useful details first. Accounts become worth it when someone wants reminders, RSVPs, or organizer messaging."
+            ? "Save it, RSVP, or manage it in the app."
+            : "Use the public page to decide first. Save and RSVP later if it becomes a real yes."
         }
         sidebarItems={[
           {
             icon: ShieldCheck,
-            title: "Clear event essentials",
-            description: "Date, place, price, and turnout are visible before the site asks for anything back.",
+            title: "See the essentials",
+            description: "Date, place, price, and turnout are visible right away.",
           },
           {
             icon: HeartHandshake,
-            title: "Join when it becomes a real yes",
-            description: "Saving, RSVPing, and direct organizer contact stay behind the account boundary for a reason.",
+            title: "Join later",
+            description: "Saving, RSVPing, and organizer messaging sit behind the account wall.",
           },
           {
             icon: Sparkles,
-            title: "Built for mobile decisions",
-            description: "This public route keeps the detail page readable and action-ready on smaller screens.",
+            title: "Easy on mobile",
+            description: "The page stays readable and usable on smaller screens.",
           },
         ]}
         sidebarFooter={<PublicEventActions eventId={event.id} eventTitle={event.title} eventDescription={event.description} />}
@@ -329,9 +327,9 @@ export default async function PublicEventPage({
               </div>
 
               <div className={`${publicSoftPanelClass} rounded-[24px] p-5`}>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#887ab8]">Decision support</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#887ab8]">Why it is public</p>
                 <p className="mt-3 text-sm leading-7 text-[#6a5f8f]">
-                  This route is intentionally public so someone can decide whether the plan is actually worth saving before the app asks for an account.
+                  You should be able to judge the plan before the app asks for an account.
                 </p>
               </div>
             </div>
@@ -342,7 +340,7 @@ export default async function PublicEventPage({
           <PublicSectionCard
             eyebrow="About the event"
             title="What to know before you say yes."
-            description="Good public event pages should answer the basic decision questions cleanly instead of making people hunt for them."
+            description="The basics should be easy to judge."
           >
             <div className="space-y-5">
               <p className="text-[15px] leading-8 text-[#4f4379] sm:text-base">{event.description}</p>
@@ -357,19 +355,19 @@ export default async function PublicEventPage({
           <PublicSectionCard
             eyebrow="Organizer"
             title={`${event.organizerName ?? "Organizer"} is hosting this plan.`}
-            description="The public page should surface enough host context to build trust, then hand the rest off to account-based actions."
+            description="Enough host context to build trust."
           >
             <div className="space-y-4">
               <div className={`${publicSoftPanelClass} rounded-[24px] p-5`}>
                 <p className="text-sm font-semibold text-[#24154b]">{event.organizerName ?? "Organizer"}</p>
                 <p className="mt-2 text-sm leading-7 text-[#6a5f8f]">
-                  Once someone joins, the account flow unlocks saving, RSVP state, reminders, and direct organizer messaging.
+                  Save, RSVP, reminders, and organizer messaging unlock in the account flow.
                 </p>
               </div>
               <div className={`${publicSoftPanelClass} rounded-[24px] p-5`}>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#887ab8]">Public route principle</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#887ab8]">Why this route works</p>
                 <p className="mt-3 text-sm leading-7 text-[#6a5f8f]">
-                  Browsing should stay useful without pressure. Commitment should happen later, when the event already feels like a real plan.
+                  Browsing stays open. Commitment can happen later.
                 </p>
               </div>
             </div>

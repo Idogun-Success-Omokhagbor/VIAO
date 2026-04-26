@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
 
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -167,7 +168,7 @@ export default function PublicProfilePage() {
   }, [postsData])
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto bg-gray-50">
+    <div className="min-h-full bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-between mb-6">
           <Button variant="outline" className="bg-transparent" onClick={() => router.back()}>
@@ -320,7 +321,7 @@ export default function PublicProfilePage() {
                   This profile is private
                 </p>
               ) : isLoadingPosts ? (
-                <div className="mt-3 text-sm text-gray-500">Loading posts...</div>
+                <AppSpinner label="Loading posts..." size="sm" className="mt-3 py-6" />
               ) : postsError ? (
                 <div className="mt-3 text-sm text-red-600">{postsError}</div>
               ) : postsData?.posts?.length ? (
@@ -359,7 +360,7 @@ export default function PublicProfilePage() {
           </CardContent>
         </Card>
 
-        {isLoading ? <div className="mt-6 text-sm text-gray-500">Loading profile...</div> : null}
+        {isLoading ? <AppSpinner label="Loading profile..." size="md" className="mt-6 py-8" /> : null}
       </div>
     </div>
   )

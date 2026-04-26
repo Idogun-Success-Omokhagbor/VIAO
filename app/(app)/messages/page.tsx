@@ -5,6 +5,7 @@ import type React from "react"
 import Link from "next/link"
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -110,7 +111,7 @@ export default function MessagesPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-gray-50 px-4">
         <Card className="w-full max-w-md border-[#eadfff] shadow-[0_22px_50px_rgba(76,53,160,0.08)]">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#f3ecff] text-[#5b34d6]">
@@ -186,9 +187,9 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,#fcfaff_0%,#f5f7fb_100%)]">
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col bg-[linear-gradient(180deg,#fcfaff_0%,#f5f7fb_100%)]">
       <div className="flex w-full flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex h-full min-h-0 overflow-hidden rounded-[28px] border border-[#ece4ff] bg-white shadow-[0_24px_60px_rgba(76,53,160,0.08)]">
+        <div className="flex min-h-0 flex-1 overflow-hidden rounded-[28px] border border-[#ece4ff] bg-white shadow-[0_24px_60px_rgba(76,53,160,0.08)]">
           <div className={`flex w-full flex-col border-r border-[#eee7ff] md:w-[24rem] ${activeConversation ? "hidden md:flex" : "flex"}`}>
             <div className="border-b border-[#eee7ff] bg-[linear-gradient(135deg,#fff_0%,#faf6ff_58%,#f1f7ff_100%)] p-4">
               <div className="flex items-start justify-between gap-3">
@@ -226,9 +227,12 @@ export default function MessagesPage() {
             <ScrollArea className="min-h-0 flex-1 hide-scrollbar">
               <div className="space-y-2 p-3">
                 {isLoading && conversations.length === 0 ? (
-                  <div className="rounded-[22px] border border-dashed border-[#ddd1ff] px-4 py-12 text-center text-sm text-[#6b628d]">
-                    Loading conversations...
-                  </div>
+                  <AppSpinner
+                    label="Loading conversations..."
+                    size="md"
+                    fullHeight
+                    className="rounded-[22px] border border-dashed border-[#ddd1ff] px-4 py-12"
+                  />
                 ) : filteredConversations.length === 0 && deferredSearchQuery.trim() ? (
                   <div className="rounded-[22px] border border-dashed border-[#ddd1ff] px-4 py-10 text-center">
                     <Search className="mx-auto h-10 w-10 text-[#b0a6d5]" />

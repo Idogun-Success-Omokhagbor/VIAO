@@ -6,11 +6,11 @@ import { PublicPageShell, PublicSectionCard, publicPillClass, publicSoftPanelCla
 const directContactItems = [
   {
     title: "General questions",
-    description: "Product questions, partnerships, and requests that do not fit elsewhere.",
+    description: "Product questions, partnerships, and anything that does not fit elsewhere.",
   },
   {
     title: "Organizer help",
-    description: "Questions about events, boosts, receipts, and organizer-facing tools.",
+    description: "Questions about events, boosts, receipts, and organizer tools.",
   },
   {
     title: "Support and safety",
@@ -22,16 +22,16 @@ export default function ContactPage() {
   return (
     <PublicPageShell
       eyebrow="Contact"
-      title="Send a message and it should land with the right team without friction."
-      description="The contact page should feel like a real product surface, not a dead-end form. Use it for attendee questions, organizer issues, partnerships, or support requests."
+      title="Send a message to the team."
+      description="Use this page for questions, support issues, organizer help, or partnerships."
       highlights={[
-        { icon: Mail, label: "Direct message to the team" },
-        { icon: Clock3, label: "Typical reply within 48 hours" },
-        { icon: Users, label: "Organizers and partners welcome" },
+        { icon: Mail, label: "Direct message" },
+        { icon: Clock3, label: "Reply target: 48 hours" },
+        { icon: Users, label: "Organizer help welcome" },
       ]}
       sidebarEyebrow="What happens next"
-      sidebarTitle="The message should be easy to route."
-      sidebarDescription="Choose the topic that is closest, explain the problem clearly, and include the event or account details that matter."
+      sidebarTitle="Help us route it fast."
+      sidebarDescription="Pick the closest topic and include the event or account details that matter."
       sidebarItems={[
         {
           icon: ShieldCheck,
@@ -41,20 +41,20 @@ export default function ContactPage() {
         {
           icon: Mic2,
           title: "Partnerships and press",
-          description: "Use the contact flow for collaborations, rollouts, media, or sponsor discussions.",
+          description: "Use this page for collaborations, rollout, media, or sponsor discussions.",
         },
         {
           icon: Mail,
           title: "Fallback email",
-          description: "If the form is unavailable, the team can still be reached at info@viao.ch.",
+          description: "If the form is unavailable, you can still reach the team at info@viao.ch.",
         },
       ]}
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.18fr)_minmax(280px,0.82fr)]">
         <PublicSectionCard
           eyebrow="Message"
-          title="Write the message here"
-          description="The form sends directly through the product, so there is no need to copy everything into a separate email client."
+          title="Send your message"
+          description="The form sends directly through Viao."
           className="h-full"
         >
           <ContactForm />
@@ -62,8 +62,8 @@ export default function ContactPage() {
 
         <PublicSectionCard
           eyebrow="Direct channels"
-          title="When to use this page"
-          description="These are the main reasons people usually land here."
+          title="Common reasons people use this page"
+          description="The usual cases are below."
           className="h-full"
         >
           <div className="space-y-4">

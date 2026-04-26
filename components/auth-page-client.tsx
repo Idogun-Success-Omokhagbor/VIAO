@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { type ComponentType, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { DM_Sans, DM_Serif_Display } from "next/font/google"
 import {
   ArrowLeft,
   CalendarCheck2,
@@ -27,17 +26,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/context/auth-context"
+import { VIAO_SANS_CLASS, VIAO_SERIF_CLASS } from "@/lib/font-stacks"
 import { USER_INTEREST_OPTIONS } from "@/lib/user-interests"
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-})
-
-const dmSerif = DM_Serif_Display({
-  subsets: ["latin"],
-  weight: ["400"],
-})
 
 type AuthPageClientProps = {
   mode: "signin" | "signup"
@@ -90,61 +80,59 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
   const content = mode === "signin"
     ? {
         eyebrow: "Sign in",
-        title: "Sign back in and pick up where your shortlist left off.",
-        description:
-          "Saved plans, RSVPs, messages, and account details should all be waiting where you expect them. Sign in and keep moving.",
+        title: "Sign in and get back to your plans.",
+        description: "Saved events, RSVPs, messages, and account details are waiting inside.",
         highlights: [
-          { icon: CalendarCheck2, label: "Get back to saved plans quickly" },
-          { icon: Heart, label: "Keep your shortlist intact" },
-          { icon: Users, label: "Continue chats and RSVPs" },
+          { icon: CalendarCheck2, label: "Saved events stay put" },
+          { icon: Heart, label: "Your shortlist stays with you" },
+          { icon: Users, label: "RSVPs and messages stay ready" },
         ] satisfies Highlight[],
-        asideTitle: "What you get right away",
-        asideDescription: "The moment you are back in, the useful parts of the app should still feel immediate.",
+        asideTitle: "Inside your account",
+        asideDescription: "The useful parts should still be right where you left them.",
         asideItems: [
           {
             icon: Compass,
-            title: "Your local feed stays personal",
-            description: "Saved cities, event activity, and account context stay attached to your session.",
+            title: "Your feed",
+            description: "Saved cities and activity stay tied to your account.",
           },
           {
             icon: CalendarCheck2,
-            title: "RSVP and shortlist actions stay one tap away",
-            description: "No extra setup once you are back inside the app.",
+            title: "Your actions",
+            description: "Saved plans, RSVPs, and messages are ready when you return.",
           },
           {
             icon: Sparkles,
-            title: "A calmer way back in",
-            description: "Sign in without losing context, whether someone opens Viao in a browser or an iPhone WebView.",
+            title: "One clean return",
+            description: "Sign in and keep moving without extra setup.",
           },
         ],
       }
     : {
         eyebrow: "Create account",
         title: "Create an account when a plan is worth keeping.",
-        description:
-          "Browsing can stay open. The account starts to matter when someone wants to save, RSVP, message, and stay close to local plans that actually fit.",
+        description: "Browse first. Join when you want to save, RSVP, message organizers, or keep your plans together.",
         highlights: [
-          { icon: Heart, label: "Save events for later" },
-          { icon: CalendarCheck2, label: "RSVP when it is a real yes" },
-          { icon: Users, label: "Join the local community layer" },
+          { icon: Heart, label: "Save events" },
+          { icon: CalendarCheck2, label: "RSVP when it is a yes" },
+          { icon: Users, label: "Message organizers" },
         ] satisfies Highlight[],
-        asideTitle: "Why joining is useful",
-        asideDescription: "Creating an account should unlock something useful right away, not just add friction.",
+        asideTitle: "Why join",
+        asideDescription: "An account should unlock something useful right away.",
         asideItems: [
           {
             icon: Heart,
-            title: "Keep a clean shortlist",
-            description: "Store the plans worth revisiting instead of starting from scratch each time.",
+            title: "Keep a shortlist",
+            description: "Save the events you want to revisit.",
           },
           {
             icon: CalendarCheck2,
-            title: "Track RSVPs properly",
-            description: "Once a plan becomes real, RSVP and revisit it without friction.",
+            title: "Track real plans",
+            description: "RSVP and come back to the plans that matter.",
           },
           {
             icon: Users,
-            title: "Stay close to local activity",
-            description: "Profiles, community, and messages become useful once the account exists.",
+            title: "Stay connected",
+            description: "Profiles, community, and messages start making sense once you join.",
           },
         ],
       }
@@ -221,9 +209,9 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
 
   return (
     <div
-      className={`${dmSans.className} min-h-screen bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)] px-4 py-8 sm:px-6 lg:px-8`}
+      className={`${VIAO_SANS_CLASS} min-h-[100dvh] bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)] px-4 pb-14 pt-5 sm:px-6 sm:pb-16 sm:pt-6 lg:px-8 lg:pb-20`}
     >
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-8 pt-2 sm:pt-6">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-6 pt-0 sm:pt-2">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Link href="/" className="inline-flex items-center gap-3 text-[#24154b] no-underline">
             <BrandLockup
@@ -241,7 +229,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
             <Button
               asChild
               variant="outline"
-              className="h-11 rounded-full border-[#ddd1ff] bg-white/90 px-5 text-[#5e4ea6] hover:bg-[#f6f1ff]"
+              className="h-10 rounded-full border-[#ddd1ff] bg-white/90 px-4 text-[#5e4ea6] hover:bg-[#f6f1ff]"
             >
               <Link href={mode === "signin" ? `/signup${buildNextQuery(nextParam)}` : `/signin${buildNextQuery(nextParam)}`}>
                 {mode === "signin" ? <UserRoundPlus className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
@@ -251,7 +239,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
             <Button
               asChild
               variant="outline"
-              className="h-11 rounded-full border-[#ddd1ff] bg-white/90 px-5 text-[#5e4ea6] hover:bg-[#f6f1ff]"
+              className="h-10 rounded-full border-[#ddd1ff] bg-white/90 px-4 text-[#5e4ea6] hover:bg-[#f6f1ff]"
             >
               <Link href="/">
                 <ArrowLeft className="h-4 w-4" />
@@ -261,11 +249,11 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
           </div>
         </div>
 
-        <div className={`${publicGlassCardClass} grid gap-8 overflow-hidden px-6 py-8 sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,1fr)_460px] lg:px-10`}>
+        <div className={`${publicGlassCardClass} grid gap-6 overflow-visible px-5 py-6 sm:px-7 sm:py-8 lg:grid-cols-[minmax(0,1fr)_440px] lg:items-start lg:px-8`}>
           <div className="space-y-6">
             <div className="space-y-4">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#887ab8]">{content.eyebrow}</p>
-              <h1 className={`${dmSerif.className} max-w-3xl text-4xl leading-[1.02] tracking-[-0.04em] text-[#24154b] sm:text-5xl lg:text-[4.35rem]`}>
+              <h1 className={`${VIAO_SERIF_CLASS} max-w-3xl text-4xl leading-[1.02] tracking-[-0.04em] text-[#24154b] sm:text-5xl lg:text-[4.35rem]`}>
                 {content.title}
               </h1>
               <p className="max-w-2xl text-[17px] leading-8 text-[#6a5f8f] sm:text-lg">{content.description}</p>
@@ -293,7 +281,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
             </div>
           </div>
 
-          <div className={`${publicSoftPanelClass} space-y-6 p-6 sm:p-7`}>
+          <div className={`${publicSoftPanelClass} self-start space-y-5 p-5 sm:p-6`}>
             <div className="flex gap-2 rounded-full border border-[#e7defe] bg-white/90 p-1">
               <Link
                 href={`/signin${buildNextQuery(nextParam)}`}
@@ -314,7 +302,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
             </div>
 
             {mode === "signin" ? (
-              <form onSubmit={handleSignIn} className="space-y-4">
+              <form onSubmit={handleSignIn} className="space-y-3">
                 {signInError ? (
                   <p className="rounded-2xl border border-[#ffd8e0] bg-[#fff6f8] px-4 py-3 text-sm text-[#b13053]">{signInError}</p>
                 ) : null}
@@ -378,7 +366,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
                 </Button>
               </form>
             ) : (
-              <form onSubmit={handleSignUp} className="space-y-4">
+              <form onSubmit={handleSignUp} className="space-y-3">
                 {signUpError ? (
                   <p className="rounded-2xl border border-[#ffd8e0] bg-[#fff6f8] px-4 py-3 text-sm text-[#b13053]">{signUpError}</p>
                 ) : null}
@@ -485,26 +473,30 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-[#24154b]">Account type</Label>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-2 sm:grid-cols-2">
                     {([
-                      { value: "USER", label: "User", helper: "Browse, save, RSVP, and join community activity." },
-                      { value: "ORGANIZER", label: "Organizer", helper: "Create events, manage listings, and boost visibility." },
+                      { value: "USER", label: "User", helper: "Browse, save, RSVP, and join the community." },
+                      { value: "ORGANIZER", label: "Organizer", helper: "Create events, manage listings, and promote them." },
                     ] as const).map((option) => (
                       <button
                         key={option.value}
                         type="button"
                         onClick={() => setSignUpData((current) => ({ ...current, userType: option.value }))}
-                        className={`rounded-[22px] border px-4 py-4 text-left transition-all ${
+                        className={`rounded-full border px-4 py-3 text-left transition-all ${
                           signUpData.userType === option.value
                             ? "border-[#cdbdff] bg-[#f7f2ff] shadow-[0_12px_24px_rgba(124,92,255,0.12)]"
                             : "border-[#e7defe] bg-white"
                         }`}
                       >
                         <div className="text-sm font-semibold text-[#24154b]">{option.label}</div>
-                        <div className="mt-1 text-sm leading-6 text-[#6a5f8f]">{option.helper}</div>
                       </button>
                     ))}
                   </div>
+                  <p className="text-sm leading-6 text-[#6a5f8f]">
+                    {signUpData.userType === "USER"
+                      ? "Browse, save, RSVP, and join the community."
+                      : "Create events, manage listings, and promote them."}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -537,7 +529,7 @@ export function AuthPageClient({ mode, allowSignups }: AuthPageClientProps) {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 rounded-[22px] border border-[#ece4ff] bg-white/96 px-4 py-4">
+                <div className="flex items-start gap-3 rounded-[22px] border border-[#ece4ff] bg-white/96 px-4 py-3">
                   <Checkbox
                     id="signup-terms"
                     checked={signUpData.agreeToTerms}

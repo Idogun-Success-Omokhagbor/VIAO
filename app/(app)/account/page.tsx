@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -140,7 +141,7 @@ export default function AccountPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-full bg-gray-50 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <User className="h-12 w-12 text-purple-600 mx-auto mb-4" />
@@ -383,7 +384,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="h-full min-h-0 bg-gray-50 overflow-y-auto">
+    <div className="min-h-full bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
           <ConfirmDialog
@@ -821,7 +822,7 @@ export default function AccountPage() {
                       </p>
                       <div className="space-y-2">
                         {isLoadingSessions ? (
-                          <div className="text-sm text-gray-600">Loading sessions...</div>
+                          <AppSpinner label="Loading sessions..." size="sm" className="py-6" />
                         ) : sessions.length ? (
                           sessions.map((s) => {
                             const isCurrent = !!currentSessionId && s.id === currentSessionId

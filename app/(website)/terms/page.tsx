@@ -25,7 +25,7 @@ const termsSections = [
   },
   {
     title: "Payments and promotion",
-    description: "Any paid promotion, boost, receipt, or checkout feature is subject to platform rules and the terms of the payment providers involved.",
+    description: "Paid promotion, boosts, receipts, and checkout features follow platform rules and the terms of the payment providers involved.",
     bullets: [
       "Paid promotion does not guarantee a specific commercial result",
       "Charge handling and settlement depend on the configured payment provider",
@@ -47,16 +47,16 @@ export default function TermsPage() {
   return (
     <PublicPageShell
       eyebrow="Terms"
-      title="The rules should stay clear for attendees, organizers, and the platform team."
-      description="These terms explain the basics of using Viao responsibly. The product should stay useful and safe for the people browsing, creating, and managing local events through it."
+      title="Clear rules for attendees, organizers, and the platform."
+      description="These terms cover the basics of using Viao responsibly."
       highlights={[
         { icon: UserCheck, label: "Accounts should stay accurate and secure" },
-        { icon: Ticket, label: "Organizers own their event accuracy" },
+        { icon: Ticket, label: "Organizers own event accuracy" },
         { icon: CreditCard, label: "Paid promotion follows platform rules" },
       ]}
       sidebarEyebrow="Quick read"
-      sidebarTitle="What matters most before using the app"
-      sidebarDescription="If someone only scans the essentials, these are the parts that affect day-to-day use the most."
+      sidebarTitle="The essentials"
+      sidebarDescription="If someone only scans the basics, these are the day-to-day rules that matter most."
       sidebarItems={[
         {
           icon: FileText,
@@ -102,8 +102,8 @@ export default function TermsPage() {
 
       <PublicSectionCard
         eyebrow="Related"
-        title="The terms work alongside privacy and support."
-        description="If a question is practical rather than legal, support or contact is usually the faster route. If the issue is about personal information, check the privacy page as well."
+        title="Related pages"
+        description="For practical issues, support or contact is usually faster. For personal-data questions, check privacy too."
       >
         <div className="flex flex-wrap gap-3">
           {["Account access", "Organizer content", "Boost billing", "Moderation and abuse"].map((label) => (

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { eventClientInclude, mapEventForClient } from "@/lib/event-response"
+import { eventCardSelect, mapEventCardForClient } from "@/lib/event-response"
 import { prisma } from "@/lib/prisma"
 import { getSessionUser } from "@/lib/session"
 
@@ -9,13 +9,27 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
-    const events = await prisma.event.findMany({
-      where: { saves: { some: { userId: session.sub } }, status: "PUBLISHED" },
-      include: eventClientInclude,
-      orderBy: { date: "asc" },
+    const rows = await prisma.eventSave.findMany({
+      where: {
+        userId: session.sub,
+        event: { status: "PUBLISHED" },
+      },
+      select: {
+        event: {
+          select: eventCardSelect,
+        },
+      },
     })
 
-    return NextResponse.json({ events: events.map((event) => mapEventForClient(event, session.sub)) })
+    const events = rows
+      .map((row) =>
+        mapEventCardForClient(row.event, {
+          isSaved: true,
+        }),
+      )
+      .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
+
+    return NextResponse.json({ events })
   } catch (error) {
     console.error("GET /api/events/me/saved error:", error)
     return NextResponse.json({ error: "Failed to fetch saved events" }, { status: 500 })

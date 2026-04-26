@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -131,14 +132,14 @@ export default function ReceiptsPage() {
 
   if (authLoading || !user || user.role !== "ORGANIZER") {
     return (
-      <div className="h-full min-h-0 bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-[calc(100dvh-4rem)] bg-gray-50 flex items-center justify-center">
+        <AppSpinner label="Loading receipts..." size="lg" fullHeight />
       </div>
     )
   }
 
   return (
-    <div className="h-full min-h-0 bg-gray-50 overflow-y-auto">
+    <div className="min-h-full bg-gray-50">
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">

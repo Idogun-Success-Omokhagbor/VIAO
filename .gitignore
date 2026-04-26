@@ -9,6 +9,9 @@
 
 # production
 /build
+/playwright-report
+/test-results
+/blob-report
 
 # prisma migrations
 /prisma/migrations/

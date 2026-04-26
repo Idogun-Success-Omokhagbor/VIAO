@@ -16,7 +16,7 @@ export default function AIAssistantPage() {
       <Header />
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-6">AI Assistant</h1>
+          <h1 className="text-3xl font-bold mb-6">Ask Viao AI</h1>
           <ChatWithViao />
         </div>
       </main>
@@ -29,7 +29,7 @@ function ChatWithViao() {
     {
       id: "welcome",
       content:
-        "Welcome to Viao AI Assistant! I'm here to help you discover events, find activities, and answer questions about Swiss cities. What would you like to explore today?",
+        "Ask about events, places, or what to do nearby.",
       isUser: false,
       timestamp: new Date(),
     },
@@ -150,7 +150,7 @@ function ChatWithViao() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                placeholder="Ask me about events, activities, or locations..."
+                placeholder="Ask about events or places..."
                 disabled={isLoading}
                 className="pr-10"
               />

@@ -6,8 +6,6 @@ import { getDefaultAppPath } from "@/lib/default-app-path"
 import { listPublicEvents } from "@/lib/public-events"
 import { getSiteConfig } from "@/lib/site-config"
 
-export const dynamic = "force-dynamic"
-
 export default async function HomePage() {
   const user = await getCurrentUser()
   if (user) {

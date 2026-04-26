@@ -3,12 +3,12 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { DM_Sans, DM_Serif_Display } from "next/font/google"
 import { ArrowRight, CalendarDays, Compass, MapPin, RotateCcw, Search, Sparkles } from "lucide-react"
 
 import EventQuickActions from "@/components/event-quick-actions"
 import { publicGlassCardClass, publicPillClass, publicSoftPanelClass } from "@/components/public-page-shell"
 import { AppImage } from "@/components/ui/app-image"
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,10 +32,8 @@ import {
   type QuickFilter,
   type SortOption,
 } from "@/lib/event-discovery"
+import { VIAO_SANS_CLASS, VIAO_SERIF_CLASS } from "@/lib/font-stacks"
 import { cn, getLocationString } from "@/lib/utils"
-
-const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "700"] })
-const dmSerif = DM_Serif_Display({ subsets: ["latin"], weight: ["400"] })
 
 const DEFAULT_VISIBLE_COUNT = 8
 const REVEAL_DELAYS = ["", "viao-delay-1", "viao-delay-2", "viao-delay-3", "viao-delay-4"] as const
@@ -54,7 +52,7 @@ function getRevealDelay(index: number) {
 export default function DiscoverPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
-  const { events, isLoading: eventsLoading } = useEvents()
+  const { events, isLoading: eventsLoading, error: eventsError } = useEvents()
   const { dismissedIds, dismissedSet, dismissEvent, clearDismissedEvents } = useDismissedEvents(user?.id)
 
   const [searchTerm, setSearchTerm] = useState("")
@@ -85,7 +83,7 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.replace("/")
+      router.replace("/signin?next=/discover")
     }
   }, [authLoading, router, user])
 
@@ -181,16 +179,28 @@ export default function DiscoverPage() {
     router.push(`/events/${eventId}?from=discover`)
   }
 
-  if (authLoading || !user || eventsLoading) {
+  if (authLoading) {
     return (
-      <div className="h-full min-h-0 overflow-y-auto bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)]">
-        <div className="mx-auto w-full max-w-[1280px] animate-pulse px-4 pb-14 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-20">
-          <div className={`${publicGlassCardClass} h-56 bg-[#fbf9ff]`} />
-          <div className={`${publicSoftPanelClass} mt-6 h-40 bg-[#fbf9ff]`} />
-          <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className={`${publicSoftPanelClass} h-[380px] bg-[#fbf9ff]`} />
-            ))}
+      <div className="min-h-full bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)]">
+        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-center px-4 pb-14 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-20">
+          <div className={`${publicGlassCardClass} flex w-full items-center justify-center px-6 py-16`}>
+            <AppSpinner label="Loading your events..." size="lg" fullHeight />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null
+  }
+
+  if (eventsLoading) {
+    return (
+      <div className="min-h-full bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)]">
+        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-center px-4 pb-14 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-20">
+          <div className={`${publicGlassCardClass} flex w-full items-center justify-center px-6 py-16`}>
+            <AppSpinner label="Loading your events..." size="lg" fullHeight />
           </div>
         </div>
       </div>
@@ -200,11 +210,16 @@ export default function DiscoverPage() {
   return (
     <div
       className={cn(
-        dmSans.className,
-        "h-full min-h-0 overflow-y-auto bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)]",
+        VIAO_SANS_CLASS,
+        "min-h-full bg-[radial-gradient(circle_at_top_left,#f4efff,transparent_24%),radial-gradient(circle_at_bottom_right,#eef8ff,transparent_28%),linear-gradient(180deg,#ffffff,#faf7ff)]",
       )}
     >
       <div className="mx-auto w-full max-w-[1280px] px-4 pb-14 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-20">
+        {eventsError ? (
+          <div className="mb-4 rounded-[22px] border border-[#ffe0d4] bg-[#fff8f4] px-4 py-3 text-sm text-[#9a4c22]">
+            We could not refresh the latest event feed just now. The page is still available, but some results may be missing.
+          </div>
+        ) : null}
         <section className={`${publicGlassCardClass} viao-surface-glow viao-fade-up relative overflow-hidden px-5 py-6 sm:px-7 lg:px-8`}>
           <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(circle_at_top_left,rgba(124,92,255,0.18),transparent_52%),radial-gradient(circle_at_top_right,rgba(101,213,255,0.12),transparent_42%)]" />
           <div className="relative space-y-6">
@@ -214,7 +229,7 @@ export default function DiscoverPage() {
                 <div className="max-w-4xl">
                   <h1
                     className={cn(
-                      dmSerif.className,
+                      VIAO_SERIF_CLASS,
                       "text-[2.5rem] leading-[1.02] tracking-[-0.04em] text-[#24154b] sm:text-5xl lg:text-[4rem]",
                     )}
                   >

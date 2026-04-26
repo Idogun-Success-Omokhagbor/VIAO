@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { AppImage } from "@/components/ui/app-image"
+import { AppSpinner } from "@/components/ui/app-spinner"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -37,7 +38,7 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
   const goToUser = (targetUserId: string) => {
     router.push(user?.id === targetUserId ? "/account" : `/profile/${targetUserId}`)
   }
-  const post = useMemo(() => posts.find((p) => p.id === initialPost.id) ?? initialPost, [posts, initialPost])
+  const basePost = useMemo(() => posts.find((p) => p.id === initialPost.id) ?? initialPost, [posts, initialPost])
   const [showComments, setShowComments] = useState(false)
   const [newComment, setNewComment] = useState("")
   const [isPosting, setIsPosting] = useState(false)
@@ -45,30 +46,54 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
   const [messageConversation, setMessageConversation] = useState<Conversation | null>(null)
   const [commentPage, setCommentPage] = useState(0)
   const [isEditOpen, setIsEditOpen] = useState(false)
-  const [editTitle, setEditTitle] = useState(post.title || "")
-  const [editContent, setEditContent] = useState(post.content || "")
+  const [editTitle, setEditTitle] = useState(basePost.title || "")
+  const [editContent, setEditContent] = useState(basePost.content || "")
   const [isSavingEdit, setIsSavingEdit] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showTitleEmojiPicker, setShowTitleEmojiPicker] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
-  const [resolvedMediaUrl, setResolvedMediaUrl] = useState<string>(post.mediaUrl || post.images?.[0] || "")
-  const [resolvedMediaType, setResolvedMediaType] = useState<string>(post.mediaType || "")
+  const [resolvedMediaUrl, setResolvedMediaUrl] = useState<string>(basePost.mediaUrl || basePost.images?.[0] || "")
+  const [resolvedMediaType, setResolvedMediaType] = useState<string>(basePost.mediaType || "")
   const [isMediaLoading, setIsMediaLoading] = useState(false)
+  const [hydratedPost, setHydratedPost] = useState<Post | null>(null)
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false)
   const mediaRef = useRef<HTMLDivElement | null>(null)
-  const [editImagePreview, setEditImagePreview] = useState<string>(post.mediaUrl || post.images?.[0] || "")
-  const [editImageData, setEditImageData] = useState<string>(post.mediaUrl || post.images?.[0] || "")
-  const [editMediaType, setEditMediaType] = useState<string>(post.mediaType || "")
+  const [editImagePreview, setEditImagePreview] = useState<string>(basePost.mediaUrl || basePost.images?.[0] || "")
+  const [editImageData, setEditImageData] = useState<string>(basePost.mediaUrl || basePost.images?.[0] || "")
+  const [editMediaType, setEditMediaType] = useState<string>(basePost.mediaType || "")
   const editTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const editTitleRef = useRef<HTMLInputElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const post = useMemo(() => {
+    if (hydratedPost?.id !== basePost.id) {
+      return basePost
+    }
+
+    if ((basePost.comments?.length ?? 0) > 0 || (basePost.commentsCount ?? 0) === 0) {
+      return basePost
+    }
+
+    return {
+      ...basePost,
+      comments: hydratedPost.comments,
+      commentsCount: hydratedPost.commentsCount ?? basePost.commentsCount,
+    }
+  }, [basePost, hydratedPost])
+  const commentCount = post.commentsCount ?? post.comments?.length ?? 0
 
   useEffect(() => {
     if (!post?.id) return
     setResolvedMediaUrl(post.mediaUrl || post.images?.[0] || "")
     setResolvedMediaType(post.mediaType || "")
   }, [post?.id, post?.images, post?.mediaType, post?.mediaUrl])
+
+  useEffect(() => {
+    if (hydratedPost?.id && hydratedPost.id !== basePost.id) {
+      setHydratedPost(null)
+    }
+  }, [basePost.id, hydratedPost?.id])
 
   useEffect(() => {
     if (resolvedMediaUrl) return
@@ -112,6 +137,35 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
       observer.disconnect()
     }
   }, [post.hasMedia, post.id, resolvedMediaUrl])
+
+  const ensurePostDetails = async () => {
+    if (isLoadingDetails || commentCount === 0 || (post.comments?.length ?? 0) > 0) {
+      return
+    }
+
+    setIsLoadingDetails(true)
+    try {
+      const res = await fetch(`/api/community/posts/${post.id}`, { credentials: "include", cache: "no-store" })
+      if (!res.ok) {
+        throw new Error("Failed to load post details")
+      }
+
+      const data = (await res.json().catch(() => null)) as { post?: Post } | null
+      if (data?.post) {
+        setHydratedPost(data.post)
+      }
+    } catch (error) {
+      console.error("Failed to hydrate post details:", error)
+    } finally {
+      setIsLoadingDetails(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!showComments) return
+    if (commentCount === 0 || (post.comments?.length ?? 0) > 0) return
+    void ensurePostDetails()
+  }, [commentCount, post.comments?.length, showComments])
 
   const handleDeletePost = async () => {
     if (!isAuthenticated || !user) {
@@ -492,13 +546,19 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setShowComments((prev) => !prev)
-                  setCommentPage(0)
+                  setShowComments((prev) => {
+                    const next = !prev
+                    if (next) {
+                      setCommentPage(0)
+                      void ensurePostDetails()
+                    }
+                    return next
+                  })
                 }}
                 className="text-gray-500 hover:text-purple-600"
               >
                 <MessageCircle className="h-4 w-4 mr-1" />
-                {post.comments?.length || 0}
+                {commentCount}
               </Button>
             </div>
           </div>
@@ -506,6 +566,10 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
           {/* Comments Section */}
           {showComments && (
             <div className="w-full mt-4 pt-4 border-t max-h-80 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {commentCount > 0 && totalComments === 0 && isLoadingDetails ? (
+                <AppSpinner label="Loading replies..." size="sm" className="py-6" />
+              ) : null}
+
               {/* Existing Comments */}
               {post.comments && post.comments.length > 0 && (
                 <div className="space-y-2.5 mb-3 text-sm">
@@ -598,6 +662,15 @@ export default function CommunityPost({ post: initialPost }: CommunityPostProps)
                   )}
                 </div>
               )}
+
+              {commentCount > 0 && totalComments === 0 && !isLoadingDetails ? (
+                <div className="mb-3 rounded-lg border border-dashed border-[#ddd1ff] px-4 py-4 text-center text-sm text-[#6d648e]">
+                  Replies are taking a moment to load.
+                  <Button variant="outline" size="sm" className="ml-3 rounded-full border-[#d9cdfd]" onClick={() => void ensurePostDetails()}>
+                    Retry
+                  </Button>
+                </div>
+              ) : null}
 
               {/* Add Comment Form */}
               {isAuthenticated ? (

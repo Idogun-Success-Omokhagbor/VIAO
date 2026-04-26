@@ -22,14 +22,14 @@ export default async function AppLayout({
   return (
     <EventsProvider>
       <CommunityProvider>
-        <div className="h-[100dvh] min-h-[100dvh] bg-gray-50 flex flex-col overflow-hidden">
+        <div className="min-h-[100dvh] bg-gray-50 flex flex-col overflow-x-hidden">
           <Header />
           {siteConfig?.maintenanceMode ? (
             <div className="border-b bg-amber-50 px-4 py-2 text-sm text-amber-900">
               {siteConfig.announcement?.trim() ? siteConfig.announcement : "The site is currently in maintenance mode."}
             </div>
           ) : null}
-          <main className="flex-1 min-h-0 overflow-hidden pb-[calc(5.5rem+env(safe-area-inset-bottom))] xl:pb-0">{children}</main>
+          <main className="flex-1 overflow-x-hidden pb-[calc(5.5rem+env(safe-area-inset-bottom))] xl:pb-0">{children}</main>
           <AppMobileNav />
           <FloatingButton />
         </div>
