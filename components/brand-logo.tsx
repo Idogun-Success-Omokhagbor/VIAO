@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 
+import { getBrandMarkGlyphMetrics } from "@/lib/brand-mark"
 import { cn } from "@/lib/utils"
 
 type BrandMarkProps = {
@@ -18,6 +19,8 @@ type BrandLockupProps = {
 }
 
 export function BrandMark({ size = 40, className }: BrandMarkProps) {
+  const glyph = getBrandMarkGlyphMetrics(size)
+
   return (
     <span
       aria-label="Viao logo"
@@ -32,11 +35,12 @@ export function BrandMark({ size = 40, className }: BrandMarkProps) {
         aria-hidden="true"
         className="font-black leading-none tracking-[-0.08em] text-transparent"
         style={{
-          fontSize: Math.max(18, Math.round(size * 0.66)),
+          fontSize: glyph.fontSize,
           backgroundImage: "linear-gradient(135deg, #5b34ff 8%, #8d63ff 52%, #b28cff 100%)",
           WebkitBackgroundClip: "text",
           backgroundClip: "text",
-          transform: "translateY(-1px)",
+          paddingInline: `${glyph.paddingInline}px`,
+          transform: `translate(${glyph.offsetX}px, ${glyph.offsetY}px)`,
           fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         }}
       >
