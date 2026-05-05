@@ -3,15 +3,27 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { LogOut, Calendar, Compass, MessageSquare, Receipt, Shield } from "lucide-react"
+import { LogOut, Calendar, Compass, MessageSquare, Receipt, Shield, User, Users } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useMessaging } from "@/context/messaging-context"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { NotificationDropdown } from "@/components/notification-dropdown"
 import { BrandLockup } from "@/components/brand-logo"
+import { getNavItems } from "@/lib/app-nav"
 import { getDefaultAppPath } from "@/lib/default-app-path"
 import { getAvatarSrc } from "@/lib/utils"
+
+const desktopIconMap = {
+  account: User,
+  admin: Shield,
+  community: Users,
+  discover: Compass,
+  events: Calendar,
+  messages: MessageSquare,
+  plans: Calendar,
+  receipts: Receipt,
+} as const
 
 export function Header() {
   const { user, logout, openAuthPage } = useAuth()
@@ -22,62 +34,11 @@ export function Header() {
   const homeHref = user ? getDefaultAppPath(user.role) : "/"
   const desktopNavItems =
     user?.role === "ADMIN"
-      ? [
-          {
-            href: "/admin",
-            label: "Admin",
-            icon: Shield,
-          },
-          {
-            href: "/messages",
-            label: "Messages",
-            icon: MessageSquare,
-            badge: unreadCount,
-          },
-        ]
+      ? getNavItems("ADMIN").filter((item) => item.href !== "/account")
       : user?.role === "ORGANIZER"
-        ? [
-            {
-              href: "/events",
-              label: "Events",
-              icon: Calendar,
-            },
-            {
-              href: "/discover",
-              label: "Discover",
-              icon: Compass,
-            },
-            {
-              href: "/messages",
-              label: "Messages",
-              icon: MessageSquare,
-              badge: unreadCount,
-            },
-            {
-              href: "/receipts",
-              label: "Receipts",
-              icon: Receipt,
-            },
-          ]
+        ? getNavItems("ORGANIZER").filter((item) => item.href !== "/account")
         : user
-          ? [
-              {
-                href: "/discover",
-                label: "Discover",
-                icon: Compass,
-              },
-              {
-                href: "/my-events",
-                label: "Plans",
-                icon: Calendar,
-              },
-              {
-                href: "/messages",
-                label: "Messages",
-                icon: MessageSquare,
-                badge: unreadCount,
-              },
-            ]
+          ? getNavItems("USER").filter((item) => item.href !== "/account")
           : []
 
   return (
@@ -110,23 +71,27 @@ export function Header() {
 
             {user && (
               <nav className="hidden md:flex items-center space-x-6">
-                {desktopNavItems.map(({ href, label, icon: Icon, badge }) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
-                      isActive(href) ? "text-primary" : "text-muted-foreground"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{label}</span>
-                    {typeof badge === "number" && badge > 0 ? (
-                      <Badge variant="secondary" className="ml-1">
-                        {badge}
-                      </Badge>
-                    ) : null}
-                  </Link>
-                ))}
+                {desktopNavItems.map(({ href, label, icon, unreadBadge }) => {
+                  const Icon = desktopIconMap[icon]
+
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
+                        isActive(href) ? "text-primary" : "text-muted-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{label}</span>
+                      {unreadBadge && unreadCount > 0 ? (
+                        <Badge variant="secondary" className="ml-1">
+                          {unreadCount}
+                        </Badge>
+                      ) : null}
+                    </Link>
+                  )
+                })}
               </nav>
             )}
           </div>

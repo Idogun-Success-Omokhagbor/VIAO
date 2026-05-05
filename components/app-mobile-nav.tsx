@@ -2,104 +2,21 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Calendar, Compass, MessageSquare, Receipt, Shield, User } from "lucide-react"
-import type { ComponentType } from "react"
+import { Calendar, Compass, MessageSquare, Receipt, Shield, User, Users } from "lucide-react"
 
 import { useAuth } from "@/context/auth-context"
+import { getNavItems } from "@/lib/app-nav"
 import { cn } from "@/lib/utils"
 
-type NavItem = {
-  href: string
-  label: string
-  icon: ComponentType<{ className?: string }>
-  match: (pathname: string) => boolean
-}
-
-export function getNavItems(role?: "USER" | "ORGANIZER" | "ADMIN"): NavItem[] {
-  if (role === "ORGANIZER") {
-    return [
-      {
-        href: "/events",
-        label: "Events",
-        icon: Calendar,
-        match: (pathname) => pathname.startsWith("/events") || pathname.startsWith("/receipts"),
-      },
-      {
-        href: "/discover",
-        label: "Discover",
-        icon: Compass,
-        match: (pathname) => pathname.startsWith("/discover"),
-      },
-      {
-        href: "/messages",
-        label: "Messages",
-        icon: MessageSquare,
-        match: (pathname) => pathname.startsWith("/messages"),
-      },
-      {
-        href: "/receipts",
-        label: "Receipts",
-        icon: Receipt,
-        match: (pathname) => pathname.startsWith("/receipts"),
-      },
-      {
-        href: "/account",
-        label: "Account",
-        icon: User,
-        match: (pathname) => pathname.startsWith("/account"),
-      },
-    ]
-  }
-
-  if (role === "ADMIN") {
-    return [
-      {
-        href: "/admin",
-        label: "Admin",
-        icon: Shield,
-        match: (pathname) => pathname.startsWith("/admin"),
-      },
-      {
-        href: "/messages",
-        label: "Messages",
-        icon: MessageSquare,
-        match: (pathname) => pathname.startsWith("/messages"),
-      },
-      {
-        href: "/account",
-        label: "Account",
-        icon: User,
-        match: (pathname) => pathname.startsWith("/account"),
-      },
-    ]
-  }
-
-  return [
-    {
-      href: "/discover",
-      label: "Discover",
-      icon: Compass,
-      match: (pathname) => pathname.startsWith("/discover"),
-    },
-    {
-      href: "/my-events",
-      label: "Plans",
-      icon: Calendar,
-      match: (pathname) => pathname.startsWith("/my-events"),
-    },
-    {
-      href: "/messages",
-      label: "Messages",
-      icon: MessageSquare,
-      match: (pathname) => pathname.startsWith("/messages"),
-    },
-    {
-      href: "/account",
-      label: "Account",
-      icon: User,
-      match: (pathname) => pathname.startsWith("/account"),
-    },
-  ]
+const iconMap = {
+  account: User,
+  admin: Shield,
+  community: Users,
+  discover: Compass,
+  events: Calendar,
+  messages: MessageSquare,
+  plans: Calendar,
+  receipts: Receipt,
 }
 
 export default function AppMobileNav() {
@@ -110,8 +27,9 @@ export default function AppMobileNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e8dcff] bg-white/92 px-3 pb-[calc(0.8rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur xl:hidden">
       <div className="mx-auto grid max-w-lg gap-2" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
-        {items.map(({ href, label, icon: Icon, match }) => {
+        {items.map(({ href, label, icon, match }) => {
           const active = match(pathname)
+          const Icon = iconMap[icon]
 
           return (
             <Link
